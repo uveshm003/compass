@@ -1,0 +1,337 @@
+{
+ "files": [
+  {
+   "path": "Cargo.toml",
+   "dir": "",
+   "lang": null,
+   "hash": "68c8ccef9aa163ed1b0425326279aabe",
+   "size": 258,
+   "doc": null
+  },
+  {
+   "path": "src/lib.rs",
+   "dir": "src",
+   "lang": "rust",
+   "hash": "1f26e9355232b461ae752de168861956",
+   "size": 1123,
+   "doc": "Sensor gateway: collects readings and forwards them upstream."
+  },
+  {
+   "path": "src/main.rs",
+   "dir": "src",
+   "lang": "rust",
+   "hash": "55980d3ee57199be976a6bd42f824ec6",
+   "size": 131,
+   "doc": null
+  },
+  {
+   "path": "src/transport/mod.rs",
+   "dir": "src/transport",
+   "lang": "rust",
+   "hash": "1d024a27646812c1cf9d63fcd615fd0e",
+   "size": 74,
+   "doc": "Transport: framing and retries for the upstream link."
+  },
+  {
+   "path": "src/transport/retry.rs",
+   "dir": "src/transport",
+   "lang": "rust",
+   "hash": "9d3405a717985608e9435b7c427319d5",
+   "size": 517,
+   "doc": null
+  },
+  {
+   "path": "tests/integration.rs",
+   "dir": "tests",
+   "lang": "rust",
+   "hash": "7805bbfec2da19c0f8c13c732fc696f7",
+   "size": 124,
+   "doc": null
+  }
+ ],
+ "symbols": [
+  {
+   "path": "src/lib.rs",
+   "name": "MAX_FRAME",
+   "kind": "constant",
+   "parent": null,
+   "signature": "MAX_FRAME: usize = 4096",
+   "start_line": 8,
+   "end_line": 8,
+   "visibility": "public",
+   "doc": "Maximum frame size in bytes.",
+   "doc_source": "author"
+  },
+  {
+   "path": "src/lib.rs",
+   "name": "Reading",
+   "kind": "struct",
+   "parent": null,
+   "signature": "Reading",
+   "start_line": 11,
+   "end_line": 15,
+   "visibility": "public",
+   "doc": "A reading from one sensor.",
+   "doc_source": "author"
+  },
+  {
+   "path": "src/lib.rs",
+   "name": "Reading",
+   "kind": "impl",
+   "parent": null,
+   "signature": "Reading",
+   "start_line": 17,
+   "end_line": 26,
+   "visibility": null,
+   "doc": null,
+   "doc_source": null
+  },
+  {
+   "path": "src/lib.rs",
+   "name": "new",
+   "kind": "method",
+   "parent": "Reading",
+   "signature": "new(sensor: impl Into<String>, ppm: f64) -> Self",
+   "start_line": 19,
+   "end_line": 21,
+   "visibility": "public",
+   "doc": "Creates a reading.",
+   "doc_source": "author"
+  },
+  {
+   "path": "src/lib.rs",
+   "name": "validate",
+   "kind": "method",
+   "parent": "Reading",
+   "signature": "validate(&self) -> bool",
+   "start_line": 23,
+   "end_line": 25,
+   "visibility": "private",
+   "doc": null,
+   "doc_source": null
+  },
+  {
+   "path": "src/lib.rs",
+   "name": "Reading",
+   "kind": "impl",
+   "parent": null,
+   "signature": "fmt::Display for Reading",
+   "start_line": 28,
+   "end_line": 32,
+   "visibility": null,
+   "doc": null,
+   "doc_source": null
+  },
+  {
+   "path": "src/lib.rs",
+   "name": "fmt",
+   "kind": "method",
+   "parent": "Reading",
+   "signature": "fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result",
+   "start_line": 29,
+   "end_line": 31,
+   "visibility": "public",
+   "doc": null,
+   "doc_source": null
+  },
+  {
+   "path": "src/lib.rs",
+   "name": "State",
+   "kind": "enum",
+   "parent": null,
+   "signature": "State",
+   "start_line": 34,
+   "end_line": 37,
+   "visibility": "internal",
+   "doc": null,
+   "doc_source": null
+  },
+  {
+   "path": "src/lib.rs",
+   "name": "Sink",
+   "kind": "trait",
+   "parent": null,
+   "signature": "Sink",
+   "start_line": 40,
+   "end_line": 47,
+   "visibility": "public",
+   "doc": "Something that can ship readings.",
+   "doc_source": "author"
+  },
+  {
+   "path": "src/lib.rs",
+   "name": "send",
+   "kind": "method",
+   "parent": "Sink",
+   "signature": "send(&mut self, reading: &Reading) -> anyhow::Result<()>",
+   "start_line": 42,
+   "end_line": 42,
+   "visibility": "public",
+   "doc": "Sends one reading.",
+   "doc_source": "author"
+  },
+  {
+   "path": "src/lib.rs",
+   "name": "flush",
+   "kind": "method",
+   "parent": "Sink",
+   "signature": "flush(&mut self) -> anyhow::Result<()>",
+   "start_line": 44,
+   "end_line": 46,
+   "visibility": "public",
+   "doc": null,
+   "doc_source": null
+  },
+  {
+   "path": "src/lib.rs",
+   "name": "Result",
+   "kind": "type",
+   "parent": null,
+   "signature": "Result<T> = std::result::Result<T, Error>",
+   "start_line": 49,
+   "end_line": 49,
+   "visibility": "public",
+   "doc": null,
+   "doc_source": null
+  },
+  {
+   "path": "src/lib.rs",
+   "name": "Error",
+   "kind": "struct",
+   "parent": null,
+   "signature": "Error",
+   "start_line": 51,
+   "end_line": 52,
+   "visibility": "public",
+   "doc": null,
+   "doc_source": null
+  },
+  {
+   "path": "src/lib.rs",
+   "name": "ensure_positive",
+   "kind": "macro",
+   "parent": null,
+   "signature": "ensure_positive",
+   "start_line": 54,
+   "end_line": 58,
+   "visibility": "private",
+   "doc": null,
+   "doc_source": null
+  },
+  {
+   "path": "src/main.rs",
+   "name": "main",
+   "kind": "function",
+   "parent": null,
+   "signature": "main()",
+   "start_line": 3,
+   "end_line": 6,
+   "visibility": "private",
+   "doc": null,
+   "doc_source": null
+  },
+  {
+   "path": "src/transport/retry.rs",
+   "name": "Backoff",
+   "kind": "struct",
+   "parent": null,
+   "signature": "Backoff",
+   "start_line": 4,
+   "end_line": 7,
+   "visibility": "public",
+   "doc": "Exponential backoff with a cap.",
+   "doc_source": "author"
+  },
+  {
+   "path": "src/transport/retry.rs",
+   "name": "Backoff",
+   "kind": "impl",
+   "parent": null,
+   "signature": "Backoff",
+   "start_line": 9,
+   "end_line": 15,
+   "visibility": null,
+   "doc": null,
+   "doc_source": null
+  },
+  {
+   "path": "src/transport/retry.rs",
+   "name": "next_delay",
+   "kind": "method",
+   "parent": "Backoff",
+   "signature": "next_delay(&mut self) -> Duration",
+   "start_line": 11,
+   "end_line": 14,
+   "visibility": "public",
+   "doc": "Delay before the next attempt.",
+   "doc_source": "author"
+  },
+  {
+   "path": "src/transport/retry.rs",
+   "name": "policy",
+   "kind": "module",
+   "parent": null,
+   "signature": "policy",
+   "start_line": 17,
+   "end_line": 24,
+   "visibility": "public",
+   "doc": null,
+   "doc_source": null
+  },
+  {
+   "path": "src/transport/retry.rs",
+   "name": "MAX_RETRIES",
+   "kind": "constant",
+   "parent": "policy",
+   "signature": "MAX_RETRIES: u32 = 5",
+   "start_line": 19,
+   "end_line": 19,
+   "visibility": "public",
+   "doc": "Retries allowed before giving up.",
+   "doc_source": "author"
+  },
+  {
+   "path": "src/transport/retry.rs",
+   "name": "should_retry",
+   "kind": "function",
+   "parent": "policy",
+   "signature": "should_retry(attempt: u32) -> bool",
+   "start_line": 21,
+   "end_line": 23,
+   "visibility": "public",
+   "doc": null,
+   "doc_source": null
+  },
+  {
+   "path": "tests/integration.rs",
+   "name": "reading_display",
+   "kind": "function",
+   "parent": null,
+   "signature": "reading_display()",
+   "start_line": 3,
+   "end_line": 6,
+   "visibility": "private",
+   "doc": null,
+   "doc_source": null
+  }
+ ],
+ "imports": [
+  {
+   "path": "src/lib.rs",
+   "target": "std::fmt"
+  },
+  {
+   "path": "src/main.rs",
+   "target": "sensor_gateway::transport::retry::Backoff"
+  },
+  {
+   "path": "src/transport/retry.rs",
+   "target": "std::time::Duration"
+  },
+  {
+   "path": "tests/integration.rs",
+   "target": "sensor_gateway::Reading"
+  }
+ ],
+ "skipped": []
+}

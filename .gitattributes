@@ -1,0 +1,2 @@
+# LF everywhere, so fixture hashes and shard snapshots match on Windows checkouts.
+* text=auto eol=lf

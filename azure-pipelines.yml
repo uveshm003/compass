@@ -1,0 +1,60 @@
+# CI for Azure DevOps. Mirrors .github/workflows/ci.yml step for step: GitHub
+# and Azure DevOps are both first-class (NF-16), so change the two together.
+# tests/test_ci_configs.py fails when their matrices or commands drift apart.
+
+trigger:
+  branches:
+    include: ["*"]
+
+pr:
+  branches:
+    include: ["*"]
+
+jobs:
+  - job: test
+    displayName: Tests
+    strategy:
+      matrix:  # NF-08: native Windows, no WSL
+        ubuntu_py311: { imageName: ubuntu-latest, UV_PYTHON: "3.11" }
+        ubuntu_py312: { imageName: ubuntu-latest, UV_PYTHON: "3.12" }
+        macos_py311: { imageName: macos-latest, UV_PYTHON: "3.11" }
+        macos_py312: { imageName: macos-latest, UV_PYTHON: "3.12" }
+        windows_py311: { imageName: windows-latest, UV_PYTHON: "3.11" }
+        windows_py312: { imageName: windows-latest, UV_PYTHON: "3.12" }
+    pool:
+      vmImage: $(imageName)
+    steps:
+      - task: UsePythonVersion@0
+        displayName: Python $(UV_PYTHON)
+        inputs:
+          versionSpec: $(UV_PYTHON)
+
+      # UV_PYTHON (a matrix variable, so also an environment variable) makes
+      # every uv command below use this interpreter.
+      - script: python -m pip install --upgrade uv
+        displayName: Install uv
+
+      # Exercises the universal-ctags fallback against a real build; the other
+      # agents cover it with a stand-in script.
+      - script: sudo apt-get update && sudo apt-get install -y universal-ctags
+        displayName: Install universal-ctags
+        condition: eq(variables['Agent.OS'], 'Linux')
+
+      - script: uv sync --locked
+        displayName: Sync dependencies
+
+      - script: uv run compass --help
+        displayName: Smoke test
+
+      # Unit, snapshot and hook-contract tests, plus the latency checks
+      # (NF-03, NF-04) on a generated 100k LOC repo.
+      - script: uv run pytest --perf --junitxml=$(Common.TestResultsDirectory)/pytest.xml
+        displayName: Tests
+
+      - task: PublishTestResults@2
+        displayName: Publish test results
+        condition: succeededOrFailed()
+        inputs:
+          testResultsFormat: JUnit
+          testResultsFiles: $(Common.TestResultsDirectory)/pytest.xml
+          testRunTitle: $(Agent.JobName)

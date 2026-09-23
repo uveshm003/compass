@@ -1,0 +1,39 @@
+# CI for GitHub. Mirrors azure-pipelines.yml step for step: GitHub and Azure
+# DevOps are both first-class (NF-16), so change the two together.
+# tests/test_ci_configs.py fails when their matrices or commands drift apart.
+name: ci
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    name: ${{ matrix.os }} · Python ${{ matrix.python }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]  # NF-08: native Windows, no WSL
+        python: ["3.11", "3.12"]
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: astral-sh/setup-uv@v10
+        with:
+          python-version: ${{ matrix.python }}
+
+      # Exercises the universal-ctags fallback against a real build; the other
+      # runners cover it with a stand-in script.
+      - name: Install universal-ctags
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y universal-ctags
+
+      - run: uv sync --locked
+
+      - name: Smoke test
+        run: uv run compass --help
+
+      # Unit, snapshot and hook-contract tests, plus the latency checks
+      # (NF-03, NF-04) on a generated 100k LOC repo.
+      - run: uv run pytest --perf

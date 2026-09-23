@@ -1,0 +1,45 @@
+{
+ "languages": {
+  "go": 5
+ },
+ "stacks": {
+  "github_actions": {
+   "files": [
+    ".github/workflows/ci.yml"
+   ],
+   "commands": [
+    "go vet ./...",
+    "go test -race ./..."
+   ]
+  },
+  "go": {
+   "modules": [
+    {
+     "path": "go.mod",
+     "name": "github.com/example/sensord",
+     "go": "1.22",
+     "toolchain": "go1.22.5",
+     "frameworks": {
+      "github.com/gin-gonic/gin": "v1.10.0",
+      "github.com/stretchr/testify": "v1.9.0"
+     },
+     "dependencies": 2,
+     "commands": {
+      "build": "go build ./...",
+      "test": "go test ./...",
+      "lint": "golangci-lint run"
+     }
+    }
+   ]
+  },
+  "make": {
+   "path": "Makefile",
+   "targets": 3,
+   "commands": {
+    "build": "make build",
+    "test": "make test",
+    "lint": "make lint"
+   }
+  }
+ }
+}

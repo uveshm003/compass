@@ -1,0 +1,44 @@
+{
+ "languages": {
+  "python": 5
+ },
+ "stacks": {
+  "azure_pipelines": {
+   "files": [
+    "azure-pipelines.yml"
+   ],
+   "commands": [
+    "uv run pytest --junitxml=junit.xml",
+    "uv run ruff check ."
+   ]
+  },
+  "python": {
+   "packages": [
+    {
+     "path": "pyproject.toml",
+     "name": "inventory",
+     "requires_python": ">=3.11",
+     "runner": "uv",
+     "lockfile": "uv.lock",
+     "build_backend": "hatchling.build",
+     "frameworks": {
+      "fastapi": "0.115.6",
+      "httpx": "0.28.1",
+      "pydantic": "2.10.4"
+     },
+     "tools": {
+      "pytest": "8.3.4",
+      "ruff": "0.8.4"
+     },
+     "dependencies": 5,
+     "commands": {
+      "test": "uv run pytest",
+      "lint": "uv run ruff check .",
+      "format": "uv run ruff format .",
+      "build": "uv build"
+     }
+    }
+   ]
+  }
+ }
+}

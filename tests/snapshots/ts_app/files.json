@@ -1,0 +1,74 @@
+[
+ {
+  "path": ".gitignore",
+  "lang": null,
+  "size": 20,
+  "hash": "00e64a35b647c4fd38d72c980a2feca0"
+ },
+ {
+  "path": "README.md",
+  "lang": null,
+  "size": 109,
+  "hash": "4d10eb9ce0be58563a3bb12119acddd2"
+ },
+ {
+  "path": "package.json",
+  "lang": null,
+  "size": 525,
+  "hash": "2114373b02a5606c71ed166375fcd5cb"
+ },
+ {
+  "path": "scripts/build.mjs",
+  "lang": "javascript",
+  "size": 131,
+  "hash": "139ef2191da98f11f56be26cff751022"
+ },
+ {
+  "path": "src/components/Button.tsx",
+  "lang": "typescript",
+  "size": 326,
+  "hash": "ebb774600a517d8a5b42f619a78ad707"
+ },
+ {
+  "path": "src/index.ts",
+  "lang": "typescript",
+  "size": 98,
+  "hash": "c5c2902bac6cf8fb059b05cf781ccd79"
+ },
+ {
+  "path": "src/legacy/util.js",
+  "lang": "javascript",
+  "size": 339,
+  "hash": "62727c6fd12c61f1ac3c469dcfd97095"
+ },
+ {
+  "path": "src/transport/index.ts",
+  "lang": "typescript",
+  "size": 128,
+  "hash": "4c2a5a2669d432f964e0ac80d9b5820d"
+ },
+ {
+  "path": "src/transport/reconnect.ts",
+  "lang": "typescript",
+  "size": 772,
+  "hash": "046392a569d8b1ab2712590e3c7ec5a9"
+ },
+ {
+  "path": "src/transport/socket.ts",
+  "lang": "typescript",
+  "size": 558,
+  "hash": "581620b578b1599d45cff487883b2c81"
+ },
+ {
+  "path": "src/types.ts",
+  "lang": "typescript",
+  "size": 402,
+  "hash": "b9e015ce10deddf936f3aaacad4593cc"
+ },
+ {
+  "path": "tsconfig.json",
+  "lang": null,
+  "size": 82,
+  "hash": "13ee49735d5820cc6bfea10869cb4929"
+ }
+]

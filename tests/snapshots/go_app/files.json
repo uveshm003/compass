@@ -1,0 +1,56 @@
+[
+ {
+  "path": ".github/workflows/ci.yml",
+  "lang": null,
+  "size": 274,
+  "hash": "49ec0bec9bb0b9f0b70d27018c7dd96b"
+ },
+ {
+  "path": ".golangci.yml",
+  "lang": null,
+  "size": 46,
+  "hash": "e223bd77a848a88a869994dced6e309d"
+ },
+ {
+  "path": "Makefile",
+  "lang": null,
+  "size": 96,
+  "hash": "df2e41feb63f1ebe5c26f3ca88994f32"
+ },
+ {
+  "path": "cmd/sensord/main.go",
+  "lang": "go",
+  "size": 259,
+  "hash": "8ff6d140c8d5d5c96cab206d7f388c8c"
+ },
+ {
+  "path": "go.mod",
+  "lang": null,
+  "size": 202,
+  "hash": "ec869a8b01a9456cdaec6262b94780f3"
+ },
+ {
+  "path": "internal/transport/doc.go",
+  "lang": "go",
+  "size": 92,
+  "hash": "afbff0bb5bd4241166d9c238e43cdab5"
+ },
+ {
+  "path": "internal/transport/retry.go",
+  "lang": "go",
+  "size": 1170,
+  "hash": "ddc55302945a95b21d6eebb9c2045ac5"
+ },
+ {
+  "path": "internal/transport/retry_test.go",
+  "lang": "go",
+  "size": 199,
+  "hash": "7a494642e334476dbf74372105fffcbe"
+ },
+ {
+  "path": "pkg/api/types.go",
+  "lang": "go",
+  "size": 207,
+  "hash": "cee387fa45d1634d815bba07d997e538"
+ }
+]

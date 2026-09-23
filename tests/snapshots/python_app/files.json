@@ -1,0 +1,56 @@
+[
+ {
+  "path": "README.md",
+  "lang": null,
+  "size": 222,
+  "hash": "9348435e73a6f9775aa842e90e5bacca"
+ },
+ {
+  "path": "azure-pipelines.yml",
+  "lang": null,
+  "size": 448,
+  "hash": "5a2d705c332c0bfad97a0101b35348c2"
+ },
+ {
+  "path": "pyproject.toml",
+  "lang": null,
+  "size": 392,
+  "hash": "4f4d326b37011bfc17a6a17bad2e1362"
+ },
+ {
+  "path": "scripts/seed",
+  "lang": "python",
+  "size": 204,
+  "hash": "95a4b6c1c0f6e3a749167adc80c4beae"
+ },
+ {
+  "path": "src/inventory/__init__.py",
+  "lang": "python",
+  "size": 147,
+  "hash": "c696cb14995c9387f373ce04dfff937a"
+ },
+ {
+  "path": "src/inventory/_internal/cache.py",
+  "lang": "python",
+  "size": 500,
+  "hash": "f784cf55bebf392bc2fca78a4b8155e8"
+ },
+ {
+  "path": "src/inventory/api.py",
+  "lang": "python",
+  "size": 421,
+  "hash": "0a0c3b9b41cb14935ef03f4c69d15bf0"
+ },
+ {
+  "path": "src/inventory/models.py",
+  "lang": "python",
+  "size": 1652,
+  "hash": "2cb6ab45e26c882179c4d73b88751ade"
+ },
+ {
+  "path": "tests/test_models.py",
+  "lang": "python",
+  "size": 209,
+  "hash": "40a8c0fa530ed4231c71cebbc9b7fc6f"
+ }
+]

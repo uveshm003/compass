@@ -1,0 +1,11 @@
+name: rust
+grammar: rust
+extensions: [.rs]
+skip_before_doc: [attribute_item]
+index_files: [lib.rs, main.rs, mod.rs]
+visibility:
+  modifiers:
+    - ["^pub$", public]
+    - ["^pub\\s*\\(\\s*self\\s*\\)$", private]
+    - ["^pub\\s*\\(", internal]
+  default: private

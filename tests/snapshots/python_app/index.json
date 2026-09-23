@@ -1,0 +1,365 @@
+{
+ "files": [
+  {
+   "path": "README.md",
+   "dir": "",
+   "lang": null,
+   "hash": "9348435e73a6f9775aa842e90e5bacca",
+   "size": 222,
+   "doc": "Tracks stock levels reported by warehouse gas sensors. Exposes a small HTTP API for the dashboard."
+  },
+  {
+   "path": "azure-pipelines.yml",
+   "dir": "",
+   "lang": null,
+   "hash": "5a2d705c332c0bfad97a0101b35348c2",
+   "size": 448,
+   "doc": null
+  },
+  {
+   "path": "pyproject.toml",
+   "dir": "",
+   "lang": null,
+   "hash": "4f4d326b37011bfc17a6a17bad2e1362",
+   "size": 392,
+   "doc": null
+  },
+  {
+   "path": "scripts/seed",
+   "dir": "scripts",
+   "lang": "python",
+   "hash": "95a4b6c1c0f6e3a749167adc80c4beae",
+   "size": 204,
+   "doc": "Seed a local database with sample readings."
+  },
+  {
+   "path": "src/inventory/__init__.py",
+   "dir": "src/inventory",
+   "lang": "python",
+   "hash": "c696cb14995c9387f373ce04dfff937a",
+   "size": 147,
+   "doc": "Inventory service: stock levels from warehouse sensors."
+  },
+  {
+   "path": "src/inventory/_internal/cache.py",
+   "dir": "src/inventory/_internal",
+   "lang": "python",
+   "hash": "f784cf55bebf392bc2fca78a4b8155e8",
+   "size": 500,
+   "doc": "A tiny LRU cache for sensor lookups."
+  },
+  {
+   "path": "src/inventory/api.py",
+   "dir": "src/inventory",
+   "lang": "python",
+   "hash": "0a0c3b9b41cb14935ef03f4c69d15bf0",
+   "size": 421,
+   "doc": "HTTP routes."
+  },
+  {
+   "path": "src/inventory/models.py",
+   "dir": "src/inventory",
+   "lang": "python",
+   "hash": "2cb6ab45e26c882179c4d73b88751ade",
+   "size": 1652,
+   "doc": "Domain models for stock tracking."
+  },
+  {
+   "path": "tests/test_models.py",
+   "dir": "tests",
+   "lang": "python",
+   "hash": "40a8c0fa530ed4231c71cebbc9b7fc6f",
+   "size": 209,
+   "doc": null
+  }
+ ],
+ "symbols": [
+  {
+   "path": "scripts/seed",
+   "name": "main",
+   "kind": "function",
+   "parent": null,
+   "signature": "main() -> None",
+   "start_line": 7,
+   "end_line": 9,
+   "visibility": "public",
+   "doc": null,
+   "doc_source": null
+  },
+  {
+   "path": "src/inventory/_internal/cache.py",
+   "name": "LRUCache",
+   "kind": "class",
+   "parent": null,
+   "signature": "LRUCache",
+   "start_line": 8,
+   "end_line": 18,
+   "visibility": "public",
+   "doc": null,
+   "doc_source": null
+  },
+  {
+   "path": "src/inventory/_internal/cache.py",
+   "name": "__init__",
+   "kind": "method",
+   "parent": "LRUCache",
+   "signature": "__init__(self, capacity: int = 128)",
+   "start_line": 9,
+   "end_line": 11,
+   "visibility": "public",
+   "doc": null,
+   "doc_source": null
+  },
+  {
+   "path": "src/inventory/_internal/cache.py",
+   "name": "get",
+   "kind": "method",
+   "parent": "LRUCache",
+   "signature": "get(self, key)",
+   "start_line": 13,
+   "end_line": 18,
+   "visibility": "public",
+   "doc": null,
+   "doc_source": null
+  },
+  {
+   "path": "src/inventory/api.py",
+   "name": "ROUTE_PREFIX",
+   "kind": "constant",
+   "parent": null,
+   "signature": "ROUTE_PREFIX = \"/v1\"",
+   "start_line": 8,
+   "end_line": 8,
+   "visibility": "public",
+   "doc": null,
+   "doc_source": null
+  },
+  {
+   "path": "src/inventory/api.py",
+   "name": "get_item",
+   "kind": "function",
+   "parent": null,
+   "signature": "get_item(sku: str) -> StockItem",
+   "start_line": 11,
+   "end_line": 14,
+   "visibility": "public",
+   "doc": "Look up one item by SKU.",
+   "doc_source": "author"
+  },
+  {
+   "path": "src/inventory/api.py",
+   "name": "post_reading",
+   "kind": "function",
+   "parent": null,
+   "signature": "post_reading(reading: Reading) -> dict",
+   "start_line": 18,
+   "end_line": 20,
+   "visibility": "public",
+   "doc": "Accepts a reading pushed by a sensor gateway.",
+   "doc_source": "author"
+  },
+  {
+   "path": "src/inventory/models.py",
+   "name": "DEFAULT_THRESHOLD",
+   "kind": "constant",
+   "parent": null,
+   "signature": "DEFAULT_THRESHOLD = 10",
+   "start_line": 8,
+   "end_line": 8,
+   "visibility": "public",
+   "doc": null,
+   "doc_source": null
+  },
+  {
+   "path": "src/inventory/models.py",
+   "name": "_CACHE_SIZE",
+   "kind": "constant",
+   "parent": null,
+   "signature": "_CACHE_SIZE = 256",
+   "start_line": 9,
+   "end_line": 9,
+   "visibility": "private",
+   "doc": null,
+   "doc_source": null
+  },
+  {
+   "path": "src/inventory/models.py",
+   "name": "Unit",
+   "kind": "class",
+   "parent": null,
+   "signature": "Unit(Enum)",
+   "start_line": 13,
+   "end_line": 17,
+   "visibility": "public",
+   "doc": "Measurement unit reported by a sensor.",
+   "doc_source": "author"
+  },
+  {
+   "path": "src/inventory/models.py",
+   "name": "Reading",
+   "kind": "class",
+   "parent": null,
+   "signature": "Reading",
+   "start_line": 20,
+   "end_line": 34,
+   "visibility": "public",
+   "doc": "A single sensor reading. Values are raw, not calibrated.",
+   "doc_source": "author"
+  },
+  {
+   "path": "src/inventory/models.py",
+   "name": "is_alarm",
+   "kind": "method",
+   "parent": "Reading",
+   "signature": "is_alarm(self, threshold: float = DEFAULT_THRESHOLD) -> bool",
+   "start_line": 28,
+   "end_line": 30,
+   "visibility": "public",
+   "doc": "True when the reading crosses the alarm threshold.",
+   "doc_source": "author"
+  },
+  {
+   "path": "src/inventory/models.py",
+   "name": "label",
+   "kind": "method",
+   "parent": "Reading",
+   "signature": "label(self) -> str",
+   "start_line": 32,
+   "end_line": 34,
+   "visibility": "public",
+   "doc": null,
+   "doc_source": null
+  },
+  {
+   "path": "src/inventory/models.py",
+   "name": "StockItem",
+   "kind": "class",
+   "parent": null,
+   "signature": "StockItem",
+   "start_line": 38,
+   "end_line": 63,
+   "visibility": "public",
+   "doc": "Stock for one SKU, aggregated across warehouses.",
+   "doc_source": "author"
+  },
+  {
+   "path": "src/inventory/models.py",
+   "name": "restock",
+   "kind": "method",
+   "parent": "StockItem",
+   "signature": "restock(self, amount: int) -> None",
+   "start_line": 44,
+   "end_line": 51,
+   "visibility": "public",
+   "doc": "Add ``amount`` units.\n\nRaises ValueError for negative amounts.",
+   "doc_source": "author"
+  },
+  {
+   "path": "src/inventory/models.py",
+   "name": "_audit",
+   "kind": "method",
+   "parent": "StockItem",
+   "signature": "_audit(self) -> dict",
+   "start_line": 53,
+   "end_line": 57,
+   "visibility": "private",
+   "doc": null,
+   "doc_source": null
+  },
+  {
+   "path": "src/inventory/models.py",
+   "name": "History",
+   "kind": "class",
+   "parent": "StockItem",
+   "signature": "History",
+   "start_line": 59,
+   "end_line": 63,
+   "visibility": "public",
+   "doc": "Change log kept per item.",
+   "doc_source": "author"
+  },
+  {
+   "path": "src/inventory/models.py",
+   "name": "append",
+   "kind": "method",
+   "parent": "StockItem.History",
+   "signature": "append(self, entry: str) -> None",
+   "start_line": 62,
+   "end_line": 63,
+   "visibility": "public",
+   "doc": null,
+   "doc_source": null
+  },
+  {
+   "path": "src/inventory/models.py",
+   "name": "merge_items",
+   "kind": "function",
+   "parent": null,
+   "signature": "merge_items(a: StockItem, b: StockItem) -> StockItem",
+   "start_line": 66,
+   "end_line": 71,
+   "visibility": "public",
+   "doc": "Combine two items with the same SKU.",
+   "doc_source": "author"
+  },
+  {
+   "path": "tests/test_models.py",
+   "name": "test_alarm",
+   "kind": "function",
+   "parent": null,
+   "signature": "test_alarm()",
+   "start_line": 4,
+   "end_line": 5,
+   "visibility": "public",
+   "doc": null,
+   "doc_source": null
+  },
+  {
+   "path": "tests/test_models.py",
+   "name": "test_restock",
+   "kind": "function",
+   "parent": null,
+   "signature": "test_restock()",
+   "start_line": 8,
+   "end_line": 11,
+   "visibility": "public",
+   "doc": null,
+   "doc_source": null
+  }
+ ],
+ "imports": [
+  {
+   "path": "scripts/seed",
+   "target": "random"
+  },
+  {
+   "path": "src/inventory/__init__.py",
+   "target": "inventory.models"
+  },
+  {
+   "path": "src/inventory/_internal/cache.py",
+   "target": "collections"
+  },
+  {
+   "path": "src/inventory/api.py",
+   "target": ".models"
+  },
+  {
+   "path": "src/inventory/api.py",
+   "target": "fastapi"
+  },
+  {
+   "path": "src/inventory/models.py",
+   "target": "dataclasses"
+  },
+  {
+   "path": "src/inventory/models.py",
+   "target": "enum"
+  },
+  {
+   "path": "tests/test_models.py",
+   "target": "inventory.models"
+  }
+ ],
+ "skipped": []
+}

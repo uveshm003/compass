@@ -1,0 +1,12 @@
+name: javascript
+grammar: javascript
+extensions: [.js, .jsx, .mjs, .cjs]
+shebangs: [node, nodejs, deno, bun]
+wrappers: [export_statement, lexical_declaration, variable_declaration]
+skip_before_doc: [decorator]
+index_files: [index.js, index.jsx, index.mjs, index.cjs]
+visibility:
+  names:
+    - ["^#", private]
+  exported_by: [export_statement]
+  default: public

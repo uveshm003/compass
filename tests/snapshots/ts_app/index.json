@@ -1,0 +1,457 @@
+{
+ "files": [
+  {
+   "path": ".gitignore",
+   "dir": "",
+   "lang": null,
+   "hash": "00e64a35b647c4fd38d72c980a2feca0",
+   "size": 20,
+   "doc": null
+  },
+  {
+   "path": "README.md",
+   "dir": "",
+   "lang": null,
+   "hash": "4d10eb9ce0be58563a3bb12119acddd2",
+   "size": 109,
+   "doc": "Web dashboard for live gas readings, built on React and a WebSocket feed."
+  },
+  {
+   "path": "package.json",
+   "dir": "",
+   "lang": null,
+   "hash": "2114373b02a5606c71ed166375fcd5cb",
+   "size": 525,
+   "doc": null
+  },
+  {
+   "path": "scripts/build.mjs",
+   "dir": "scripts",
+   "lang": "javascript",
+   "hash": "139ef2191da98f11f56be26cff751022",
+   "size": 131,
+   "doc": null
+  },
+  {
+   "path": "src/components/Button.tsx",
+   "dir": "src/components",
+   "lang": "typescript",
+   "hash": "ebb774600a517d8a5b42f619a78ad707",
+   "size": 326,
+   "doc": null
+  },
+  {
+   "path": "src/index.ts",
+   "dir": "src",
+   "lang": "typescript",
+   "hash": "c5c2902bac6cf8fb059b05cf781ccd79",
+   "size": 98,
+   "doc": null
+  },
+  {
+   "path": "src/legacy/util.js",
+   "dir": "src/legacy",
+   "lang": "javascript",
+   "hash": "62727c6fd12c61f1ac3c469dcfd97095",
+   "size": 339,
+   "doc": null
+  },
+  {
+   "path": "src/transport/index.ts",
+   "dir": "src/transport",
+   "lang": "typescript",
+   "hash": "4c2a5a2669d432f964e0ac80d9b5820d",
+   "size": 128,
+   "doc": "Transport layer: connections, retries and backoff for the live feed."
+  },
+  {
+   "path": "src/transport/reconnect.ts",
+   "dir": "src/transport",
+   "lang": "typescript",
+   "hash": "046392a569d8b1ab2712590e3c7ec5a9",
+   "size": 772,
+   "doc": null
+  },
+  {
+   "path": "src/transport/socket.ts",
+   "dir": "src/transport",
+   "lang": "typescript",
+   "hash": "581620b578b1599d45cff487883b2c81",
+   "size": 558,
+   "doc": null
+  },
+  {
+   "path": "src/types.ts",
+   "dir": "src",
+   "lang": "typescript",
+   "hash": "b9e015ce10deddf936f3aaacad4593cc",
+   "size": 402,
+   "doc": null
+  },
+  {
+   "path": "tsconfig.json",
+   "dir": "",
+   "lang": null,
+   "hash": "13ee49735d5820cc6bfea10869cb4929",
+   "size": 82,
+   "doc": null
+  }
+ ],
+ "symbols": [
+  {
+   "path": "scripts/build.mjs",
+   "name": "main",
+   "kind": "function",
+   "parent": null,
+   "signature": "main()",
+   "start_line": 5,
+   "end_line": 7,
+   "visibility": "private",
+   "doc": null,
+   "doc_source": null
+  },
+  {
+   "path": "src/components/Button.tsx",
+   "name": "ButtonProps",
+   "kind": "type",
+   "parent": null,
+   "signature": "ButtonProps = {label: string; onClick?: () => void}",
+   "start_line": 3,
+   "end_line": 3,
+   "visibility": "private",
+   "doc": null,
+   "doc_source": null
+  },
+  {
+   "path": "src/components/Button.tsx",
+   "name": "Button",
+   "kind": "function",
+   "parent": null,
+   "signature": "Button({label, onClick}: ButtonProps)",
+   "start_line": 6,
+   "end_line": 8,
+   "visibility": "public",
+   "doc": "Primary action button.",
+   "doc_source": "author"
+  },
+  {
+   "path": "src/components/Button.tsx",
+   "name": "IconButton",
+   "kind": "function",
+   "parent": null,
+   "signature": "IconButton({label}: ButtonProps)",
+   "start_line": 10,
+   "end_line": 10,
+   "visibility": "public",
+   "doc": null,
+   "doc_source": null
+  },
+  {
+   "path": "src/legacy/util.js",
+   "name": "formatReading",
+   "kind": "function",
+   "parent": null,
+   "signature": "formatReading(value, unit)",
+   "start_line": 4,
+   "end_line": 6,
+   "visibility": "public",
+   "doc": "Formats a reading for display.",
+   "doc_source": "author"
+  },
+  {
+   "path": "src/legacy/util.js",
+   "name": "Throttle",
+   "kind": "class",
+   "parent": null,
+   "signature": "Throttle",
+   "start_line": 10,
+   "end_line": 19,
+   "visibility": "public",
+   "doc": null,
+   "doc_source": null
+  },
+  {
+   "path": "src/legacy/util.js",
+   "name": "constructor",
+   "kind": "method",
+   "parent": "Throttle",
+   "signature": "constructor(ms)",
+   "start_line": 11,
+   "end_line": 13,
+   "visibility": "public",
+   "doc": null,
+   "doc_source": null
+  },
+  {
+   "path": "src/legacy/util.js",
+   "name": "allow",
+   "kind": "method",
+   "parent": "Throttle",
+   "signature": "allow()",
+   "start_line": 16,
+   "end_line": 18,
+   "visibility": "public",
+   "doc": "Returns true when the call is allowed.",
+   "doc_source": "author"
+  },
+  {
+   "path": "src/transport/reconnect.ts",
+   "name": "ReconnectPolicy",
+   "kind": "class",
+   "parent": null,
+   "signature": "ReconnectPolicy",
+   "start_line": 4,
+   "end_line": 18,
+   "visibility": "public",
+   "doc": "Retry strategy for dropped connections.",
+   "doc_source": "author"
+  },
+  {
+   "path": "src/transport/reconnect.ts",
+   "name": "constructor",
+   "kind": "method",
+   "parent": "ReconnectPolicy",
+   "signature": "constructor(private readonly maxDelayMs: number = 30_000)",
+   "start_line": 7,
+   "end_line": 7,
+   "visibility": "public",
+   "doc": null,
+   "doc_source": null
+  },
+  {
+   "path": "src/transport/reconnect.ts",
+   "name": "next",
+   "kind": "method",
+   "parent": "ReconnectPolicy",
+   "signature": "next(attempt: number): number",
+   "start_line": 10,
+   "end_line": 13,
+   "visibility": "public",
+   "doc": "Delay in ms, exponential with jitter.",
+   "doc_source": "author"
+  },
+  {
+   "path": "src/transport/reconnect.ts",
+   "name": "reset",
+   "kind": "method",
+   "parent": "ReconnectPolicy",
+   "signature": "reset(): void",
+   "start_line": 15,
+   "end_line": 17,
+   "visibility": "public",
+   "doc": null,
+   "doc_source": null
+  },
+  {
+   "path": "src/transport/reconnect.ts",
+   "name": "withRetry",
+   "kind": "function",
+   "parent": null,
+   "signature": "withRetry<T>(op: () => Promise<T>, policy: ReconnectPolicy): Promise<T>",
+   "start_line": 24,
+   "end_line": 32,
+   "visibility": "public",
+   "doc": "Wraps an async op with retries.\n@param op the operation to retry",
+   "doc_source": "author"
+  },
+  {
+   "path": "src/transport/socket.ts",
+   "name": "DEFAULT_URL",
+   "kind": "constant",
+   "parent": null,
+   "signature": "DEFAULT_URL = \"wss://sensors.example.com/live\"",
+   "start_line": 1,
+   "end_line": 1,
+   "visibility": "public",
+   "doc": null,
+   "doc_source": null
+  },
+  {
+   "path": "src/transport/socket.ts",
+   "name": "sleep",
+   "kind": "function",
+   "parent": null,
+   "signature": "sleep(ms: number): Promise<void>",
+   "start_line": 3,
+   "end_line": 3,
+   "visibility": "public",
+   "doc": null,
+   "doc_source": null
+  },
+  {
+   "path": "src/transport/socket.ts",
+   "name": "SensorSocket",
+   "kind": "class",
+   "parent": null,
+   "signature": "SensorSocket",
+   "start_line": 6,
+   "end_line": 18,
+   "visibility": "public",
+   "doc": "Minimal typed wrapper around WebSocket.",
+   "doc_source": "author"
+  },
+  {
+   "path": "src/transport/socket.ts",
+   "name": "open",
+   "kind": "method",
+   "parent": "SensorSocket",
+   "signature": "open(url: string = DEFAULT_URL): void",
+   "start_line": 9,
+   "end_line": 11,
+   "visibility": "public",
+   "doc": null,
+   "doc_source": null
+  },
+  {
+   "path": "src/transport/socket.ts",
+   "name": "onMessage",
+   "kind": "method",
+   "parent": "SensorSocket",
+   "signature": "onMessage(data: string): void",
+   "start_line": 13,
+   "end_line": 13,
+   "visibility": "protected",
+   "doc": null,
+   "doc_source": null
+  },
+  {
+   "path": "src/transport/socket.ts",
+   "name": "handle",
+   "kind": "method",
+   "parent": "SensorSocket",
+   "signature": "handle(event: MessageEvent): void",
+   "start_line": 15,
+   "end_line": 17,
+   "visibility": "private",
+   "doc": null,
+   "doc_source": null
+  },
+  {
+   "path": "src/transport/socket.ts",
+   "name": "parseFrame",
+   "kind": "function",
+   "parent": null,
+   "signature": "parseFrame(raw: string): unknown",
+   "start_line": 20,
+   "end_line": 22,
+   "visibility": "private",
+   "doc": null,
+   "doc_source": null
+  },
+  {
+   "path": "src/types.ts",
+   "name": "Reading",
+   "kind": "interface",
+   "parent": null,
+   "signature": "Reading",
+   "start_line": 2,
+   "end_line": 7,
+   "visibility": "public",
+   "doc": "A gas reading as sent by the backend.",
+   "doc_source": "author"
+  },
+  {
+   "path": "src/types.ts",
+   "name": "at",
+   "kind": "method",
+   "parent": "Reading",
+   "signature": "at(): number",
+   "start_line": 6,
+   "end_line": 6,
+   "visibility": "public",
+   "doc": "Seconds since the epoch.",
+   "doc_source": "author"
+  },
+  {
+   "path": "src/types.ts",
+   "name": "SensorId",
+   "kind": "type",
+   "parent": null,
+   "signature": "SensorId = string",
+   "start_line": 9,
+   "end_line": 9,
+   "visibility": "public",
+   "doc": null,
+   "doc_source": null
+  },
+  {
+   "path": "src/types.ts",
+   "name": "Severity",
+   "kind": "enum",
+   "parent": null,
+   "signature": "Severity",
+   "start_line": 11,
+   "end_line": 15,
+   "visibility": "public",
+   "doc": null,
+   "doc_source": null
+  },
+  {
+   "path": "src/types.ts",
+   "name": "Thresholds",
+   "kind": "namespace",
+   "parent": null,
+   "signature": "Thresholds",
+   "start_line": 17,
+   "end_line": 23,
+   "visibility": "public",
+   "doc": null,
+   "doc_source": null
+  },
+  {
+   "path": "src/types.ts",
+   "name": "METHANE",
+   "kind": "constant",
+   "parent": "Thresholds",
+   "signature": "METHANE = 1000",
+   "start_line": 18,
+   "end_line": 18,
+   "visibility": "public",
+   "doc": null,
+   "doc_source": null
+  },
+  {
+   "path": "src/types.ts",
+   "name": "forGas",
+   "kind": "function",
+   "parent": "Thresholds",
+   "signature": "forGas(gas: string): number",
+   "start_line": 20,
+   "end_line": 22,
+   "visibility": "public",
+   "doc": null,
+   "doc_source": null
+  }
+ ],
+ "imports": [
+  {
+   "path": "scripts/build.mjs",
+   "target": "vite"
+  },
+  {
+   "path": "src/components/Button.tsx",
+   "target": "react"
+  },
+  {
+   "path": "src/index.ts",
+   "target": "./transport"
+  },
+  {
+   "path": "src/index.ts",
+   "target": "./types"
+  },
+  {
+   "path": "src/transport/index.ts",
+   "target": "./reconnect"
+  },
+  {
+   "path": "src/transport/index.ts",
+   "target": "./socket"
+  },
+  {
+   "path": "src/transport/reconnect.ts",
+   "target": "./socket"
+  }
+ ],
+ "skipped": []
+}

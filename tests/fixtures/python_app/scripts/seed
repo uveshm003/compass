@@ -1,0 +1,13 @@
+#!/usr/bin/env python3
+"""Seed a local database with sample readings."""
+
+import random
+
+
+def main() -> None:
+    for _ in range(3):
+        print(random.random())
+
+
+if __name__ == "__main__":
+    main()

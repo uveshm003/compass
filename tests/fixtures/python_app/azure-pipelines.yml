@@ -1,0 +1,26 @@
+trigger:
+  - main
+
+pool:
+  vmImage: ubuntu-latest
+
+steps:
+  - task: UsePythonVersion@0
+    inputs:
+      versionSpec: "3.12"
+
+  - script: pip install uv && uv sync
+    displayName: Install
+
+  - script: uv run pytest --junitxml=junit.xml
+    displayName: Test
+
+  - task: Bash@3
+    displayName: Lint
+    inputs:
+      targetType: inline
+      script: uv run ruff check .
+
+  - task: PublishTestResults@2
+    inputs:
+      testResultsFiles: junit.xml

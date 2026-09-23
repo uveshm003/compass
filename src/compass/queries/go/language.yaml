@@ -1,0 +1,9 @@
+name: go
+grammar: go
+extensions: [.go]
+wrappers: [type_declaration, const_declaration, var_declaration, var_spec_list]
+index_files: [doc.go]
+visibility:
+  names:
+    - ["^[A-Z]", public]
+  default: private

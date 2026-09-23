@@ -1,0 +1,13 @@
+name: python
+grammar: python
+extensions: [.py, .pyi]
+shebangs: [python, python2, python3, pypy, pypy3]
+wrappers: [decorated_definition]
+skip_before_doc: [decorator]
+docstring: body_first_string
+index_files: [__init__.py]
+visibility:
+  names:
+    - ["^__.*__$", public]
+    - ["^_", private]
+  default: public

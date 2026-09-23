@@ -1,0 +1,38 @@
+[
+ {
+  "path": "Cargo.toml",
+  "lang": null,
+  "size": 258,
+  "hash": "68c8ccef9aa163ed1b0425326279aabe"
+ },
+ {
+  "path": "src/lib.rs",
+  "lang": "rust",
+  "size": 1123,
+  "hash": "1f26e9355232b461ae752de168861956"
+ },
+ {
+  "path": "src/main.rs",
+  "lang": "rust",
+  "size": 131,
+  "hash": "55980d3ee57199be976a6bd42f824ec6"
+ },
+ {
+  "path": "src/transport/mod.rs",
+  "lang": "rust",
+  "size": 74,
+  "hash": "1d024a27646812c1cf9d63fcd615fd0e"
+ },
+ {
+  "path": "src/transport/retry.rs",
+  "lang": "rust",
+  "size": 517,
+  "hash": "9d3405a717985608e9435b7c427319d5"
+ },
+ {
+  "path": "tests/integration.rs",
+  "lang": "rust",
+  "size": 124,
+  "hash": "7805bbfec2da19c0f8c13c732fc696f7"
+ }
+]
