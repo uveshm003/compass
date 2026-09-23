@@ -71,3 +71,31 @@
 (static_item
   (visibility_modifier)? @visibility
   name: (identifier) @name) @definition.constant
+
+; References: call sites, for callers_of. Matched by name only.
+(call_expression
+  function: (identifier) @name) @reference.call
+
+(call_expression
+  function: (field_expression
+    field: (field_identifier) @name)) @reference.call
+
+(call_expression
+  function: (scoped_identifier
+    name: (identifier) @name)) @reference.call
+
+(call_expression
+  function: (generic_function
+    function: [
+      (identifier) @name
+      (scoped_identifier name: (identifier) @name)
+      (field_expression field: (field_identifier) @name)
+    ])) @reference.call
+
+; Inside macro arguments (assert!, vec!, println!) there are no expressions,
+; only tokens: an identifier directly followed by a parenthesised group is a call.
+(token_tree
+  (identifier) @name
+  .
+  (token_tree) @_args
+  (#match? @_args "^\\(")) @reference.call

@@ -202,3 +202,23 @@ def test_python_module_entry_point():
 
     proc = subprocess.run([sys.executable, "-m", "compass", "--version"], capture_output=True, text=True)
     assert proc.returncode == 0
+
+
+@posix_only
+def test_uninstall_removes_compass_hooks_and_restores_chained_ones(make_repo):
+    root = make_repo("python_app")
+    hooks = root / ".git/hooks"
+    hooks.mkdir(parents=True, exist_ok=True)
+    (hooks / "pre-commit").write_text("#!/bin/sh\necho team\n")
+    (hooks / "pre-commit").chmod(0o755)
+    (hooks / "commit-msg").write_text("#!/bin/sh\nexit 0\n")  # never Compass's: untouched
+    run_compass("init", "--no-index", cwd=root)
+    proc = run_compass("uninstall", cwd=root)
+    assert proc.returncode == 0
+    assert "pre-commit: removed; the earlier hook is back in place" in proc.stdout
+    assert "post-commit: removed" in proc.stdout
+    assert (hooks / "pre-commit").read_text() == "#!/bin/sh\necho team\n"
+    assert not (hooks / "pre-commit.compass-chained").exists()
+    assert not any((hooks / h).exists() for h in HOOKS if h != "pre-commit")
+    assert (hooks / "commit-msg").exists() and (root / ".compass").is_dir()
+    assert "none of Compass's were installed" in run_compass("uninstall", cwd=root).stdout

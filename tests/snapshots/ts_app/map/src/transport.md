@@ -1,5 +1,6 @@
-# src/transport/  (3 files, 12 symbols) — Transport layer: connections, retries and backoff for the live feed
+# src/transport/  (4 files, 12 symbols) — Transport layer: connections, retries and backoff for the live feed
 ## index.ts — Transport layer: connections, retries and backoff for the live feed
+## reconnect.test.ts
 ## reconnect.ts
 - L4  class ReconnectPolicy — Retry strategy for dropped connections
 - L7    method constructor(private readonly maxDelayMs: number = 30_000)

@@ -1,0 +1,64 @@
+# Compass settings for this repository. Every module can be switched off.
+# Derived data (index, map shards, logs) lives next to this file and is
+# gitignored; rebuild it at any time with `compass index --full`.
+version: 1
+
+prompt_gate:
+  enabled: true
+  strictness: warn          # off | warn | block
+  bypass_prefix: "!quick"
+  required_fields: [goal, scope, acceptance]
+
+context_pack:
+  enabled: true
+  token_budget: 1500
+
+spec_gate:
+  enabled: true
+  large_task_when:
+    files_mentioned_gte: 3
+    keywords: [refactor, migrate, redesign, "new module"]
+
+index:
+  # gitignore-style globs, matched against repo-relative paths. A pattern
+  # without a slash matches a file or directory name at any depth.
+  exclude:
+    - "**/generated/**"
+    - "**/*.min.js"
+    - "**/*.min.css"
+    - "**/*.js.map"
+    - "vendor/**"
+    # Lockfiles: the stack profile reads them directly; the code map skips them.
+    - "**/*.lock"
+    - "**/package-lock.json"
+    - "**/pnpm-lock.yaml"
+    - "**/bun.lockb"
+    - "**/go.sum"
+    - "**/Package.resolved"
+    # Compass itself: fixture repos and snapshots are test data, not code to map.
+    - "tests/fixtures/**"
+    - "tests/snapshots/**"
+    - "tests/schemas/**"
+  max_file_kb: 1024
+  shard_token_limit: 2000
+
+query:
+  max_response_chars: 4000  # longer MCP answers end with a cursor to continue
+  context_lines: 3          # lines shown around a symbol by read_symbol
+
+review:
+  enabled: true
+  require_anchors: true
+  reply_max_lines: 10
+
+delegation:
+  digest_threshold_lines: 500
+
+local_llm:
+  enabled: false
+  base_url: http://localhost:11434/v1
+  model: qwen2.5-coder:7b
+
+telemetry:
+  enabled: true
+  export: false

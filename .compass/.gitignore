@@ -1,0 +1,8 @@
+# Derived by Compass; rebuild with `compass index --full`.
+index.db*
+index.lock
+map/
+changes/
+state.json
+telemetry.jsonl
+logs/

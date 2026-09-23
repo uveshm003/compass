@@ -10,3 +10,11 @@ visibility:
     - ["^#", private]
   exported_by: [export_statement]
   default: public
+tests:
+  files: ["**/*.test.*", "**/*.spec.*", "**/__tests__/**", "**/test/**", "**/tests/**", "**/e2e/**"]
+  name_suffixes: [.test, .spec]
+imports:
+  resolver: path             # ./ and ../ specifiers; bare ones are packages
+  alias_files: [tsconfig.json, jsconfig.json]   # compilerOptions.paths and baseUrl
+  extensions: [.js, .jsx, .mjs, .cjs, .ts, .tsx]
+  index_files: [index.js, index.jsx, index.mjs, index.cjs, index.ts, index.tsx]

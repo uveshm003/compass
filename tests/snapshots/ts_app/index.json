@@ -6,7 +6,8 @@
    "lang": null,
    "hash": "00e64a35b647c4fd38d72c980a2feca0",
    "size": 20,
-   "doc": null
+   "doc": null,
+   "is_test": 0
   },
   {
    "path": "README.md",
@@ -14,7 +15,8 @@
    "lang": null,
    "hash": "4d10eb9ce0be58563a3bb12119acddd2",
    "size": 109,
-   "doc": "Web dashboard for live gas readings, built on React and a WebSocket feed."
+   "doc": "Web dashboard for live gas readings, built on React and a WebSocket feed.",
+   "is_test": 0
   },
   {
    "path": "package.json",
@@ -22,7 +24,8 @@
    "lang": null,
    "hash": "2114373b02a5606c71ed166375fcd5cb",
    "size": 525,
-   "doc": null
+   "doc": null,
+   "is_test": 0
   },
   {
    "path": "scripts/build.mjs",
@@ -30,7 +33,8 @@
    "lang": "javascript",
    "hash": "139ef2191da98f11f56be26cff751022",
    "size": 131,
-   "doc": null
+   "doc": null,
+   "is_test": 0
   },
   {
    "path": "src/components/Button.tsx",
@@ -38,7 +42,8 @@
    "lang": "typescript",
    "hash": "ebb774600a517d8a5b42f619a78ad707",
    "size": 326,
-   "doc": null
+   "doc": null,
+   "is_test": 0
   },
   {
    "path": "src/index.ts",
@@ -46,7 +51,8 @@
    "lang": "typescript",
    "hash": "c5c2902bac6cf8fb059b05cf781ccd79",
    "size": 98,
-   "doc": null
+   "doc": null,
+   "is_test": 0
   },
   {
    "path": "src/legacy/util.js",
@@ -54,7 +60,8 @@
    "lang": "javascript",
    "hash": "62727c6fd12c61f1ac3c469dcfd97095",
    "size": 339,
-   "doc": null
+   "doc": null,
+   "is_test": 0
   },
   {
    "path": "src/transport/index.ts",
@@ -62,7 +69,17 @@
    "lang": "typescript",
    "hash": "4c2a5a2669d432f964e0ac80d9b5820d",
    "size": 128,
-   "doc": "Transport layer: connections, retries and backoff for the live feed."
+   "doc": "Transport layer: connections, retries and backoff for the live feed.",
+   "is_test": 0
+  },
+  {
+   "path": "src/transport/reconnect.test.ts",
+   "dir": "src/transport",
+   "lang": "typescript",
+   "hash": "1db202e396164e3cb377d1b3d912ca65",
+   "size": 522,
+   "doc": null,
+   "is_test": 1
   },
   {
    "path": "src/transport/reconnect.ts",
@@ -70,7 +87,8 @@
    "lang": "typescript",
    "hash": "046392a569d8b1ab2712590e3c7ec5a9",
    "size": 772,
-   "doc": null
+   "doc": null,
+   "is_test": 0
   },
   {
    "path": "src/transport/socket.ts",
@@ -78,7 +96,8 @@
    "lang": "typescript",
    "hash": "581620b578b1599d45cff487883b2c81",
    "size": 558,
-   "doc": null
+   "doc": null,
+   "is_test": 0
   },
   {
    "path": "src/types.ts",
@@ -86,7 +105,8 @@
    "lang": "typescript",
    "hash": "b9e015ce10deddf936f3aaacad4593cc",
    "size": 402,
-   "doc": null
+   "doc": null,
+   "is_test": 0
   },
   {
    "path": "tsconfig.json",
@@ -94,7 +114,8 @@
    "lang": null,
    "hash": "13ee49735d5820cc6bfea10869cb4929",
    "size": 82,
-   "doc": null
+   "doc": null,
+   "is_test": 0
   }
  ],
  "symbols": [
@@ -426,31 +447,212 @@
  "imports": [
   {
    "path": "scripts/build.mjs",
-   "target": "vite"
+   "target": "vite",
+   "resolved": null
   },
   {
    "path": "src/components/Button.tsx",
-   "target": "react"
+   "target": "react",
+   "resolved": null
   },
   {
    "path": "src/index.ts",
-   "target": "./transport"
+   "target": "./transport",
+   "resolved": "src/transport/index.ts"
   },
   {
    "path": "src/index.ts",
-   "target": "./types"
+   "target": "./types",
+   "resolved": "src/types.ts"
   },
   {
    "path": "src/transport/index.ts",
-   "target": "./reconnect"
+   "target": "./reconnect",
+   "resolved": "src/transport/reconnect.ts"
   },
   {
    "path": "src/transport/index.ts",
-   "target": "./socket"
+   "target": "./socket",
+   "resolved": "src/transport/socket.ts"
+  },
+  {
+   "path": "src/transport/reconnect.test.ts",
+   "target": "./reconnect",
+   "resolved": "src/transport/reconnect.ts"
+  },
+  {
+   "path": "src/transport/reconnect.test.ts",
+   "target": "vitest",
+   "resolved": null
   },
   {
    "path": "src/transport/reconnect.ts",
-   "target": "./socket"
+   "target": "./socket",
+   "resolved": "src/transport/socket.ts"
+  }
+ ],
+ "refs": [
+  {
+   "path": "scripts/build.mjs",
+   "line": 6,
+   "name": "build",
+   "kind": "call"
+  },
+  {
+   "path": "scripts/build.mjs",
+   "line": 9,
+   "name": "main",
+   "kind": "call"
+  },
+  {
+   "path": "src/legacy/util.js",
+   "line": 8,
+   "name": "Map",
+   "kind": "call"
+  },
+  {
+   "path": "src/transport/reconnect.test.ts",
+   "line": 4,
+   "name": "describe",
+   "kind": "call"
+  },
+  {
+   "path": "src/transport/reconnect.test.ts",
+   "line": 5,
+   "name": "it",
+   "kind": "call"
+  },
+  {
+   "path": "src/transport/reconnect.test.ts",
+   "line": 6,
+   "name": "ReconnectPolicy",
+   "kind": "call"
+  },
+  {
+   "path": "src/transport/reconnect.test.ts",
+   "line": 7,
+   "name": "expect",
+   "kind": "call"
+  },
+  {
+   "path": "src/transport/reconnect.test.ts",
+   "line": 7,
+   "name": "next",
+   "kind": "call"
+  },
+  {
+   "path": "src/transport/reconnect.test.ts",
+   "line": 7,
+   "name": "toBeLessThanOrEqual",
+   "kind": "call"
+  },
+  {
+   "path": "src/transport/reconnect.test.ts",
+   "line": 10,
+   "name": "it",
+   "kind": "call"
+  },
+  {
+   "path": "src/transport/reconnect.test.ts",
+   "line": 12,
+   "name": "Error",
+   "kind": "call"
+  },
+  {
+   "path": "src/transport/reconnect.test.ts",
+   "line": 12,
+   "name": "ReconnectPolicy",
+   "kind": "call"
+  },
+  {
+   "path": "src/transport/reconnect.test.ts",
+   "line": 12,
+   "name": "reject",
+   "kind": "call"
+  },
+  {
+   "path": "src/transport/reconnect.test.ts",
+   "line": 12,
+   "name": "withRetry",
+   "kind": "call"
+  },
+  {
+   "path": "src/transport/reconnect.test.ts",
+   "line": 13,
+   "name": "expect",
+   "kind": "call"
+  },
+  {
+   "path": "src/transport/reconnect.test.ts",
+   "line": 13,
+   "name": "toBe",
+   "kind": "call"
+  },
+  {
+   "path": "src/transport/reconnect.ts",
+   "line": 11,
+   "name": "min",
+   "kind": "call"
+  },
+  {
+   "path": "src/transport/reconnect.ts",
+   "line": 12,
+   "name": "random",
+   "kind": "call"
+  },
+  {
+   "path": "src/transport/reconnect.ts",
+   "line": 27,
+   "name": "op",
+   "kind": "call"
+  },
+  {
+   "path": "src/transport/reconnect.ts",
+   "line": 29,
+   "name": "next",
+   "kind": "call"
+  },
+  {
+   "path": "src/transport/reconnect.ts",
+   "line": 29,
+   "name": "sleep",
+   "kind": "call"
+  },
+  {
+   "path": "src/transport/socket.ts",
+   "line": 3,
+   "name": "Promise",
+   "kind": "call"
+  },
+  {
+   "path": "src/transport/socket.ts",
+   "line": 3,
+   "name": "setTimeout",
+   "kind": "call"
+  },
+  {
+   "path": "src/transport/socket.ts",
+   "line": 10,
+   "name": "WebSocket",
+   "kind": "call"
+  },
+  {
+   "path": "src/transport/socket.ts",
+   "line": 16,
+   "name": "String",
+   "kind": "call"
+  },
+  {
+   "path": "src/transport/socket.ts",
+   "line": 16,
+   "name": "onMessage",
+   "kind": "call"
+  },
+  {
+   "path": "src/transport/socket.ts",
+   "line": 21,
+   "name": "parse",
+   "kind": "call"
   }
  ],
  "skipped": []

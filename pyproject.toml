@@ -12,6 +12,9 @@ dependencies = [
   "tree-sitter==0.25.2",
   "tree-sitter-language-pack==0.13.0",
   "pyyaml>=6.0",
+  # The query tools' MCP server (stdio only, ADR 008). v2 renamed FastMCP to
+  # MCPServer and changed other APIs, so stay on the 2.x line.
+  "mcp>=2.2,<3",
 ]
 
 [project.scripts]

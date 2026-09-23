@@ -48,6 +48,12 @@
   "hash": "4c2a5a2669d432f964e0ac80d9b5820d"
  },
  {
+  "path": "src/transport/reconnect.test.ts",
+  "lang": "typescript",
+  "size": 522,
+  "hash": "1db202e396164e3cb377d1b3d912ca65"
+ },
+ {
   "path": "src/transport/reconnect.ts",
   "lang": "typescript",
   "size": 772,

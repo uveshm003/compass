@@ -101,7 +101,7 @@ def test_malformed_input_fails_open(indexed, stdin):
     assert (proc.returncode, proc.stdout, proc.stderr) == (0, "", "")
 
 
-@pytest.mark.parametrize("event", ["prompt", "pre-edit", "stop", "some-future-event"])
+@pytest.mark.parametrize("event", ["pre-edit", "some-future-event"])
 def test_events_without_a_handler_pass_through(indexed, event):
     proc = run_compass("hook", event, input=json.dumps({"cwd": str(indexed.root), "prompt": "hi"}))
     assert (proc.returncode, proc.stdout, proc.stderr) == (0, "", "")
@@ -151,17 +151,22 @@ def test_internal_errors_exit_zero_and_are_logged(indexed):
     assert "[hook post-edit]" in log and "Traceback" in log
 
 
+SESSION_CONTEXT = "[compass] Compass is active in this repository."
+
+
 def test_session_start_refreshes_stale_files_inline(indexed):
     write(indexed.root, "src/inventory/new_module.py", "def fresh():\n    pass\n")
     proc = run_compass("hook", "session-start", input=session_start(indexed.root))
-    assert (proc.returncode, proc.stdout, proc.stderr) == (0, "", "")
+    assert (proc.returncode, proc.stderr) == (0, "")
+    assert proc.stdout.startswith(SESSION_CONTEXT) and "being built" not in proc.stdout
     assert "fresh" in symbols(indexed)
 
 
 def test_session_start_restores_a_deleted_map(indexed):
     shutil.rmtree(indexed.map_dir)
     proc = run_compass("hook", "session-start", input=session_start(indexed.root))
-    assert (proc.returncode, proc.stdout, proc.stderr) == (0, "", "")
+    assert (proc.returncode, proc.stderr) == (0, "")
+    assert proc.stdout.startswith(SESSION_CONTEXT)
     assert "merge_items" in (indexed.map_dir / "src/inventory.md").read_text(encoding="utf-8")
 
 

@@ -16,3 +16,16 @@ visibility:
     - ["^#", private]
   exported_by: [export_statement]
   default: public
+tests:
+  files: ["**/*.test.*", "**/*.spec.*", "**/__tests__/**", "**/test/**", "**/tests/**", "**/e2e/**"]
+  name_suffixes: [.test, .spec]
+imports:
+  resolver: path             # ./ and ../ specifiers; bare ones are packages
+  alias_files: [tsconfig.json, jsconfig.json]   # compilerOptions.paths and baseUrl
+  extensions: [.ts, .tsx, .d.ts, .mts, .cts, .js, .jsx, .mjs, .cjs]
+  extension_aliases:         # ESM style: "./a.js" in TypeScript source means a.ts
+    .js: [.ts, .tsx]
+    .jsx: [.tsx]
+    .mjs: [.mts]
+    .cjs: [.cts]
+  index_files: [index.ts, index.tsx, index.js, index.jsx]

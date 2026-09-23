@@ -208,15 +208,43 @@ def test_trailing_comment_is_not_a_doc():
     assert [s.doc for s in result.symbols if s.name == "f"] == [None]
 
 
+@pytest.mark.parametrize(
+    ("lang", "source", "calls"),
+    [
+        ("python", "import x\n\n@app.route('/')\ndef f():\n    helper(1)\n    obj.method()\n", {("route", 3), ("helper", 5), ("method", 6)}),
+        ("typescript", "const a = run();\nnew Policy(1);\nthis.#tick();\nobj.save?.();\n", {("run", 1), ("Policy", 2), ("#tick", 3)}),
+        ("javascript", "go();\nmodule.load('x');\n", {("go", 1), ("load", 2)}),
+        ("go", "package p\n\nfunc f() {\n\tRetry()\n\tpkg.Do(x)\n}\n", {("Retry", 4), ("Do", 5)}),
+        (
+            "rust",
+            "fn f() {\n    run();\n    x.next();\n    Point::new();\n    parse::<u8>();\n    assert!(ok(1));\n}\n",
+            {("run", 2), ("next", 3), ("new", 4), ("parse", 5), ("ok", 6)},
+        ),
+    ],
+)
+def test_call_references_are_captured(lang, source, calls):
+    refs = {(r.name, r.line) for r in parse(lang, source).refs}
+    assert calls <= refs
+
+
 def test_imports_are_captured():
-    assert parse("python", "import os.path\nfrom . import x\nfrom .a.b import c\n").imports == (".", ".a.b", "os.path")
+    # `from m import x` targets m.x: a submodule when one exists, else m itself (the resolver decides)
+    python = "import os.path\nimport a as b\nfrom . import x\nfrom .. import y as z\nfrom .a.b import c, d\nfrom e import *\n"
+    assert parse("python", python).imports == ("..y", ".a.b.c", ".a.b.d", ".x", "a", "e", "os.path")
     assert parse("typescript", 'import a from "./a";\nexport * from "./b";\nconst c = require("c");\n').imports == (
         "./a",
         "./b",
         "c",
     )
     assert parse("go", 'package p\nimport (\n\t"fmt"\n\tx "net/http"\n)\n').imports == ("fmt", "net/http")
-    assert parse("rust", "use std::io;\nuse crate::a::{b, c};\n").imports == ("crate::a::{b, c}", "std::io")
+    rust = (
+        "use std::io;\nuse crate::a::{b, c::d, e as f};\nuse crate::util as u;\nuse super::*;\nextern crate g;\n"
+        "mod tests {\n    use super::*;\n    use crate::inner;\n}\n"
+    )
+    # only file-level uses: `super` inside an inline module means the file itself
+    assert parse("rust", rust).imports == (
+        "crate::a::b", "crate::a::c::d", "crate::a::e", "crate::util", "g", "std::io", "super",
+    )
 
 
 @pytest.mark.parametrize(

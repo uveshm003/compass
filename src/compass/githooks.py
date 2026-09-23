@@ -1,4 +1,5 @@
-"""git hooks that keep the index current after commits, checkouts and merges (IX-08).
+"""git hooks: keep the index current after commits, checkouts and merges
+(IX-08), and refuse commits that still add AI anchor tags (RO-05).
 
 ``compass init`` installs them and chains to any hook already there: the old
 file moves to ``<hook>.compass-chained`` and still runs first, with the same
@@ -24,10 +25,13 @@ from pathlib import Path
 
 from compass.repo import Repo, run_git
 
-HOOKS = ("post-commit", "post-checkout", "post-merge", "post-rewrite")
+UPDATE_HOOKS = ("post-commit", "post-checkout", "post-merge", "post-rewrite")
+PRE_COMMIT = "pre-commit"
+HOOKS = (*UPDATE_HOOKS, PRE_COMMIT)
 MARKER = "# compass-managed-hook"
 CHAIN_SUFFIX = ".compass-chained"
 UPDATE_COMMAND = "compass update --from-git"
+CHECK_COMMAND = "compass check-anchors --staged"
 
 
 def hooks_dir(repo: Repo) -> tuple[Path | None, str | None]:
@@ -44,6 +48,8 @@ def hooks_dir(repo: Repo) -> tuple[Path | None, str | None]:
 
 
 def script(hook: str, python: str) -> str:
+    if hook == PRE_COMMIT:
+        return pre_commit_script(python)
     python = shlex.quote(python)
     return f"""#!/bin/sh
 {MARKER} ({hook})
@@ -65,13 +71,36 @@ exit $status
 """
 
 
+def pre_commit_script(python: str) -> str:
+    python = shlex.quote(python)
+    return f"""#!/bin/sh
+{MARKER} ({PRE_COMMIT})
+# Refuses a commit that still adds AI anchor tags (@ai:<kind> <task>); once a
+# change is reviewed, `compass accept <task>` strips them. Written by
+# `compass init`; re-running it rewrites this file. A hook that was here before
+# lives on as {PRE_COMMIT}{CHAIN_SUFFIX} and runs first: if it fails, so does
+# the commit. To commit anyway: git commit --no-verify.
+hook_dir=$(dirname "$0")
+if [ -x "$hook_dir/{PRE_COMMIT}{CHAIN_SUFFIX}" ]; then
+  "$hook_dir/{PRE_COMMIT}{CHAIN_SUFFIX}" "$@" || exit $?
+fi
+if [ -x {python} ]; then
+  exec {python} -m compass {CHECK_COMMAND.removeprefix("compass ")} </dev/null
+elif command -v compass >/dev/null 2>&1; then
+  exec {CHECK_COMMAND} </dev/null
+fi
+exit 0
+"""
+
+
 def install(repo: Repo, python: str | None = None) -> list[str]:
     """Install or refresh the hooks; returns one message per hook."""
     directory, reason = hooks_dir(repo)
     if directory is None:
         return [
             f"git hooks not installed: {reason}.",
-            f"  Add `{UPDATE_COMMAND}` to your post-commit, post-checkout, post-merge and post-rewrite hooks.",
+            f"  Add `{UPDATE_COMMAND}` to your post-commit, post-checkout, post-merge and post-rewrite hooks,",
+            f"  and `{CHECK_COMMAND}` to your pre-commit hook.",
         ]
     python = Path(python or sys.executable).as_posix()
     directory.mkdir(parents=True, exist_ok=True)
@@ -79,9 +108,10 @@ def install(repo: Repo, python: str | None = None) -> list[str]:
     for hook in HOOKS:
         path = directory / hook
         chained = directory / f"{hook}{CHAIN_SUFFIX}"
+        command = CHECK_COMMAND if hook == PRE_COMMIT else UPDATE_COMMAND
         if os.path.lexists(path) and not _is_ours(path):
             if _depends_on_its_name(path):
-                messages.append(f"{hook}: left alone (it dispatches on its own name); add `{UPDATE_COMMAND}` to it")
+                messages.append(f"{hook}: left alone (it dispatches on its own name); add `{command}` to it")
                 continue
             if os.path.lexists(chained):
                 messages.append(f"{hook}: left alone ({hook} and {chained.name} both exist)")
@@ -93,6 +123,27 @@ def install(repo: Repo, python: str | None = None) -> list[str]:
         path.write_text(script(hook, python), encoding="utf-8", newline="\n")
         path.chmod(path.stat().st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
     return messages
+
+
+def uninstall(repo: Repo) -> list[str]:
+    """Remove Compass's hooks and put back any hook they chained; one message
+    per hook touched. Hooks Compass did not write are left alone."""
+    directory, reason = hooks_dir(repo)
+    if directory is None:
+        return [f"git hooks: nothing to remove ({reason}); take `{UPDATE_COMMAND}` and `{CHECK_COMMAND}` out by hand."]
+    messages = []
+    for hook in HOOKS:
+        path = directory / hook
+        chained = directory / f"{hook}{CHAIN_SUFFIX}"
+        if not (os.path.lexists(path) and _is_ours(path)):
+            continue
+        path.unlink()
+        if os.path.lexists(chained):
+            os.replace(chained, path)
+            messages.append(f"{hook}: removed; the earlier hook is back in place")
+        else:
+            messages.append(f"{hook}: removed")
+    return messages or ["git hooks: none of Compass's were installed"]
 
 
 def _is_ours(path: Path) -> bool:

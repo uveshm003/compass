@@ -2,7 +2,9 @@
 
 NF-03  full index of 100k LOC              <= 60 s
 NF-04  incremental update of one file      <= 500 ms (p95, as the hook runs it:
-                                              a fresh `compass` process)
+                                              a fresh `compass` process), also
+                                              when the file is new or deleted
+                                              and every import is re-resolved
 NF-05  largest map shard                   <= 2,000 tokens
 NF-15  index plus shards                   <= 50 MB
 """
@@ -10,7 +12,10 @@ NF-15  index plus shards                   <= 50 MB
 from __future__ import annotations
 
 import json
+import os
 import statistics
+import subprocess
+import sys
 import time
 
 import pytest
@@ -19,7 +24,7 @@ from compass.index.indexer import Indexer
 from compass.index.shards import estimate_tokens
 from compass.repo import Repo
 from conftest import git, run_compass
-from gen_repo import generate
+from gen_repo import generate, generate_packages
 
 pytestmark = pytest.mark.perf
 RUNS = 20
@@ -108,6 +113,40 @@ def test_manual_index_with_nothing_changed(big_repo):
     assert elapsed <= 5.0
 
 
+def test_query_tool_latency(big_repo):
+    # In-process, as the long-running MCP server answers; then as a one-off CLI twin.
+    from compass.query import Queries
+
+    repo, *_ = big_repo
+    queries = Queries(repo)
+    calls = {
+        "find_symbol": lambda: queries.find_symbol("method_3"),  # a name in every file: the worst case
+        "read_symbol": lambda: queries.read_symbol("Service40.method_1"),
+        "file_outline": lambda: queries.file_outline(sorted((repo.root / "go").rglob("*.go"))[3].relative_to(repo.root).as_posix()),
+        "callers_of": lambda: queries.callers_of("helper_2"),  # hundreds of call sites
+        "map": lambda: queries.map("python/area3/mod1"),
+        "tests_for": lambda: queries.tests_for("Service7.method_2"),
+    }
+    calls["find_symbol"]()  # the first call also runs the freshness check
+    report = []
+    for name, run in calls.items():
+        samples = []
+        for _ in range(10):
+            started = time.perf_counter()
+            run()
+            samples.append(time.perf_counter() - started)
+        report.append(f"{name} {statistics.median(samples) * 1000:.0f} ms")
+        assert statistics.median(samples) <= 0.2, name
+    cli = []
+    for _ in range(5):
+        started = time.perf_counter()
+        proc = run_compass("-C", str(repo.root), "find-symbol", "method_3")
+        cli.append(time.perf_counter() - started)
+        assert proc.returncode == 0
+    print(f"\nin-process medians: {', '.join(report)}; CLI find-symbol median {statistics.median(cli) * 1000:.0f} ms")
+    assert statistics.median(cli) <= 1.0
+
+
 def test_session_start_staleness_check(big_repo):
     repo, *_ = big_repo
     samples = []
@@ -115,6 +154,96 @@ def test_session_start_staleness_check(big_repo):
         started = time.perf_counter()
         proc = run_compass("hook", "session-start", input=json.dumps({"cwd": str(repo.root)}))
         samples.append(time.perf_counter() - started)
-        assert (proc.returncode, proc.stdout, proc.stderr) == (0, "", "")
+        assert (proc.returncode, proc.stderr) == (0, "")
+        assert proc.stdout.startswith("[compass] Compass is active") and "being built" not in proc.stdout
     print(f"\nsession-start with nothing stale: median {statistics.median(samples) * 1000:.0f} ms")
     assert statistics.median(samples) <= 1.0
+
+
+@pytest.fixture(scope="module")
+def import_heavy_repo(tmp_path_factory):
+    root = tmp_path_factory.mktemp("imports") / "repo"
+    loc = generate_packages(root)
+    git(root, "init", "-q")
+    repo = Repo(root.resolve())
+    Indexer(repo).build(full=True)
+    return repo, loc
+
+
+def test_adding_and_removing_a_file_p95_under_500ms(import_heavy_repo):
+    # A new or deleted file can change what any import resolves to, so every
+    # import is re-resolved inline; that must stay inside the hook budget.
+    from compass.index.store import Store
+
+    repo, loc = import_heavy_repo
+    with Store.open(repo.db_path) as store:
+        imports = len(store.import_rows())
+    samples = []
+    for n in range(RUNS // 2):
+        rel = f"src/app/pkg{n}/new_module.py"
+        for create in (True, False):
+            path = repo.root / rel
+            if create:
+                path.write_text("from app.pkg1.mod1 import thing0\n\ndef added() -> None:\n    pass\n", encoding="utf-8")
+            else:
+                path.unlink()
+            payload = json.dumps({"cwd": str(repo.root), "tool_name": "Write", "tool_input": {"file_path": str(path)}})
+            started = time.perf_counter()
+            proc = run_compass("hook", "post-edit", input=payload)
+            samples.append(time.perf_counter() - started)
+            assert (proc.returncode, proc.stderr) == (0, "")
+            with Store.open(repo.db_path) as store:
+                assert (store.file_info(rel) is not None) == create
+    print(f"\nadd/remove with {imports} imports ({loc} LOC): median {statistics.median(samples) * 1000:.0f} ms,"
+          f" p95 {p95(samples) * 1000:.0f} ms")
+    assert p95(samples) <= 0.5
+
+
+def test_prompt_hook_p95_under_100ms(big_repo):
+    # NF-01 is the prompt gate's budget; M3's turn bookkeeping must leave it room.
+    # A bare interpreter start is measured too: Windows runners create
+    # processes several times slower, which no Compass change can fix, so
+    # there the check is on Compass's own share.
+    repo, *_ = big_repo
+    payload = json.dumps({"session_id": "perf", "cwd": str(repo.root), "prompt": "where is retry handled?"})
+    run_compass("hook", "prompt", input=payload)  # the first prompt of a session starts its task
+    samples, bare = [], []
+    for _ in range(RUNS):
+        started = time.perf_counter()
+        proc = run_compass("hook", "prompt", input=payload)
+        samples.append(time.perf_counter() - started)
+        assert (proc.returncode, proc.stdout, proc.stderr) == (0, "", "")
+        started = time.perf_counter()
+        subprocess.run([sys.executable, "-c", "pass"], check=True)
+        bare.append(time.perf_counter() - started)
+    own = p95(samples) - p95(bare)
+    print(f"\nprompt hook: median {statistics.median(samples) * 1000:.0f} ms, p95 {p95(samples) * 1000:.0f} ms"
+          f" (bare interpreter p95 {p95(bare) * 1000:.0f} ms)")
+    assert own <= 0.06
+    if os.name != "nt":
+        assert p95(samples) <= 0.1
+
+
+def test_stop_hook_with_a_changed_file_p95_under_500ms(big_repo):
+    # The Stop hook scans for anchors and rewrites the manifest at the end of every turn that edits files.
+    repo, *_ = big_repo
+    target = sorted((repo.root / "rust").rglob("*.rs"))[5]
+    original = target.read_text(encoding="utf-8")
+    task = json.loads(run_compass("-C", str(repo.root), "task", "--json").stdout)["task"]
+    tag = "@ai" + f":change {task}"
+    samples = []
+    try:
+        for n in range(RUNS // 2):
+            target.write_text(original + f"// {tag} — edit {n}\n", encoding="utf-8")
+            edit = json.dumps({"session_id": "perf", "cwd": str(repo.root), "tool_name": "Edit",
+                               "tool_input": {"file_path": str(target)}})
+            assert run_compass("hook", "post-edit", input=edit).returncode == 0
+            payload = json.dumps({"session_id": "perf", "cwd": str(repo.root), "stop_hook_active": False})
+            started = time.perf_counter()
+            proc = run_compass("hook", "stop", input=payload)
+            samples.append(time.perf_counter() - started)
+            assert proc.returncode == 0 and "systemMessage" in proc.stdout, proc.stdout + proc.stderr
+    finally:
+        target.write_text(original, encoding="utf-8")
+    print(f"\nstop hook: median {statistics.median(samples) * 1000:.0f} ms, p95 {p95(samples) * 1000:.0f} ms")
+    assert p95(samples) <= 0.5

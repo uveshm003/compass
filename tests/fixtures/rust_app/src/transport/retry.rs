@@ -22,3 +22,14 @@ pub mod policy {
         attempt < MAX_RETRIES
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn delay_grows() {
+        let mut backoff = Backoff::default();
+        assert!(backoff.next_delay() < backoff.next_delay());
+    }
+}

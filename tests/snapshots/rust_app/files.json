@@ -26,8 +26,8 @@
  {
   "path": "src/transport/retry.rs",
   "lang": "rust",
-  "size": 517,
-  "hash": "9d3405a717985608e9435b7c427319d5"
+  "size": 713,
+  "hash": "c11abbc2dae6ec7ad7d08a3c449b7732"
  },
  {
   "path": "tests/integration.rs",

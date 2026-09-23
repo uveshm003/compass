@@ -4,9 +4,16 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Current state
 
-**M1 (index core, Steps 0–3 of the Getting Started guide) is implemented; M2 (query tools and MCP server) is next.** The repo holds the Python core under `src/compass/`, its tests, and the five Markdown specs for Compass. `.docx` and `.pdf` exports of the specs live one directory up; the `.md` files here are the source of truth, and the exports predate M1.
+**M1 (index core), M2 (query tools, Step 4) and M3 (plugin and review manifest, Steps 5–6) are implemented; M4 (gates and context pack) is next.** The repo holds the Python core under `src/compass/`, the Claude Code plugin under `plugin/`, its tests, and the five Markdown specs for Compass. `.docx` and `.pdf` exports of the specs live one directory up; the `.md` files here are the source of truth, and the exports predate M1.
 
-What exists: file enumeration and the stack profile (IX-01, IX-10), the tree-sitter indexer with a universal-ctags fallback (IX-02 to IX-05), map shards and the `_index.md` folder tree (IX-06, IX-09), raw import targets (IX-11, not yet resolved to files), and incremental updates from git hooks and the `compass hook post-edit` / `session-start` handlers (IX-07, IX-08). The plugin folder (`plugin/`), MCP server, gates, manifests and telemetry do not exist yet.
+What exists:
+- **M1:** file enumeration and the stack profile (IX-01, IX-10), the tree-sitter indexer with a universal-ctags fallback (IX-02 to IX-05), map shards and the `_index.md` folder tree (IX-06, IX-09), and incremental updates from git hooks and the `compass hook post-edit` / `session-start` handlers (IX-07, IX-08).
+- **M2:** call sites, imports resolved to files (IX-11) and test mapping (IX-12) in the index; the query engine (`query.py`) behind the stdio MCP server (`compass mcp`, QT-01 to QT-03, QT-05) and its CLI twins (QT-04).
+- **M3:** the plugin (`plugin/`: hooks, the `/compass:accept` command, the `digest` subagent, an opt-in output style, the MCP registration) and a marketplace file at `.claude-plugin/marketplace.json` (CF-01); anchor tags, the task state, change manifests with local and hosted links, the Stop-hook anchor check, `compass accept` and the git pre-commit check (RO-01 to RO-05).
+
+Gates, the context pack, delegation rules and telemetry do not exist yet. Two done-when checks need a real Claude Code session and so a manual run (see Testing): M2's "answered through Compass with zero Read calls" and M3's "a real task produces a manifest" (the scripted half, a commit with leftover tags being rejected, is covered by `tests/test_review.py`).
+
+This repo dogfoods Compass: `.compass/config.yaml` (which excludes `tests/fixtures/**`, `tests/snapshots/**` and `tests/schemas/**`) and a project `.mcp.json` that serves the tools with `uv run compass mcp`. With the plugin installed as well, drop `.mcp.json` or the tools appear twice; `uv tool install --editable .` makes the plugin's `compass` the working copy.
 
 The specs are internally cross-referenced, so a change to one usually needs matching edits in the others.
 
@@ -72,20 +79,39 @@ compass init                   # create .compass/, config, git hooks, first inde
 compass index [--full] [--json]  # refresh only changed files, or rebuild everything
 compass update [paths]         # re-index specific files; --from-git is what git hooks call
 compass files [--json]         # enumerated file list with language and content hash
-compass stack [--json]         # detected stack profile
-compass hook <event>           # Claude Code hook entry point, JSON on stdin; always exits 0 in M1
+compass stack [--json]         # detected stack profile (twin of stack_profile)
+compass mcp                    # the query tools as a stdio MCP server
+compass find-symbol NAME       # twins of the MCP tools, same engine and text;
+compass read-symbol NAME       #   add --json for structured output, or
+compass file-outline PATH      #   --cursor 0 to page exactly as MCP does
+compass map [DIR]
+compass tests-for TARGET
+compass importers-of TARGET
+compass callers-of NAME
+compass task [new]             # the active task (started if none), or a fresh one
+compass manifest [ID]          # write .compass/changes/<id>.md; --hosted prints GitHub/Azure DevOps links, --json the data
+compass accept [ID]            # strip a reviewed task's anchors, archive its manifest (what /compass:accept runs)
+compass check-anchors [ID]     # list anchor tags; --staged is the git pre-commit check (exit 1 if a commit adds any)
+compass uninstall              # remove Compass's git hooks, restoring any they chained (CF-04); keeps .compass/
+compass hook <event>           # Claude Code hook entry point, JSON on stdin; always exits 0
 ```
 
-Planned for later milestones: `compass mcp` (M2, stdio MCP server), `compass manifest <id>` (M3), `compass enrich` (M5, background local-LLM summaries), `compass report` (M6), and the optional `compass watch` (IX-15). Every query tool will be both an MCP tool and `compass <cmd> --json` (QT-04). Hooks all route through `compass hook <session-start|prompt|pre-edit|post-edit|stop>`; M1 handles `session-start` and `post-edit`, and any other event name passes through with exit 0.
+Planned for later milestones: `compass enrich` (M5, background local-LLM summaries), `compass report` (M6), and the optional `compass watch` (IX-15). Hooks all route through `compass hook <session-start|prompt|pre-edit|post-edit|stop>`; all but `pre-edit` (M4's spec gate) are handled, and any other event name passes through with exit 0.
+
+The plugin installs from this repo: `uv tool install .` for the CLI, then `claude plugin marketplace add ./` and `claude plugin install compass@compass-marketplace` (or `/plugin …` inside Claude Code). The same marketplace works from GitHub (`owner/repo`) and Azure Repos (the `https://dev.azure.com/…/_git/…` URL), NF-16. `claude plugin validate --strict plugin` checks the files locally without a model call.
 
 ### Testing
 
 ```bash
-uv run pytest                     # unit, snapshot, determinism, hook-contract tests (~10 s)
+uv run pytest                     # unit, snapshot, determinism, hook-contract tests (~40 s, mostly subprocesses)
 uv run pytest --perf              # also latency/footprint checks on a generated 100k LOC repo
 uv run pytest --update-snapshots  # accept new output in tests/snapshots/ — review the diff first
 COMPASS_TEST_CTAGS=/path/to/ctags uv run pytest tests/test_ctags.py   # real universal-ctags
 ```
+
+`tests/test_query.py` covers every tool per language; `tests/test_mcp.py` drives the real server over stdio with the MCP client, as Claude Code does. The M2 done-when check runs a real headless Claude Code session and passes only if it answers through Compass with zero Read calls: `uv run python tests/e2e/check_query_tools.py`. It spends Claude usage, so pytest never runs it; ask before running it.
+
+M3's tests: `tests/test_anchors.py` (scanner, stripper, staged-lines check), `tests/test_manifest.py` (grouping, links, hosted URLs for every GitHub and Azure DevOps remote form), `tests/test_review.py` (hook contracts for the whole review loop, `accept`, and real `git commit` runs against the pre-commit hook) and `tests/test_plugin.py` (plugin files against SchemaStore schemas vendored in `tests/schemas/`, hooks wired to handled events, versions in step, and `claude plugin validate --strict` when Claude Code is installed). Test files assemble tags at runtime (`AI = "@ai" + ":"`): a literal tag in Compass's own files would trip its own pre-commit check, and `test_compass_itself_carries_no_anchor_tags` enforces that.
 
 Fixture repos live in `tests/fixtures/` (one per language family); `tests/snapshots/<fixture>/` holds the expected index rows, map shards, file list and stack profile. Tests isolate git from the developer's config and set `COMPASS_CTAGS=off`, so installed tools never change snapshot output. Latency checks use plain timers with p95 rather than `pytest-benchmark`. Still planned from Step 9: weekly end-to-end runs via headless `claude -p` against the latest Claude Code release, scheduled on both CI systems. CI is macOS, Ubuntu and Windows on Python 3.11 and 3.12 — Windows without WSL is a requirement (NF-08), not an afterthought. It is defined twice, identically: `.github/workflows/ci.yml` (GitHub Actions) and `azure-pipelines.yml` (Azure Pipelines). Change both together; `tests/test_ci_configs.py` fails when their matrices or commands drift apart, and it also validates both files against their published schemas, so the Azure pipeline gets checked on every GitHub run.
 
@@ -106,6 +132,21 @@ Fixture repos live in `tests/fixtures/` (one per language family); `tests/snapsh
 - **git hooks**: an existing hook is chained (renamed to `<hook>.compass-chained`) unless it dispatches on its own file name (symlinks, `basename "$0"`, husky 4). Those are left alone, as are all hooks when `core.hooksPath` is set; `init` then prints the line to add by hand.
 - **Shard names**: `.compass/map/<dir>.md`, the repo root as `_root.md`, split parts as `<dir>~2.md`, `<dir>~3.md`. A directory named `_index` or `_root` gets an extra `_`, and `~` in directory names is doubled, so names never collide.
 - **Determinism**: fresh builds are byte-identical (`index.db` and shards); a `--full` rebuild over an existing index matches except for three SQLite header counters.
+- **Query tools** (M2): `query.py` holds all behaviour; `mcp_server.py` is thin wrappers whose descriptions say when to prefer each tool over Read, Grep and Glob. The server instructions carry Step 4's rule: read whole files only to edit them. Answers are compact text in the shard format rather than JSON, capped at `query.max_response_chars` with a `cursor` to continue; `--json` on the CLI twins returns structured data.
+- **The query engine keeps the index fresh itself.** No plugin hooks exist yet, and Bash or editor edits never reach them anyway. Every tool runs SessionStart's staleness check at most every 20 s, a tool about one file re-indexes it first if its stat changed, and `config.yaml` is re-read when it changes (the MCP server lives for a whole session). `read_symbol` and `file_outline` take line numbers from the file as it is on disk (one read, parsed with the same `parse_source`), so they stay right when another process holds the index lock; a symbol deleted since indexing is reported as such. Queries answer NotReady until the first build commits, rather than empty results. Later pages of an answer (a non-zero cursor) skip the freshness checks so pages come from one index state.
+- **Concurrency**: the MCP SDK runs tool calls on worker threads, all sharing one `Queries`. Each call opens its own SQLite connection, tree-sitter parsing goes through a lock in `index/parser.py`, and the rate-limit and build-started state are locked.
+- **Line numbers split on `\n` only** (`index.model.source_lines`), as tree-sitter and ctags count them; `str.splitlines()` also splits on form feeds, U+2028 and lone `\r` and shifts every later line.
+- **MCP SDK v2** (`mcp>=2.2,<3`): `from mcp.server.mcpserver import MCPServer` (v2 renamed FastMCP); client types use snake_case (`input_schema`, `is_error`). The server imports in about 350 ms, paid once per Claude Code session, never on a hook path.
+- **Index schema 2 / `INDEX_FORMAT` 2**: a `refs` table (call sites by callee name, found through `@reference.call` captures), `imports.resolved` (the repo file, or for Go the package directory) and `files.is_test`. `from pkg import models` is stored as target `pkg.models` (an `@import.member` capture), which resolves to `pkg/models.py` or, when `models` is not a module, to the package. Imports are re-resolved in full whenever a file is added or removed, or a `go.mod`, `tsconfig.json` or `jsconfig.json` (or a `tsconfig.*.json` it may extend) changes; otherwise only the edited files' imports. The resolver shares work across rows (one resolution per directory and target, one candidate search per module path), which keeps adding a file to an 80k LOC repo with 21k imports at about 200 ms in a fresh process. Resolver strategies (`path` with tsconfig `paths`/`baseUrl`, `module`, `package`) and test conventions live in each `language.yaml`; `queries/README.md` has the rules. Known gaps: Rust `use my_crate::Item` from integration tests (it needs the crate name from Cargo.toml) and JS/TS workspace packages imported by name.
+- **Query answers**: `importers_of` gives one line per importing file, with the imported names compacted (`compass.query.{NotReady, Queries}`); for a directory it leaves out the directory's own files and says which of its files each importer uses; for a module name it matches submodules after the importer language's separator (`requests.adapters`, `react/jsx-runtime`, not `requests_toolbelt`). `tests_for` accepts a file, a bare file name, a directory (aggregated) or a symbol; name matching (`test_models.py` → `models.py`) picks the nearest same-named source by directory, so `b/utils.test.ts` is not also claimed for `a/utils.ts`. Pages fit `max_response_chars` including the cursor line, and cursors may be numbers or strings. CLI path arguments are relative to the current directory when they exist there, like `compass update`'s; MCP tools take repo-relative paths.
+
+- **Plugin = thin shell-outs** (M3). `plugin/hooks/hooks.json` runs `compass hook <event>` from PATH with short timeouts (10–30 s), and `plugin/.mcp.json` runs `compass mcp`; nothing else in `plugin/` executes. A missing CLI shows up as a hook error notice, never a blocked session. `tests/test_plugin.py` fails if a hook names an event the core does not handle, or a handler is not wired.
+- **Reply and anchor rules come from SessionStart context, not a forced output style.** The hook prints the query-tools rule, the four tag forms for the active task and the reply limit (`review.reply_max_lines`), so `review.enabled: false` turns them off (CF-03). `plugin/output-styles/compass-review.md` is the same rules as an opt-in style (`keep-coding-instructions: true`, never `force-for-plugin`, which would override the user's own style with no config switch).
+- **Anchors** (`anchors.py`): one regex, `@ai:(change|assume|review|todo) <id> [—|-|:] note`, ids starting and ending alphanumeric. `@ai:` right after a backtick is a Markdown code span quoting a tag (the specs do this), and after a word character it is part of a word; neither counts. Stripping knows a short list of comment openers (`#`, `//`, `--`, `;`, `%`, `'`, `*`, `!` at line start; `#`, `//`, `--` after code) and block pairs (`/* */`, `<!-- -->`, `<%-- --%>`, `{# #}`, `{- -}`, `(* *)`); a tag alone on its line deletes the line, a trailing tag removes just its comment, other bytes and line endings stay.
+- **Tasks** (`state.py`, `.compass/state.json`, lock `state.lock`): an id `T<n>` is started implicitly the first time Compass needs one and stays active until `compass accept`; M4's `/task` will start tasks explicitly. Each task records the files Claude edited (PostToolUse), each session its current turn's files and whether the last Stop blocked. Ids never repeat: `accepted` keeps closed ids, and when state is lost, ids still used by tags in files or archived manifests are skipped. Writes take the lock and replace the file atomically (retried on Windows); an unreadable file reads as empty.
+- **Stop hook** (`review.on_stop`): only acts when the session's turn changed files. It rewrites `.compass/changes/<task>.md`, then blocks with `{"decision": "block", "reason": …}` (exit 0) when a changed file has no tag for the task — skipping files matched by `review.anchor_exempt`, binaries and edits undone again — unless `stop_hook_active` is set or Compass blocked the previous Stop itself. Otherwise it returns a one-line `systemMessage` summary. A new prompt starts a new turn.
+- **Manifests** (`manifest.py`): Review, Assumptions, TODO, Mechanical, "Changed without anchors", then a files table from `git diff HEAD --numstat` (new files count every line). Links are relative (`../../path#L12`). `accept` archives to `changes/archive/<id>.md` plus a `.json` twin, with each line moved to where the tagged code sits once standalone tag lines are gone, so `compass manifest <id> --hosted` gives valid PR links after the commit. Hosted links parse `origin`: GitHub and GitHub Enterprise, Azure DevOps (`dev.azure.com`, `ssh.dev.azure.com:v3`, legacy `*.visualstudio.com`, `vs-ssh`), GitLab; credentials in the remote URL are dropped.
+- **Pre-commit hook**: `compass init` installs it next to the post-* hooks (chained the same way; a failing chained hook fails the commit). It runs `compass check-anchors --staged`, which looks only at lines the commit adds, so a tag quoted in an already committed file never blocks later commits. Internal errors let the commit through; `git commit --no-verify` is the escape hatch; `review.enabled: false` disables it.
 
 ## Conventions
 
@@ -113,7 +154,7 @@ Fixture repos live in `tests/fixtures/` (one per language family); `tests/snapsh
 - **Dogfood from M2 onward.** Compass is used on its own repo.
 - **Turn telemetry on early**, before M6 — baseline data from real sessions beats estimates.
 - **Gate rules are tuned from the bypass log, not from guesses.** Defaults favour adoption: gates warn rather than block, `!quick` always bypasses, and every module can be switched off in `config.yaml`. The top project risk is developers disabling the plugin, not technical failure.
-- **Anchor tags** `@ai:change`, `@ai:assume`, `@ai:review`, `@ai:todo` with a task id, written in the file's native comment syntax. The scanner is one regex with no per-language logic. A pre-commit hook blocks any commit still containing `@ai:`; `/accept <id>` strips them.
+- **Anchor tags** `@ai:change`, `@ai:assume`, `@ai:review`, `@ai:todo` with a task id, written in the file's native comment syntax. The scanner is one regex with no per-language logic. A pre-commit hook blocks any commit that adds a tag; `/compass:accept <id>` strips them. When writing about tags in this repo, quote them in backticks or build them at runtime.
 - **Never compare benchmark numbers across Compass versions or Claude Code versions.** Pin both, record them in the report, and rerun the full suite after any change that could affect results.
 
 ## Open questions

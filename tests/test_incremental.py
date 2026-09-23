@@ -271,3 +271,32 @@ def test_index_result_json_shape(make_repo):
     data = Indexer(repo).build().as_dict()
     assert set(data) == {"mode", "files", "parsed", "removed", "symbols", "seconds"}
     json.dumps(data)
+
+
+def test_incremental_import_resolution_matches_a_full_build(make_repo):
+    root = make_repo(files={
+        "src/pkg/__init__.py": "",
+        "src/pkg/views.py": "from . import models\nfrom pkg import helpers\n",
+        "tests/test_views.py": "from pkg.views import models\n",
+        "web/app.ts": "import { cn } from '@/lib/utils'\nimport { x } from './missing'\n",
+        "go.mod": "module example.com/app\n",
+        "cmd/main.go": 'package main\n\nimport "example.com/app/internal/util"\n',
+    })
+    repo = Repo(root)
+    indexer = Indexer(repo)
+    indexer.build()
+    steps = [
+        ("src/pkg/models.py", "class Model:\n    pass\n"),  # `from . import models` now resolves to it
+        ("web/tsconfig.json", '{"compilerOptions": {"baseUrl": ".", "paths": {"@/*": ["./*"]}}}\n'),
+        ("web/lib/utils.ts", "export function cn() {}\n"),
+        ("internal/util/util.go", "package util\n"),  # a new Go package directory
+        ("go.mod", "module example.com/renamed\n"),  # every Go import moves
+        ("src/pkg/models.py", None),  # and back to the package
+    ]
+    for rel, text in steps:
+        if text is None:
+            (repo.root / rel).unlink()
+        else:
+            bump_mtime(write(repo.root, rel, text))
+        indexer.update([rel])
+        assert state(repo) == fresh_state(root), rel

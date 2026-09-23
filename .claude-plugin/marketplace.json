@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-marketplace.json",
+  "name": "compass-marketplace",
+  "description": "The Compass plugin for Claude Code, from this repository.",
+  "owner": {
+    "name": "Compass contributors"
+  },
+  "plugins": [
+    {
+      "name": "compass",
+      "source": "./plugin",
+      "description": "Code map and query tools over MCP, review anchors and a change manifest for every AI change.",
+      "category": "development"
+    }
+  ]
+}

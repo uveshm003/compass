@@ -16,7 +16,7 @@ import subprocess
 from pathlib import Path
 
 from compass.index.docs import clean_comment
-from compass.index.model import FileParse, Symbol
+from compass.index.model import FileParse, Symbol, source_lines
 from compass.index.parser import normalize_signature
 
 CTAGS_ENV = "COMPASS_CTAGS"
@@ -95,7 +95,7 @@ def ctags_symbols(root: Path, sources: dict[str, bytes]) -> dict[str, FileParse]
         languages[path] = language
     out = {}
     for path, entries in tags.items():
-        lines = sources[path].decode("utf-8", "replace").splitlines()
+        lines = source_lines(sources[path])
         symbols = {_symbol(tag, lines) for tag in entries}
         out[path] = FileParse(symbols=tuple(sorted(symbols, key=Symbol.sort_key)), lang=languages[path])
     return out

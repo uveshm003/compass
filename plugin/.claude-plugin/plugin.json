@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-plugin-manifest.json",
+  "name": "compass",
+  "displayName": "Compass",
+  "version": "0.1.0",
+  "description": "Code map and query tools over MCP, review anchors and a change manifest for every AI change. Needs the compass CLI on PATH (uv tool install).",
+  "author": {
+    "name": "Compass contributors"
+  },
+  "keywords": [
+    "code-map",
+    "mcp",
+    "review",
+    "tree-sitter",
+    "tokens"
+  ]
+}

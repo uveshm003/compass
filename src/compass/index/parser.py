@@ -8,13 +8,14 @@ version pinned in pyproject.toml.
 from __future__ import annotations
 
 import re
+import threading
 from dataclasses import dataclass, field
 
 from tree_sitter import Node, Parser, Query, QueryCursor
 from tree_sitter_language_pack import get_language, get_parser
 
 from compass.index import docs
-from compass.index.model import FileParse, Symbol
+from compass.index.model import FileParse, Ref, Symbol
 from compass.languages import LanguageSpec
 
 SIGNATURE_CHARS = 160
@@ -55,6 +56,9 @@ class _Def:
 
 
 _COMPILED: dict[tuple[str, str], _Compiled] = {}
+# A tree-sitter parser is not safe to share between threads, and the MCP server
+# runs tool calls on worker threads.
+_PARSE_LOCK = threading.Lock()
 
 
 def _compiled(spec: LanguageSpec, grammar: str) -> _Compiled:
@@ -81,10 +85,12 @@ def _text(node: Node) -> str:
 
 
 def parse_source(spec: LanguageSpec, path: str, src: bytes) -> FileParse:
-    compiled = _compiled(spec, spec.grammar_for(path))
-    root = compiled.parser.parse(src).root_node
+    with _PARSE_LOCK:
+        compiled = _compiled(spec, spec.grammar_for(path))
+        root = compiled.parser.parse(src).root_node
+    found_defs, refs = _collect(compiled.tags, root)
     ordered = sorted(
-        _collect_defs(compiled.tags, root),
+        found_defs,
         key=lambda d: (d.node.start_byte, -d.node.end_byte, d.name.start_byte, d.pattern),
     )
     by_node: dict[tuple[int, int, int], _Def] = {}
@@ -164,20 +170,29 @@ def parse_source(spec: LanguageSpec, path: str, src: bytes) -> FileParse:
     symbols.sort(key=Symbol.sort_key)
     return FileParse(
         symbols=tuple(symbols),
-        imports=_imports(compiled.imports, root),
+        imports=_imports(compiled.imports, root, spec.imports.separator),
         doc=docs.file_header(root, src, spec, used_comments),
+        refs=tuple(sorted(refs, key=lambda r: (r.line, r.name, r.kind))),
     )
 
 
-def _collect_defs(query: Query, root: Node) -> list[_Def]:
+def _collect(query: Query, root: Node) -> tuple[list[_Def], set[Ref]]:
+    """Definitions and call references, from one pass over the tags query."""
     defs: dict[tuple[int, int, int, int], _Def] = {}
+    refs: set[Ref] = set()
     for pattern, caps in QueryCursor(query).matches(root):
         kind = node = None
+        ref_kind = None
         for capture, nodes in caps.items():
             if capture.startswith("definition."):
                 kind, node = capture[len("definition.") :], nodes[0]
                 break
+            if capture.startswith("reference."):
+                ref_kind = capture[len("reference.") :]
         names = caps.get("name")
+        if node is None and ref_kind and names:
+            refs.add(Ref(_clean_name(_text(names[0])), names[0].start_point[0] + 1, ref_kind))
+            continue
         if node is None or not names:
             continue
         key = (*_key(node), names[0].start_byte)
@@ -197,7 +212,7 @@ def _collect_defs(query: Query, root: Node) -> list[_Def]:
             params=list(caps.get("params", [])),
             body=caps["body"][0] if "body" in caps else None,
         )
-    return list(defs.values())
+    return list(defs.values()), refs
 
 
 def _clean_name(name: str) -> str:
@@ -296,13 +311,21 @@ def _visibility(
     return rule.default
 
 
-def _imports(query: Query | None, root: Node) -> tuple[str, ...]:
+def _imports(query: Query | None, root: Node, separator: str) -> tuple[str, ...]:
+    """Import targets. With an ``@import.member`` capture (``from pkg import
+    mod``) the target is the module and the member joined by ``separator``."""
     if query is None:
         return ()
     found: set[str] = set()
     for _pattern, caps in QueryCursor(query).matches(root):
+        members = [_clean_name(_text(n)) for n in caps.get("import.member", [])]
         for node in caps.get("import", []):
-            target = _clean_name(_text(node))
-            if target:
-                found.add(target)
+            module = _clean_name(_text(node))
+            if not module:
+                continue
+            if not members:
+                found.add(module)
+            for member in filter(None, members):
+                joiner = "" if module.endswith(separator) else separator
+                found.add(f"{module}{joiner}{member}")
     return tuple(sorted(found))

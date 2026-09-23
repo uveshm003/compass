@@ -9,3 +9,16 @@ visibility:
     - ["^pub\\s*\\(\\s*self\\s*\\)$", private]
     - ["^pub\\s*\\(", internal]
   default: private
+tests:
+  files: ["**/tests/**/*.rs", "**/benches/**/*.rs"]
+  name_suffixes: [_test, _tests]
+  inline_module: tests       # #[cfg(test)] mod tests { ... } inside the source file
+imports:
+  resolver: module
+  separator: "::"
+  extensions: [.rs]
+  package_files: [mod.rs]
+  dir_modules: [mod.rs, lib.rs, main.rs]   # these files own their directory's module
+  relative_markers: {self: 0, super: 1}
+  strip_markers: [crate]
+  drop_leading: true         # `use my_crate::a::b` finds a/b.rs without knowing my_crate

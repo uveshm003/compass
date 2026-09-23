@@ -92,12 +92,14 @@ def scan(
         return None
     if len(data) > max_bytes:
         return skipped
+    lang = registry.detect(path, data[:256])
     info = FileInfo(
         path=path,
-        lang=registry.detect(path, data[:256]),
+        lang=lang,
         size=st.st_size,
         hash=hashlib.blake2b(data, digest_size=16).hexdigest(),
         mtime_ns=st.st_mtime_ns,
+        is_test=registry.is_test(path, lang),
     )
     return info, data
 

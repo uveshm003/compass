@@ -6,7 +6,8 @@
    "lang": null,
    "hash": "68c8ccef9aa163ed1b0425326279aabe",
    "size": 258,
-   "doc": null
+   "doc": null,
+   "is_test": 0
   },
   {
    "path": "src/lib.rs",
@@ -14,7 +15,8 @@
    "lang": "rust",
    "hash": "1f26e9355232b461ae752de168861956",
    "size": 1123,
-   "doc": "Sensor gateway: collects readings and forwards them upstream."
+   "doc": "Sensor gateway: collects readings and forwards them upstream.",
+   "is_test": 0
   },
   {
    "path": "src/main.rs",
@@ -22,7 +24,8 @@
    "lang": "rust",
    "hash": "55980d3ee57199be976a6bd42f824ec6",
    "size": 131,
-   "doc": null
+   "doc": null,
+   "is_test": 0
   },
   {
    "path": "src/transport/mod.rs",
@@ -30,15 +33,17 @@
    "lang": "rust",
    "hash": "1d024a27646812c1cf9d63fcd615fd0e",
    "size": 74,
-   "doc": "Transport: framing and retries for the upstream link."
+   "doc": "Transport: framing and retries for the upstream link.",
+   "is_test": 0
   },
   {
    "path": "src/transport/retry.rs",
    "dir": "src/transport",
    "lang": "rust",
-   "hash": "9d3405a717985608e9435b7c427319d5",
-   "size": 517,
-   "doc": null
+   "hash": "c11abbc2dae6ec7ad7d08a3c449b7732",
+   "size": 713,
+   "doc": null,
+   "is_test": 0
   },
   {
    "path": "tests/integration.rs",
@@ -46,7 +51,8 @@
    "lang": "rust",
    "hash": "7805bbfec2da19c0f8c13c732fc696f7",
    "size": 124,
-   "doc": null
+   "doc": null,
+   "is_test": 1
   }
  ],
  "symbols": [
@@ -303,6 +309,30 @@
    "doc_source": null
   },
   {
+   "path": "src/transport/retry.rs",
+   "name": "tests",
+   "kind": "module",
+   "parent": null,
+   "signature": "tests",
+   "start_line": 26,
+   "end_line": 35,
+   "visibility": "private",
+   "doc": null,
+   "doc_source": null
+  },
+  {
+   "path": "src/transport/retry.rs",
+   "name": "delay_grows",
+   "kind": "function",
+   "parent": "tests",
+   "signature": "delay_grows()",
+   "start_line": 30,
+   "end_line": 34,
+   "visibility": "private",
+   "doc": null,
+   "doc_source": null
+  },
+  {
    "path": "tests/integration.rs",
    "name": "reading_display",
    "kind": "function",
@@ -318,19 +348,91 @@
  "imports": [
   {
    "path": "src/lib.rs",
-   "target": "std::fmt"
+   "target": "std::fmt",
+   "resolved": null
   },
   {
    "path": "src/main.rs",
-   "target": "sensor_gateway::transport::retry::Backoff"
+   "target": "sensor_gateway::transport::retry::Backoff",
+   "resolved": "src/transport/retry.rs"
   },
   {
    "path": "src/transport/retry.rs",
-   "target": "std::time::Duration"
+   "target": "std::time::Duration",
+   "resolved": null
   },
   {
    "path": "tests/integration.rs",
-   "target": "sensor_gateway::Reading"
+   "target": "sensor_gateway::Reading",
+   "resolved": null
+  }
+ ],
+ "refs": [
+  {
+   "path": "src/lib.rs",
+   "line": 20,
+   "name": "into",
+   "kind": "call"
+  },
+  {
+   "path": "src/lib.rs",
+   "line": 45,
+   "name": "Ok",
+   "kind": "call"
+  },
+  {
+   "path": "src/lib.rs",
+   "line": 56,
+   "name": "assert",
+   "kind": "call"
+  },
+  {
+   "path": "src/main.rs",
+   "line": 4,
+   "name": "default",
+   "kind": "call"
+  },
+  {
+   "path": "src/transport/retry.rs",
+   "line": 13,
+   "name": "from_millis",
+   "kind": "call"
+  },
+  {
+   "path": "src/transport/retry.rs",
+   "line": 13,
+   "name": "min",
+   "kind": "call"
+  },
+  {
+   "path": "src/transport/retry.rs",
+   "line": 13,
+   "name": "pow",
+   "kind": "call"
+  },
+  {
+   "path": "src/transport/retry.rs",
+   "line": 32,
+   "name": "default",
+   "kind": "call"
+  },
+  {
+   "path": "src/transport/retry.rs",
+   "line": 33,
+   "name": "next_delay",
+   "kind": "call"
+  },
+  {
+   "path": "tests/integration.rs",
+   "line": 5,
+   "name": "new",
+   "kind": "call"
+  },
+  {
+   "path": "tests/integration.rs",
+   "line": 5,
+   "name": "to_string",
+   "kind": "call"
   }
  ],
  "skipped": []

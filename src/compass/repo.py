@@ -12,13 +12,15 @@ COMPASS_DIR = ".compass"
 # Written to .compass/.gitignore: everything derived stays out of git and can be
 # rebuilt with `compass index --full`. config.yaml, standards/ and specs/ are
 # team-owned and stay tracked.
-GITIGNORE = """\
-# Derived by Compass; rebuild with `compass index --full`.
+GITIGNORE_HEADER = "# Derived by Compass; rebuild with `compass index --full`."
+GITIGNORE = f"""\
+{GITIGNORE_HEADER}
 index.db*
 index.lock
 map/
 changes/
-state.json
+state.json*
+state.lock
 telemetry.jsonl
 logs/
 """
@@ -57,14 +59,34 @@ class Repo:
         return self.compass_dir / "index.lock"
 
     @property
+    def state_path(self) -> Path:
+        return self.compass_dir / "state.json"
+
+    @property
+    def state_lock_path(self) -> Path:
+        return self.compass_dir / "state.lock"
+
+    @property
+    def changes_dir(self) -> Path:
+        return self.compass_dir / "changes"
+
+    @property
     def initialized(self) -> bool:
         return self.compass_dir.is_dir()
 
     def ensure_state_dir(self) -> None:
-        """Create ``.compass/`` and its ``.gitignore``; never touches config.yaml."""
+        """Create ``.compass/`` and its ``.gitignore``; never touches config.yaml.
+        A ``.gitignore`` Compass wrote earlier is brought up to date; one the
+        team replaced is left alone."""
         self.compass_dir.mkdir(exist_ok=True)
         gitignore = self.compass_dir / ".gitignore"
-        if not gitignore.exists():
+        try:
+            current = gitignore.read_text(encoding="utf-8")
+        except FileNotFoundError:
+            current = None
+        except OSError:
+            return
+        if current is None or (current != GITIGNORE and current.startswith(GITIGNORE_HEADER)):
             gitignore.write_text(GITIGNORE, encoding="utf-8", newline="\n")
 
     def relpath(self, path: str | os.PathLike[str]) -> str | None:

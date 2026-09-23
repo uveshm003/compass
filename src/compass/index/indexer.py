@@ -36,6 +36,7 @@ from compass.index import ctags
 from compass.index.docs import readme_summary
 from compass.index.model import FileInfo, FileParse, is_readme
 from compass.index.parser import parse_source
+from compass.index.resolve import Resolver, feeds_resolution
 from compass.index.shards import INDEX_NAME, ShardWriter
 from compass.index.store import IndexUnavailable, Store
 from compass.languages import load_registry
@@ -45,7 +46,8 @@ from compass.repo import Repo
 
 # Bump when the parser or shard writer produce different output for the same
 # input, so existing indexes rebuild instead of mixing old and new rows.
-INDEX_FORMAT = 1
+# 2: call references, resolved imports, test-file flags (M2).
+INDEX_FORMAT = 2
 
 
 class FullBuildNeeded(Exception):
@@ -80,6 +82,7 @@ class Indexer:
         self.settings = self.config.index
         self.registry = load_registry()
         self.is_excluded = compile_globs(self.settings.exclude)
+        self.feeds_resolution = feeds_resolution(self.registry)
 
     # -- public entry points --------------------------------------------------
 
@@ -190,6 +193,7 @@ class Indexer:
             store.put_skipped(skipped)
             for info, parse in records:
                 store.put_file(info, parse)
+            self._resolve_imports(store, None)
             store.set_meta("fingerprint", self.fingerprint())
             self._shards(store).write_all()  # before the commit; see the module docstring
         store.compact()
@@ -275,6 +279,17 @@ class Indexer:
                     store.touch(info.path, info.size, info.mtime_ns)
                 for info, parse in records:
                     store.put_file(info, parse)
+                if records or removed:
+                    # A new or deleted file (or a changed go.mod or tsconfig.json)
+                    # can change what any import resolves to; an edit of any
+                    # other file only affects its own imports.
+                    changed = [info.path for info, _ in records]
+                    reresolve_all = (
+                        bool(removed)
+                        or any(p not in known for p in changed)
+                        or any(self.feeds_resolution(posixpath.basename(p)) for p in changed)
+                    )
+                    self._resolve_imports(store, None if reresolve_all else changed)
                 writer = self._shards(store)  # before the commit; see the module docstring
                 if rewrite_all:
                     writer.write_all()
@@ -308,6 +323,23 @@ class Indexer:
             records = [(info, tagged.get(info.path, parse)) for info, parse in records]
         records.sort(key=lambda r: r[0].path)
         return records
+
+    def _resolve_imports(self, store: Store, paths: list[str] | None) -> None:
+        """Point each import at the repo file it names (None: every import).
+        A resolver bug must not block the index, so failures are logged."""
+        try:
+            rows = store.import_rows(paths)
+            if not rows:
+                return
+            resolver = Resolver(self.repo.root, store.langs(), self.registry)
+            updates = []
+            for importer, target, lang, current in rows:
+                resolved = resolver.resolve(importer, lang, target)
+                if resolved != current:
+                    updates.append((importer, target, resolved))
+            store.set_resolved(updates)
+        except Exception as exc:
+            log_error(self.repo.root, "resolve imports", exc)
 
     def _parse_one(self, spec, info: FileInfo, data: bytes) -> FileParse | None:
         try:

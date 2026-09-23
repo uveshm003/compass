@@ -96,10 +96,10 @@ All state lives in one `.compass/` folder per repo. Team-owned inputs are commit
 | `config.yaml` | Module toggles, gate rules, budgets, local-LLM settings | Yes |
 | `standards/` | Team standards skills per stack | Yes (or linked from an org repo) |
 | `specs/<id>.md` | Task specs with status and open questions | Team choice; recommended yes |
-| `index.db` | SQLite: files, symbols, imports, test map | No |
+| `index.db` | SQLite: files (with a test-file flag), symbols, imports resolved to files, call sites | No |
 | `map/` | Markdown shards per directory + `_index.md` | No |
-| `changes/<id>.md` | Change manifests | No; archived on `/accept` |
-| `state.json` | Active task id and size | No |
+| `changes/<id>.md` | Change manifests, each with a `.json` twin | No; moved to `changes/archive/` on `/compass:accept` |
+| `state.json` | Active task id and size, the files each task touched, per-session turn state | No |
 | `telemetry.jsonl` | One row per task | No |
 | `logs/` | Hook errors and bypass log | No |
 
@@ -136,10 +136,15 @@ index:
   max_file_kb: 1024
   shard_token_limit: 2000
 
+query:
+  max_response_chars: 4000  # longer MCP answers end with a cursor (QT-05)
+  context_lines: 3          # lines around a symbol in read_symbol (QT-02)
+
 review:
   enabled: true
-  require_anchors: true
+  require_anchors: true     # the Stop hook sends Claude back once to tag untagged changes
   reply_max_lines: 10
+  anchor_exempt: ["**/*.json", "**/*.lock", "**/*.svg"]   # files that cannot hold comments (shortened)
 
 delegation:
   digest_threshold_lines: 500
@@ -162,10 +167,10 @@ Stack-agnosticism depends on these extension points being small and data-driven,
 
 | To add | You provide | Where |
 | --- | --- | --- |
-| A language | A `language.yaml` (grammar, file matching, docstring and visibility rules), a `tags.scm` query and an optional import query | `src/compass/queries/<lang>/` |
+| A language | A `language.yaml` (grammar, file matching, docstring, visibility, test and import-resolution rules), a `tags.scm` query (definitions and call sites) and an optional import query | `src/compass/queries/<lang>/` |
 | A stack detector | A module with a `detect(repo) -> dict \| None` function reading one manifest type | `src/compass/stacks/` |
 | A prompt-gate rule | A function `(prompt, config) -> list[missing_field]` | `src/compass/gate/rules/` |
-| A test-mapping convention | A pattern pair, e.g. `src/{x}.ts` ↔ `src/{x}.test.ts` | `config.yaml` or a detector |
+| A test-mapping convention | Test-file globs and name affixes, e.g. `x.test.ts` tests `x.ts` | The language's `language.yaml` (`tests:` section) |
 | A subagent | A Markdown file with frontmatter and an output contract | `plugin/agents/` |
 | A team standard | A skill folder | `.compass/standards/` or the org repo |
 
@@ -183,7 +188,9 @@ Compass must never make Claude Code worse than stock. Any failure other than a d
 | Index missing or corrupt | SessionStart triggers a rebuild in the background; query tools answer "index not ready" | One-line notice |
 | Hook exceeds its time budget | Context pack returns what it has so far | Smaller context pack |
 | Local LLM unreachable | Local features disabled for the session | Nothing |
-| Stop hook would block twice in a row | Second block skipped (`stop_hook_active` check) | Normal stop |
+| Stop hook would block twice in a row | Second block skipped (`stop_hook_active` check, plus Compass's own record of its last block) | Normal stop |
+| `compass` CLI not installed but the plugin is | Each hook command fails to start; Claude Code treats that as a non-blocking error | A hook error notice; session continues |
+| Pre-commit check fails internally | Commit allowed, error logged | Nothing |
 | Spec gate blocks a genuinely small edit | Developer runs `!quick` or `/approve` | Clear message naming the fix |
 | Config file invalid | Defaults used; warning printed once per session | One-line warning |
 

@@ -11,3 +11,14 @@ visibility:
     - ["^__.*__$", public]
     - ["^_", private]
   default: public
+tests:
+  files: ["**/test_*.py", "**/*_test.py", "**/tests/**/*.py", "**/test/**/*.py", "**/conftest.py"]
+  name_prefixes: [test_]
+  name_suffixes: [_test]
+imports:
+  resolver: module
+  separator: "."
+  leading_dots: true         # from . import x / from ..pkg import y
+  extensions: [.py, .pyi]
+  package_files: [__init__.py]
+  source_roots: [src]        # src layout: src/ is on the import path

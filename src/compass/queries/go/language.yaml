@@ -7,3 +7,11 @@ visibility:
   names:
     - ["^[A-Z]", public]
   default: private
+tests:
+  files: ["**/*_test.go"]
+  name_suffixes: [_test]
+  same_package: true         # a _test.go file tests its whole package directory
+imports:
+  resolver: package          # an import names a directory under a go.mod module path
+  module_files:
+    go.mod: '^module\s+(\S+)'

@@ -197,6 +197,7 @@ v1 ships every Must item. Should items land if the pilot schedule allows, and Co
 | CF-01 | Install via the Claude Code plugin marketplace plus one CLI package | Must |
 | CF-02 | `compass init` creates `.compass/`, config, git hooks and the first index | Must |
 | CF-03 | Every component can be switched off in config | Must |
+| CF-04 | `compass uninstall` removes Compass's git hooks and puts back any hooks they chained, so removing the plugin and running it leaves no Compass hook behind | Should |
 
 ## Non-functional requirements
 

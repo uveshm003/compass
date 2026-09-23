@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "compass": {
+      "command": "compass",
+      "args": ["mcp"]
+    }
+  }
+}

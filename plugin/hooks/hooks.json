@@ -1,0 +1,20 @@
+{
+  "description": "Compass: every hook runs `compass hook <event>` from the compass CLI, which fails open. PreToolUse arrives with the spec gate (M4).",
+  "hooks": {
+    "SessionStart": [
+      { "hooks": [{ "type": "command", "command": "compass hook session-start", "timeout": 30 }] }
+    ],
+    "UserPromptSubmit": [
+      { "hooks": [{ "type": "command", "command": "compass hook prompt", "timeout": 10 }] }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit|MultiEdit|NotebookEdit",
+        "hooks": [{ "type": "command", "command": "compass hook post-edit", "timeout": 30 }]
+      }
+    ],
+    "Stop": [
+      { "hooks": [{ "type": "command", "command": "compass hook stop", "timeout": 30 }] }
+    ]
+  }
+}

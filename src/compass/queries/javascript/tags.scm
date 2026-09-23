@@ -62,3 +62,14 @@
     (variable_declarator
       name: (identifier) @name) @definition.constant)
   (#match? @name "^_?[A-Z][A-Z0-9_]*$"))
+
+; References: call sites (and `new`), for callers_of. Matched by name only.
+(call_expression
+  function: (identifier) @name) @reference.call
+
+(call_expression
+  function: (member_expression
+    property: [(property_identifier) (private_property_identifier)] @name)) @reference.call
+
+(new_expression
+  constructor: (identifier) @name) @reference.call

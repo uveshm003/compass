@@ -32,7 +32,51 @@ visibility:
   names: [["^#", private]]             # regex over the symbol name
   exported_by: [export_statement]      # declarations are public only inside these
   default: public
+tests:                         # test mapping for tests_for (IX-12)
+  files: ["**/*.test.*"]       # globs marking test files
+  name_prefixes: [test_]       # test_models.py tests models.py
+  name_suffixes: [.test, _test]  # reconnect.test.ts tests reconnect.ts
+  same_package: false          # Go: a test file covers its whole directory
+  inline_module: tests         # Rust: `mod tests` inside the source file
+imports:                       # import resolution for importers_of (IX-11)
+  resolver: path               # path | module | package, see below
+  extensions: [.ts, .tsx]
+  extension_aliases: {.js: [.ts]}   # ESM: "./a.js" in TS source means a.ts
+  index_files: [index.ts]      # a directory import means this file
+  alias_files: [tsconfig.json] # path: compilerOptions.paths and baseUrl
+  source_roots: [src]          # module: directories on the import path
 ```
+
+Import resolvers (implemented in `index/resolve.py`):
+
+- `path`: `./` and `../` specifiers relative to the importing file, trying
+  `extensions`, `extension_aliases` and `index_files`. Bare specifiers go
+  through the nearest `alias_files` entry up the tree (tsconfig.json or
+  jsconfig.json, comments and trailing commas allowed, relative `extends`
+  followed): its `compilerOptions.paths` (an exact pattern, else the longest
+  `*` prefix), then its `baseUrl`. Anything else is a package and stays
+  unresolved.
+- `module`: module paths split on `separator` (`.` or `::`). Relative forms are
+  anchored at the importing module: Python's leading dots (`leading_dots`) or
+  words such as Rust's `self` and `super` (`relative_markers`, levels up), with
+  `dir_modules` naming the files that own their directory (mod.rs). When no
+  file under the anchor matches, the target is the anchor module's own file:
+  its package file, the Rust 2018 `net.rs` beside `net/`, or a crate root.
+  Absolute paths drop `strip_markers` (`crate`) and are matched by path suffix
+  against `extensions` and `package_files`, dropping trailing segments that
+  name items; a match whose root directory is itself a package is rejected. A
+  lone module file (`os.py`, as opposed to `pkg/models.py`) only matches from
+  a root the importer could have on its import path: the repo root, the
+  importer's own directory or its ancestors, or a directory named in
+  `source_roots`. So `scripts/os.py` is not what `import os` in `src/` means.
+  `drop_leading` also tries without leading segments (an unknown crate name).
+- `package`: the import names a directory under a module path read from a
+  `module_files` entry, e.g. `go.mod: '^module\s+(\S+)'`.
+
+An import of the importing file itself resolves to nothing. Editing a
+`module_files` or `alias_files` entry (or a `tsconfig.*.json` beside it, which
+an alias file may extend) re-resolves every import, as adding or deleting a
+file does; other edits re-resolve only the edited file's imports.
 
 Docstring rules: `body_first_string` takes the first string literal in the
 definition's body (and the module's first statement for the file header), and
@@ -55,8 +99,11 @@ enclosing interface or trait's visibility, then `default`.
 | `@signature` | The signature starts here instead of at `@name` |
 | `@params` | The signature is the name followed by the text from here (functions assigned to variables) |
 | `@body` | The signature ends where this node starts; the default is the definition's `body` field, else the end of the name's line |
+| `@reference.call` | A call site; `@name` is the callee's name (for callers_of) |
 
 Captures starting with `_` are helpers for predicates and are ignored.
+References are matched by name only, like a text search restricted to call
+sites; list the plain-call form first, then method calls (`obj.name()`).
 
 Kinds in use: `class`, `interface`, `struct`, `enum`, `trait`, `impl`, `type`,
 `function`, `method`, `constant`, `variable`, `module`, `namespace`, `macro`.
@@ -71,4 +118,11 @@ Rules the core applies to every language:
 
 ## `imports.scm` captures
 
-`@import`: a node whose text, with quotes stripped, is one import target.
+| Capture | Meaning |
+| --- | --- |
+| `@import` | A node whose text, with quotes stripped, is one import target |
+| `@import.member` | A name imported from that target: the target becomes `@import` + `separator` + member, so `from pkg import models` targets `pkg.models` (the resolver falls back to `pkg` when `models` is not a module) and `use crate::t::{a, b}` targets `crate::t::a` and `crate::t::b` |
+
+Only capture imports whose target is relative to the file: Rust's queries
+match file-level `use` declarations only, because `use super::*` inside an
+inline `mod tests` refers to the file itself.

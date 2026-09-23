@@ -18,8 +18,47 @@ from pathlib import Path, PurePosixPath
 
 import yaml
 
+from compass.globs import compile_globs
+
 # Named docstring rules a language.yaml may select (implemented in index/docs.py).
 DOCSTRING_RULES = frozenset({"body_first_string"})
+# Named import resolvers a language.yaml may select (implemented in index/resolve.py).
+IMPORT_RESOLVERS = frozenset({"path", "module", "package"})
+
+
+@dataclass(frozen=True)
+class TestConvention:
+    """Which files are tests, and how a test file's name points at its source
+    (IX-12): ``test_models.py`` and ``reconnect.test.ts`` both name a source
+    file once the affixes are stripped."""
+
+    __test__ = False  # not a pytest test class, despite the name
+
+    files: tuple[str, ...] = ()
+    name_prefixes: tuple[str, ...] = ()
+    name_suffixes: tuple[str, ...] = ()
+    same_package: bool = False  # Go: a test file covers its whole directory
+    inline_module: str | None = None  # Rust: `mod tests` inside the source file
+
+
+@dataclass(frozen=True)
+class ImportRules:
+    """How import targets map to repo files (IX-11); see queries/README.md."""
+
+    resolver: str | None = None
+    separator: str = "."
+    extensions: tuple[str, ...] = ()
+    extension_aliases: Mapping[str, tuple[str, ...]] = field(default_factory=dict)  # TS: "./a.js" is a.ts
+    index_files: tuple[str, ...] = ()
+    package_files: tuple[str, ...] = ()
+    dir_modules: tuple[str, ...] = ()  # files that are their directory's module (Rust mod.rs)
+    leading_dots: bool = False
+    relative_markers: Mapping[str, int] = field(default_factory=dict)
+    strip_markers: tuple[str, ...] = ()
+    drop_leading: bool = False
+    source_roots: tuple[str, ...] = ()  # directories named like this are on the import path
+    module_files: Mapping[str, str] = field(default_factory=dict)
+    alias_files: tuple[str, ...] = ()  # tsconfig-style files with compilerOptions.paths
 
 
 @dataclass(frozen=True)
@@ -45,6 +84,8 @@ class LanguageSpec:
     docstring: str | None
     visibility: VisibilityRule
     index_files: tuple[str, ...]
+    tests: TestConvention
+    imports: ImportRules
     directory: Path = field(compare=False)
 
     def grammar_for(self, path: str) -> str:
@@ -74,6 +115,11 @@ class Registry:
             for interpreter in spec.shebangs:
                 self._by_shebang.setdefault(interpreter, spec.name)
         self.index_files = frozenset(f for spec in specs for f in spec.index_files)
+        self._test_globs = {spec.name: compile_globs(spec.tests.files) for spec in specs}
+
+    def is_test(self, path: str, lang: str | None) -> bool:
+        matches = self._test_globs.get(lang) if lang else None
+        return bool(matches and matches(path))
 
     def __iter__(self):
         return iter(sorted(self._specs.values(), key=lambda s: s.name))
@@ -139,6 +185,11 @@ def _load_spec(directory: Path) -> LanguageSpec:
     if docstring is not None and docstring not in DOCSTRING_RULES:
         raise ValueError(f"{directory}/language.yaml: unknown docstring rule {docstring!r}")
     vis = raw.get("visibility") or {}
+    tests = raw.get("tests") or {}
+    imports = raw.get("imports") or {}
+    resolver = imports.get("resolver")
+    if resolver is not None and resolver not in IMPORT_RESOLVERS:
+        raise ValueError(f"{directory}/language.yaml: unknown import resolver {resolver!r}")
     return LanguageSpec(
         name=name,
         grammar=raw.get("grammar", name),
@@ -156,5 +207,28 @@ def _load_spec(directory: Path) -> LanguageSpec:
             default=vis.get("default"),
         ),
         index_files=tuple(raw.get("index_files", [])),
+        tests=TestConvention(
+            files=tuple(tests.get("files", [])),
+            name_prefixes=tuple(tests.get("name_prefixes", [])),
+            name_suffixes=tuple(tests.get("name_suffixes", [])),
+            same_package=bool(tests.get("same_package", False)),
+            inline_module=tests.get("inline_module"),
+        ),
+        imports=ImportRules(
+            resolver=resolver,
+            separator=imports.get("separator", "."),
+            extensions=tuple(imports.get("extensions", [])),
+            extension_aliases={k: tuple(v) for k, v in (imports.get("extension_aliases") or {}).items()},
+            index_files=tuple(imports.get("index_files", [])),
+            package_files=tuple(imports.get("package_files", [])),
+            dir_modules=tuple(imports.get("dir_modules", [])),
+            leading_dots=bool(imports.get("leading_dots", False)),
+            relative_markers=dict(imports.get("relative_markers") or {}),
+            strip_markers=tuple(imports.get("strip_markers", [])),
+            drop_leading=bool(imports.get("drop_leading", False)),
+            source_roots=tuple(imports.get("source_roots", [])),
+            module_files=dict(imports.get("module_files") or {}),
+            alias_files=tuple(imports.get("alias_files", [])),
+        ),
         directory=directory,
     )

@@ -22,7 +22,7 @@ def _python(i: int, blocks: int) -> list[str]:
             f'        """Compute step {j}."""',
             "        total = value",
             "        for k in range(10):",
-            f"            total += k * {j}",
+            f"            total += helper_{j % 5}(k) * {j}",
             "        return total",
             "",
         ]
@@ -37,7 +37,7 @@ def _typescript(i: int, blocks: int) -> list[str]:
             f"  /** Compute step {j}. */",
             f"  method{j}(value: number): number {{",
             "    let total = value;",
-            f"    for (let k = 0; k < 10; k++) total += k * {j};",
+            f"    for (let k = 0; k < 10; k++) total += helper{j % 5}(k) * {j};",
             "    return total;",
             "  }",
             "",
@@ -53,7 +53,7 @@ def _go(i: int, blocks: int) -> list[str]:
             f"// Method{j} computes step {j}.",
             f"func (s *Service{i}) Method{j}(value int) int {{",
             "\ttotal := value",
-            f"\tfor k := 0; k < 10; k++ {{ total += k * {j} }}",
+            f"\tfor k := 0; k < 10; k++ {{ total += helper{j % 5}(k) * {j} }}",
             "\treturn total",
             "}",
             "",
@@ -69,7 +69,7 @@ def _rust(i: int, blocks: int) -> list[str]:
             f"    /// Compute step {j}.",
             f"    pub fn method_{j}(&self, value: u64) -> u64 {{",
             "        let mut total = value;",
-            f"        for k in 0..10 {{ total += k * {j}; }}",
+            f"        for k in 0..10 {{ total += helper_{j % 5}(k) * {j}; }}",
             "        total",
             "    }",
             "",
@@ -93,6 +93,28 @@ def generate(root: Path, target_loc: int = 100_000) -> int:
         path.write_text("\n".join(lines) + "\n", encoding="utf-8", newline="\n")
         total += len(lines)
         i += 1
+    return total
+
+
+def generate_packages(root: Path, packages: int = 225, modules: int = 8) -> int:
+    """A Python repo of packages that import each other heavily (about 12
+    imports per module, like application code), for the cost of re-resolving
+    every import when a file is added or removed. Returns its line count."""
+    total = 0
+    for p in range(packages):
+        package = root / "src" / "app" / f"pkg{p}"
+        package.mkdir(parents=True, exist_ok=True)
+        (package / "__init__.py").write_text("", encoding="utf-8")
+        for m in range(modules):
+            lines = ["import os", "import json", "from typing import Any", "from dataclasses import dataclass"]
+            # Deterministic, spread-out cross-package imports.
+            lines += [f"from app.pkg{(p * 7 + k * 13) % packages}.mod{(m + k) % modules} import thing{k}" for k in range(7)]
+            lines += [f"from . import mod{(m + 1) % modules}", ""]
+            for f in range(8):
+                lines += [f"def f{f}(value: Any) -> int:", f'    """Step {f}."""', "    return len(os.getcwd()) + value", ""]
+            (package / f"mod{m}.py").write_text("\n".join(lines) + "\n", encoding="utf-8", newline="\n")
+            total += len(lines)
+    (root / "src" / "app" / "__init__.py").write_text("", encoding="utf-8")
     return total
 
 

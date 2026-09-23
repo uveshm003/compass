@@ -11,3 +11,11 @@
   (assignment
     left: (identifier) @name) @definition.constant
   (#match? @name "^_?[A-Z][A-Z0-9_]*$"))
+
+; References: call sites, for callers_of. Matched by name only.
+(call
+  function: (identifier) @name) @reference.call
+
+(call
+  function: (attribute
+    attribute: (identifier) @name)) @reference.call

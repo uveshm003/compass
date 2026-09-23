@@ -6,7 +6,8 @@
    "lang": null,
    "hash": "9348435e73a6f9775aa842e90e5bacca",
    "size": 222,
-   "doc": "Tracks stock levels reported by warehouse gas sensors. Exposes a small HTTP API for the dashboard."
+   "doc": "Tracks stock levels reported by warehouse gas sensors. Exposes a small HTTP API for the dashboard.",
+   "is_test": 0
   },
   {
    "path": "azure-pipelines.yml",
@@ -14,7 +15,8 @@
    "lang": null,
    "hash": "5a2d705c332c0bfad97a0101b35348c2",
    "size": 448,
-   "doc": null
+   "doc": null,
+   "is_test": 0
   },
   {
    "path": "pyproject.toml",
@@ -22,7 +24,8 @@
    "lang": null,
    "hash": "4f4d326b37011bfc17a6a17bad2e1362",
    "size": 392,
-   "doc": null
+   "doc": null,
+   "is_test": 0
   },
   {
    "path": "scripts/seed",
@@ -30,7 +33,8 @@
    "lang": "python",
    "hash": "95a4b6c1c0f6e3a749167adc80c4beae",
    "size": 204,
-   "doc": "Seed a local database with sample readings."
+   "doc": "Seed a local database with sample readings.",
+   "is_test": 0
   },
   {
    "path": "src/inventory/__init__.py",
@@ -38,7 +42,8 @@
    "lang": "python",
    "hash": "c696cb14995c9387f373ce04dfff937a",
    "size": 147,
-   "doc": "Inventory service: stock levels from warehouse sensors."
+   "doc": "Inventory service: stock levels from warehouse sensors.",
+   "is_test": 0
   },
   {
    "path": "src/inventory/_internal/cache.py",
@@ -46,7 +51,8 @@
    "lang": "python",
    "hash": "f784cf55bebf392bc2fca78a4b8155e8",
    "size": 500,
-   "doc": "A tiny LRU cache for sensor lookups."
+   "doc": "A tiny LRU cache for sensor lookups.",
+   "is_test": 0
   },
   {
    "path": "src/inventory/api.py",
@@ -54,7 +60,8 @@
    "lang": "python",
    "hash": "0a0c3b9b41cb14935ef03f4c69d15bf0",
    "size": 421,
-   "doc": "HTTP routes."
+   "doc": "HTTP routes.",
+   "is_test": 0
   },
   {
    "path": "src/inventory/models.py",
@@ -62,7 +69,8 @@
    "lang": "python",
    "hash": "2cb6ab45e26c882179c4d73b88751ade",
    "size": 1652,
-   "doc": "Domain models for stock tracking."
+   "doc": "Domain models for stock tracking.",
+   "is_test": 0
   },
   {
    "path": "tests/test_models.py",
@@ -70,7 +78,8 @@
    "lang": "python",
    "hash": "40a8c0fa530ed4231c71cebbc9b7fc6f",
    "size": 209,
-   "doc": null
+   "doc": null,
+   "is_test": 1
   }
  ],
  "symbols": [
@@ -330,35 +339,185 @@
  "imports": [
   {
    "path": "scripts/seed",
-   "target": "random"
+   "target": "random",
+   "resolved": null
   },
   {
    "path": "src/inventory/__init__.py",
-   "target": "inventory.models"
+   "target": "inventory.models.Reading",
+   "resolved": "src/inventory/models.py"
+  },
+  {
+   "path": "src/inventory/__init__.py",
+   "target": "inventory.models.StockItem",
+   "resolved": "src/inventory/models.py"
   },
   {
    "path": "src/inventory/_internal/cache.py",
-   "target": "collections"
+   "target": "collections.OrderedDict",
+   "resolved": null
   },
   {
    "path": "src/inventory/api.py",
-   "target": ".models"
+   "target": ".models.Reading",
+   "resolved": "src/inventory/models.py"
   },
   {
    "path": "src/inventory/api.py",
-   "target": "fastapi"
+   "target": ".models.StockItem",
+   "resolved": "src/inventory/models.py"
+  },
+  {
+   "path": "src/inventory/api.py",
+   "target": "fastapi.FastAPI",
+   "resolved": null
   },
   {
    "path": "src/inventory/models.py",
-   "target": "dataclasses"
+   "target": "dataclasses.dataclass",
+   "resolved": null
   },
   {
    "path": "src/inventory/models.py",
-   "target": "enum"
+   "target": "dataclasses.field",
+   "resolved": null
+  },
+  {
+   "path": "src/inventory/models.py",
+   "target": "enum.Enum",
+   "resolved": null
   },
   {
    "path": "tests/test_models.py",
-   "target": "inventory.models"
+   "target": "inventory.models.Reading",
+   "resolved": "src/inventory/models.py"
+  },
+  {
+   "path": "tests/test_models.py",
+   "target": "inventory.models.StockItem",
+   "resolved": "src/inventory/models.py"
+  }
+ ],
+ "refs": [
+  {
+   "path": "scripts/seed",
+   "line": 8,
+   "name": "range",
+   "kind": "call"
+  },
+  {
+   "path": "scripts/seed",
+   "line": 9,
+   "name": "print",
+   "kind": "call"
+  },
+  {
+   "path": "scripts/seed",
+   "line": 9,
+   "name": "random",
+   "kind": "call"
+  },
+  {
+   "path": "scripts/seed",
+   "line": 13,
+   "name": "main",
+   "kind": "call"
+  },
+  {
+   "path": "src/inventory/_internal/cache.py",
+   "line": 11,
+   "name": "OrderedDict",
+   "kind": "call"
+  },
+  {
+   "path": "src/inventory/_internal/cache.py",
+   "line": 17,
+   "name": "move_to_end",
+   "kind": "call"
+  },
+  {
+   "path": "src/inventory/api.py",
+   "line": 7,
+   "name": "FastAPI",
+   "kind": "call"
+  },
+  {
+   "path": "src/inventory/api.py",
+   "line": 11,
+   "name": "get",
+   "kind": "call"
+  },
+  {
+   "path": "src/inventory/api.py",
+   "line": 14,
+   "name": "StockItem",
+   "kind": "call"
+  },
+  {
+   "path": "src/inventory/api.py",
+   "line": 18,
+   "name": "post",
+   "kind": "call"
+  },
+  {
+   "path": "src/inventory/api.py",
+   "line": 20,
+   "name": "is_alarm",
+   "kind": "call"
+  },
+  {
+   "path": "src/inventory/models.py",
+   "line": 42,
+   "name": "field",
+   "kind": "call"
+  },
+  {
+   "path": "src/inventory/models.py",
+   "line": 50,
+   "name": "ValueError",
+   "kind": "call"
+  },
+  {
+   "path": "src/inventory/models.py",
+   "line": 55,
+   "name": "str",
+   "kind": "call"
+  },
+  {
+   "path": "src/inventory/models.py",
+   "line": 57,
+   "name": "fmt",
+   "kind": "call"
+  },
+  {
+   "path": "src/inventory/models.py",
+   "line": 71,
+   "name": "StockItem",
+   "kind": "call"
+  },
+  {
+   "path": "tests/test_models.py",
+   "line": 5,
+   "name": "Reading",
+   "kind": "call"
+  },
+  {
+   "path": "tests/test_models.py",
+   "line": 5,
+   "name": "is_alarm",
+   "kind": "call"
+  },
+  {
+   "path": "tests/test_models.py",
+   "line": 9,
+   "name": "StockItem",
+   "kind": "call"
+  },
+  {
+   "path": "tests/test_models.py",
+   "line": 10,
+   "name": "restock",
+   "kind": "call"
   }
  ],
  "skipped": []

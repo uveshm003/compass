@@ -31,24 +31,56 @@ def pytest_collection_modifyitems(config, items):
             item.add_marker(skip)
 
 
-@pytest.fixture(autouse=True)
-def isolated_env(tmp_path_factory, monkeypatch):
-    """Keep the developer's git config and installed ctags out of every test."""
+@pytest.fixture(scope="session", autouse=True)
+def isolated_env(tmp_path_factory):
+    """Keep the developer's git config and installed ctags out of every test,
+    including module-scoped fixtures (hence session scope). A test that needs
+    ctags overrides COMPASS_CTAGS with its own monkeypatch."""
+    patch = pytest.MonkeyPatch()
     empty = tmp_path_factory.getbasetemp() / "empty-gitconfig"
     empty.touch()
-    monkeypatch.setenv("GIT_CONFIG_GLOBAL", str(empty))
-    monkeypatch.setenv("GIT_CONFIG_NOSYSTEM", "1")
-    monkeypatch.setenv("GIT_AUTHOR_NAME", "Compass Tests")
-    monkeypatch.setenv("GIT_AUTHOR_EMAIL", "tests@example.com")
-    monkeypatch.setenv("GIT_COMMITTER_NAME", "Compass Tests")
-    monkeypatch.setenv("GIT_COMMITTER_EMAIL", "tests@example.com")
-    monkeypatch.setenv("COMPASS_CTAGS", "off")
-    monkeypatch.delenv("CLAUDE_PROJECT_DIR", raising=False)
+    patch.setenv("GIT_CONFIG_GLOBAL", str(empty))
+    patch.setenv("GIT_CONFIG_NOSYSTEM", "1")
+    patch.setenv("GIT_AUTHOR_NAME", "Compass Tests")
+    patch.setenv("GIT_AUTHOR_EMAIL", "tests@example.com")
+    patch.setenv("GIT_COMMITTER_NAME", "Compass Tests")
+    patch.setenv("GIT_COMMITTER_EMAIL", "tests@example.com")
+    patch.setenv("COMPASS_CTAGS", "off")
+    patch.delenv("CLAUDE_PROJECT_DIR", raising=False)
+    yield
+    patch.undo()
+
+
+@pytest.fixture(autouse=True)
+def fresh_ctags_lookup():
     from compass.index import ctags
 
     ctags.find_ctags.cache_clear()
     yield
     ctags.find_ctags.cache_clear()
+
+
+def copy_fixture(name: str, dest: Path) -> Path:
+    """A fixture repo as a fresh git working tree at ``dest``."""
+    junk = shutil.ignore_patterns("__pycache__", "*.pyc", ".DS_Store", ".ruff_cache", ".pytest_cache")
+    shutil.copytree(FIXTURES / name, dest, ignore=junk)
+    git(dest, "init", "-q")
+    return dest.resolve()
+
+
+@pytest.fixture(scope="module")
+def indexed_fixtures(tmp_path_factory):
+    """Every fixture repo, indexed once per test module (read-only use)."""
+    from compass.index.indexer import Indexer
+    from compass.repo import Repo
+
+    base = tmp_path_factory.mktemp("indexed")
+    repos = {}
+    for name in FIXTURE_NAMES:
+        repo = Repo(copy_fixture(name, base / name))
+        Indexer(repo).build()
+        repos[name] = repo
+    return repos
 
 
 def git(repo: Path, *args: str) -> str:
@@ -73,14 +105,12 @@ def make_repo(tmp_path):
         counter += 1
         root = tmp_path / f"{fixture or 'repo'}-{counter}"
         if fixture:
-            # Local junk (bytecode, Finder metadata) is not part of the fixture.
-            junk = shutil.ignore_patterns("__pycache__", "*.pyc", ".DS_Store")
-            shutil.copytree(FIXTURES / fixture, root, ignore=junk)
+            root = copy_fixture(fixture, root)
         else:
             root.mkdir()
+            git(root, "init", "-q")
         for rel, text in (files or {}).items():
             write(root, rel, text)
-        git(root, "init", "-q")
         return root.resolve()
 
     return make

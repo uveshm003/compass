@@ -61,10 +61,27 @@ index:
   max_file_kb: 1024
   shard_token_limit: 2000
 
+query:
+  max_response_chars: 4000  # longer MCP answers end with a cursor to continue
+  context_lines: 3          # lines shown around a symbol by read_symbol
+
 review:
   enabled: true
-  require_anchors: true
+  require_anchors: true     # the Stop hook sends Claude back to tag changed files
   reply_max_lines: 10
+  # Files that cannot hold a comment; changes to them need no anchor.
+  anchor_exempt:
+    - "**/*.json"
+    - "**/*.jsonl"
+    - "**/*.ipynb"
+    - "**/*.lock"
+    - "**/*.csv"
+    - "**/*.tsv"
+    - "**/*.svg"
+    - "**/*.snap"
+    - "**/*.min.*"
+    - "**/*.map"
+    - "**/go.sum"
 
 delegation:
   digest_threshold_lines: 500
@@ -81,8 +98,12 @@ telemetry:
 
 DEFAULTS: dict[str, Any] = yaml.safe_load(DEFAULT_CONFIG_TEXT)
 
-# Integer settings that must be positive to make sense.
-_POSITIVE = {"index.max_file_kb", "index.shard_token_limit", "context_pack.token_budget"}
+# Integer settings that must be positive (or at least zero) to make sense.
+_POSITIVE = {
+    "index.max_file_kb", "index.shard_token_limit", "context_pack.token_budget", "query.max_response_chars",
+    "review.reply_max_lines",
+}
+_NON_NEGATIVE = {"query.context_lines"}
 
 
 @dataclass(frozen=True)
@@ -96,10 +117,39 @@ class IndexSettings:
         return self.max_file_kb * 1024
 
 
+@dataclass(frozen=True)
+class QuerySettings:
+    max_response_chars: int
+    context_lines: int
+
+
+@dataclass(frozen=True)
+class ReviewSettings:
+    enabled: bool
+    require_anchors: bool
+    reply_max_lines: int
+    anchor_exempt: tuple[str, ...]
+
+
 @dataclass
 class Config:
     data: dict[str, Any]
     warnings: list[str] = field(default_factory=list)
+
+    @property
+    def review(self) -> ReviewSettings:
+        section = self.data["review"]
+        return ReviewSettings(
+            enabled=section["enabled"],
+            require_anchors=section["require_anchors"],
+            reply_max_lines=section["reply_max_lines"],
+            anchor_exempt=tuple(section["anchor_exempt"]),
+        )
+
+    @property
+    def query(self) -> QuerySettings:
+        section = self.data["query"]
+        return QuerySettings(section["max_response_chars"], section["context_lines"])
 
     @property
     def index(self) -> IndexSettings:
@@ -143,8 +193,10 @@ def parse_config(text: str) -> Config:
     if version != CONFIG_VERSION:
         warnings.append(f"config.yaml version {version!r} is not {CONFIG_VERSION}; reading it anyway")
     merged = _merge(DEFAULTS, user, "", warnings)
-    for pattern in invalid_globs(merged["index"]["exclude"]):
-        warnings.append(f"index.exclude pattern {pattern!r} is not a valid glob; ignoring it")
+    for key in ("index.exclude", "review.anchor_exempt"):
+        section, name = key.split(".")
+        for pattern in invalid_globs(merged[section][name]):
+            warnings.append(f"{key} pattern {pattern!r} is not a valid glob; ignoring it")
     return Config(merged, warnings)
 
 
@@ -171,6 +223,9 @@ def _merge(default: Any, user: Any, path: str, warnings: list[str]) -> Any:
             return copy.deepcopy(default)
     if path in _POSITIVE and user <= 0:
         warnings.append(f"{path} must be positive; using the default {default!r}")
+        return default
+    if path in _NON_NEGATIVE and user < 0:
+        warnings.append(f"{path} cannot be negative; using the default {default!r}")
         return default
     return copy.deepcopy(user)
 

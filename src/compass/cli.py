@@ -99,6 +99,8 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--no-git-hooks", action="store_true", help="do not install git hooks")
     p.add_argument("--no-index", action="store_true", help="do not build the index yet")
 
+    sub.add_parser("uninstall", help="remove Compass's git hooks (restoring any they chained); keeps .compass/")
+
     p = sub.add_parser("index", help="build or refresh the SQLite index and map shards")
     p.add_argument("--full", action="store_true", help="re-parse every file, not only changed ones")
     p.add_argument("--json", action="store_true", help="print the result as JSON")
@@ -115,8 +117,61 @@ def build_parser() -> argparse.ArgumentParser:
     p = sub.add_parser("files", help="list the files Compass indexes, with language and hash")
     p.add_argument("--json", action="store_true", help="print as JSON")
 
-    p = sub.add_parser("stack", help="show the stack profile read from manifests")
+    p = sub.add_parser("stack", aliases=["stack-profile"], help="show the stack profile read from manifests")
     p.add_argument("--json", action="store_true", help="print as JSON")
+
+    # The query tools: each is the CLI twin of the MCP tool of the same name (QT-04).
+    p = sub.add_parser("find-symbol", help="find definitions by name (MCP: find_symbol)")
+    p.add_argument("name", help="a name or part of one; Class.method works too")
+    p.add_argument("--kind", help="only this kind: class, function, method, interface, ...")
+    p.add_argument("--path", help="only in this file or directory")
+    _query_output(p)
+
+    p = sub.add_parser("read-symbol", help="print one symbol's source lines (MCP: read_symbol)")
+    p.add_argument("name")
+    p.add_argument("--path", help="pick the definition in this file when the name is ambiguous")
+    p.add_argument("--context", type=int, help="extra lines around the symbol (default: query.context_lines)")
+    _query_output(p)
+
+    p = sub.add_parser("file-outline", help="list what a file defines (MCP: file_outline)")
+    p.add_argument("path")
+    _query_output(p)
+
+    p = sub.add_parser("map", help="the folder tree, or one directory's files and symbols (MCP: map)")
+    p.add_argument("dir", nargs="?", default="", help="a directory (default: the whole tree)")
+    _query_output(p)
+
+    p = sub.add_parser("tests-for", help="tests for a file or symbol (MCP: tests_for)")
+    p.add_argument("target", help="a file path or a symbol name")
+    _query_output(p)
+
+    p = sub.add_parser("importers-of", help="files importing a file or module (MCP: importers_of)")
+    p.add_argument("target", help="a file path, a directory, or a module name such as react")
+    _query_output(p)
+
+    p = sub.add_parser("callers-of", help="call sites of a function or method (MCP: callers_of)")
+    p.add_argument("name")
+    _query_output(p)
+
+    sub.add_parser("mcp", help="serve the query tools over MCP on stdin/stdout")
+
+    # Review output (RO-02 to RO-05).
+    p = sub.add_parser("task", help="show the active task, or start a new one")
+    p.add_argument("action", nargs="?", choices=["show", "new"], default="show")
+    p.add_argument("--json", action="store_true", help="print as JSON")
+
+    p = sub.add_parser("manifest", help="write the change manifest of a task (default: the active one)")
+    p.add_argument("task", nargs="?", help="task id, e.g. T3")
+    p.add_argument("--hosted", action="store_true", help="print it with links into GitHub or Azure DevOps")
+    p.add_argument("--ref", help="branch or commit the hosted links point at (default: the current branch)")
+    p.add_argument("--json", action="store_true", help="print the manifest data as JSON")
+
+    p = sub.add_parser("accept", help="strip a reviewed task's anchors and archive its manifest")
+    p.add_argument("task", nargs="?", help="task id (default: the active task)")
+
+    p = sub.add_parser("check-anchors", help="list anchor tags; --staged is the pre-commit check")
+    p.add_argument("task", nargs="?", help="only this task's anchors")
+    p.add_argument("--staged", action="store_true", help="check the lines a commit would add; exit 1 if any")
 
     # Only for --help: main() dispatches `hook` before argparse (see _hook_event).
     p = sub.add_parser("hook", help="entry point for Claude Code hooks; reads the hook JSON on stdin")
@@ -153,6 +208,20 @@ def cmd_init(args: argparse.Namespace) -> int:
         result = Indexer(repo, config).build()
         print(f"  index       {_describe(result)}")
         print("  map         .compass/map/_index.md")
+    return EXIT_OK
+
+
+def cmd_uninstall(args: argparse.Namespace) -> int:
+    from compass.githooks import uninstall
+    from compass.repo import find_repo
+
+    repo = find_repo()
+    for message in uninstall(repo):
+        print(message)
+    print(
+        "Left in place: .compass/ (delete it to drop the index and manifests; config.yaml is yours)."
+        " Remove the Claude Code plugin with `claude plugin uninstall compass`."
+    )
     return EXIT_OK
 
 
@@ -242,23 +311,204 @@ def cmd_stack(args: argparse.Namespace) -> int:
     return EXIT_OK
 
 
+def cmd_mcp(args: argparse.Namespace) -> int:
+    from compass.mcp_server import serve
+
+    # -C names the repo explicitly; otherwise Claude Code's project dir, then the cwd.
+    serve(os.getcwd() if args.directory else None)
+    return EXIT_OK
+
+
+def cmd_task(args: argparse.Namespace) -> int:
+    from compass import review, state
+    from compass.repo import find_repo
+
+    repo = find_repo()
+    if not repo.initialized:
+        return _fail("this repository has no .compass/ yet; run `compass init`")
+    with state.transaction(repo) as st:
+        previous = state.active_task(st)
+        if args.action == "new" and previous is not None:
+            # The old task stays acceptable by id; one with nothing recorded is dropped.
+            if not state.touched(st, previous):
+                st["tasks"].pop(previous, None)
+            st["task"] = None
+        task = state.ensure_task(st, None if state.active_task(st) else review.taken_ids(repo))
+        touched = state.touched(st, task)
+    if args.json:
+        print(json.dumps({"task": task, "touched": touched, "manifest": review.manifest_rel(task)}))
+    else:
+        print(f"{task}  ({len(touched)} files changed; manifest {review.manifest_rel(task)})")
+    return EXIT_OK
+
+
+def cmd_manifest(args: argparse.Namespace) -> int:
+    from compass import manifest, state
+    from compass.repo import find_repo
+
+    repo = find_repo()
+    current = state.read(repo)
+    task = args.task or state.active_task(current)
+    if not task:
+        return _fail("no active task; pass a task id")
+    archived = task in current["accepted"] and manifest.load(repo, task, archived=True)
+    if archived:
+        built = archived
+    else:
+        built = manifest.build(repo, task, state.touched(current, task), _config(repo).review.anchor_exempt)
+    if args.json:
+        print(json.dumps(built.to_json(), indent=1, ensure_ascii=False))
+        return EXIT_OK
+    if args.hosted:
+        linker = manifest.hosted_linker(repo.root, args.ref)
+        if linker is None:
+            return _fail("no GitHub, Azure DevOps or GitLab remote found (git remote get-url origin)")
+        print(manifest.render(built, linker[0]))
+        return EXIT_OK
+    path = manifest.write(repo, built, archived=bool(archived))
+    print(f"{path.relative_to(repo.root).as_posix()}: {built.summary()}")
+    return EXIT_OK
+
+
+def cmd_accept(args: argparse.Namespace) -> int:
+    from compass import review
+    from compass.repo import find_repo
+
+    repo = find_repo()
+    try:
+        done = review.accept(repo, _config(repo), args.task)
+    except review.NothingToAccept as exc:
+        return _fail(str(exc))
+    archived = done.archived.relative_to(repo.root).as_posix()
+    print(
+        f"Accepted {done.task}: removed {done.removed} anchor{'s' if done.removed != 1 else ''}"
+        f" from {len(done.files)} file{'s' if len(done.files) != 1 else ''}; manifest archived at {archived}."
+    )
+    for anchor in done.leftover:
+        print(f"  not removed: {anchor.path}:{anchor.line} ({anchor.kind} {anchor.task})")
+    return EXIT_ERROR if done.leftover else EXIT_OK
+
+
+def cmd_check_anchors(args: argparse.Namespace) -> int:
+    from compass.anchors import scan_repo
+    from compass.repo import find_repo
+
+    if args.staged:
+        return _pre_commit_check()
+    repo = find_repo()
+    for anchor in scan_repo(repo.root, args.task):
+        print(f"{anchor.path}:{anchor.line}  {anchor.kind} {anchor.task}" + (f" — {anchor.note}" if anchor.note else ""))
+    return EXIT_OK
+
+
+def _pre_commit_check() -> int:
+    """The git pre-commit hook (RO-05): refuse a commit that adds anchor tags.
+    Any internal problem lets the commit through (fail open) and is logged."""
+    from compass.anchors import staged_anchors
+    from compass.log import log_error
+    from compass.repo import find_repo
+
+    repo = None
+    try:
+        repo = find_repo()
+        if repo.initialized and not _config(repo, quiet=True).review.enabled:
+            return EXIT_OK
+        found = staged_anchors(repo.root)
+    except Exception as exc:
+        log_error(repo.root if repo else None, "check-anchors --staged", exc)
+        return EXIT_OK
+    if not found:
+        return EXIT_OK
+    tasks = sorted({a.task for a in found})
+    lines = [f"compass: commit refused: the staged changes still add {len(found)} AI anchor tag{'s' if len(found) != 1 else ''}:"]
+    lines += [f"  {a.path}:{a.line}  {a.kind} {a.task}" + (f" — {a.note}" if a.note else "") for a in found[:20]]
+    if len(found) > 20:
+        lines.append(f"  … and {len(found) - 20} more")
+    lines.append(
+        f"Review them (.compass/changes/{tasks[0]}.md), strip them with /compass:accept in Claude Code or"
+        f" `compass accept {tasks[0]}`, stage the result and commit again. To commit anyway: git commit --no-verify."
+    )
+    print("\n".join(lines), file=sys.stderr)
+    return EXIT_ERROR
+
+
+def _query_output(p: argparse.ArgumentParser) -> None:
+    p.add_argument("--json", action="store_true", help="print structured results as JSON")
+    p.add_argument("--cursor", help="page the answer as the MCP tool does, starting here (e.g. 0)")
+
+
+def _run_query(args: argparse.Namespace, run) -> int:
+    from compass.query import NotReady, Queries, page
+    from compass.repo import find_repo
+
+    repo = find_repo()
+    for name in _PATH_ARGS:
+        if getattr(args, name, None):
+            setattr(args, name, _cli_path(repo, getattr(args, name)))
+    queries = Queries(repo, _config(repo))
+    try:
+        result = run(queries)
+    except NotReady as exc:
+        print(str(exc), file=sys.stderr)
+        return EXIT_ERROR
+    if args.json:
+        print(json.dumps(result.data, indent=1, ensure_ascii=False))
+    elif args.cursor is not None:
+        print(page(result.lines, args.cursor, queries.settings.max_response_chars))
+    else:
+        print(result.text)
+    return EXIT_OK
+
+
+# Arguments that name files or directories. On the command line they are
+# relative to the current directory, like `compass update`'s; the MCP tools
+# take repo-relative paths.
+_PATH_ARGS = ("path", "dir", "target")
+
+
+def _cli_path(repo, arg: str) -> str:
+    """``arg`` as a repo-relative path when it names something that exists
+    from the current directory; otherwise unchanged (a repo-relative path, a
+    module name or a symbol)."""
+    if not os.path.exists(arg):
+        return arg
+    rel = repo.relpath(arg)
+    if rel is None:
+        return arg
+    return rel or "."
+
+
 COMMANDS = {
     "init": cmd_init,
+    "uninstall": cmd_uninstall,
     "index": cmd_index,
     "update": cmd_update,
     "files": cmd_files,
     "stack": cmd_stack,
+    "stack-profile": cmd_stack,
+    "mcp": cmd_mcp,
+    "task": cmd_task,
+    "manifest": cmd_manifest,
+    "accept": cmd_accept,
+    "check-anchors": cmd_check_anchors,
+    "find-symbol": lambda a: _run_query(a, lambda q: q.find_symbol(a.name, a.kind, a.path)),
+    "read-symbol": lambda a: _run_query(a, lambda q: q.read_symbol(a.name, a.path, a.context)),
+    "file-outline": lambda a: _run_query(a, lambda q: q.file_outline(a.path)),
+    "map": lambda a: _run_query(a, lambda q: q.map(a.dir)),
+    "tests-for": lambda a: _run_query(a, lambda q: q.tests_for(a.target)),
+    "importers-of": lambda a: _run_query(a, lambda q: q.importers_of(a.target)),
+    "callers-of": lambda a: _run_query(a, lambda q: q.callers_of(a.name)),
 }
 
 
 # -- helpers ----------------------------------------------------------------
 
 
-def _config(repo):
+def _config(repo, quiet: bool = False):
     from compass.config import load_config
 
     config = load_config(repo.root)
-    for warning in config.warnings:
+    for warning in [] if quiet else config.warnings:
         print(f"compass: warning: {warning}", file=sys.stderr)
     return config
 

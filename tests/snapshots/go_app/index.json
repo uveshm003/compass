@@ -6,7 +6,8 @@
    "lang": null,
    "hash": "49ec0bec9bb0b9f0b70d27018c7dd96b",
    "size": 274,
-   "doc": null
+   "doc": null,
+   "is_test": 0
   },
   {
    "path": ".golangci.yml",
@@ -14,7 +15,8 @@
    "lang": null,
    "hash": "e223bd77a848a88a869994dced6e309d",
    "size": 46,
-   "doc": null
+   "doc": null,
+   "is_test": 0
   },
   {
    "path": "Makefile",
@@ -22,7 +24,8 @@
    "lang": null,
    "hash": "df2e41feb63f1ebe5c26f3ca88994f32",
    "size": 96,
-   "doc": null
+   "doc": null,
+   "is_test": 0
   },
   {
    "path": "cmd/sensord/main.go",
@@ -30,7 +33,8 @@
    "lang": "go",
    "hash": "8ff6d140c8d5d5c96cab206d7f388c8c",
    "size": 259,
-   "doc": "Command sensord runs the sensor gateway."
+   "doc": "Command sensord runs the sensor gateway.",
+   "is_test": 0
   },
   {
    "path": "go.mod",
@@ -38,7 +42,8 @@
    "lang": null,
    "hash": "ec869a8b01a9456cdaec6262b94780f3",
    "size": 202,
-   "doc": null
+   "doc": null,
+   "is_test": 0
   },
   {
    "path": "internal/transport/doc.go",
@@ -46,7 +51,8 @@
    "lang": "go",
    "hash": "afbff0bb5bd4241166d9c238e43cdab5",
    "size": 92,
-   "doc": "Package transport moves sensor frames between devices and the backend."
+   "doc": "Package transport moves sensor frames between devices and the backend.",
+   "is_test": 0
   },
   {
    "path": "internal/transport/retry.go",
@@ -54,7 +60,8 @@
    "lang": "go",
    "hash": "ddc55302945a95b21d6eebb9c2045ac5",
    "size": 1170,
-   "doc": null
+   "doc": null,
+   "is_test": 0
   },
   {
    "path": "internal/transport/retry_test.go",
@@ -62,7 +69,8 @@
    "lang": "go",
    "hash": "7a494642e334476dbf74372105fffcbe",
    "size": 199,
-   "doc": null
+   "doc": null,
+   "is_test": 1
   },
   {
    "path": "pkg/api/types.go",
@@ -70,7 +78,8 @@
    "lang": "go",
    "hash": "cee387fa45d1634d815bba07d997e538",
    "size": 207,
-   "doc": null
+   "doc": null,
+   "is_test": 0
   }
  ],
  "symbols": [
@@ -306,23 +315,84 @@
  "imports": [
   {
    "path": "cmd/sensord/main.go",
-   "target": "github.com/example/sensord/internal/transport"
+   "target": "github.com/example/sensord/internal/transport",
+   "resolved": "internal/transport"
   },
   {
    "path": "cmd/sensord/main.go",
-   "target": "log"
+   "target": "log",
+   "resolved": null
   },
   {
    "path": "internal/transport/retry.go",
-   "target": "errors"
+   "target": "errors",
+   "resolved": null
   },
   {
    "path": "internal/transport/retry.go",
-   "target": "time"
+   "target": "time",
+   "resolved": null
   },
   {
    "path": "internal/transport/retry_test.go",
-   "target": "testing"
+   "target": "testing",
+   "resolved": null
+  }
+ ],
+ "refs": [
+  {
+   "path": "cmd/sensord/main.go",
+   "line": 11,
+   "name": "Retry",
+   "kind": "call"
+  },
+  {
+   "path": "cmd/sensord/main.go",
+   "line": 12,
+   "name": "Fatal",
+   "kind": "call"
+  },
+  {
+   "path": "internal/transport/retry.go",
+   "line": 17,
+   "name": "New",
+   "kind": "call"
+  },
+  {
+   "path": "internal/transport/retry.go",
+   "line": 45,
+   "name": "op",
+   "kind": "call"
+  },
+  {
+   "path": "internal/transport/retry.go",
+   "line": 48,
+   "name": "Next",
+   "kind": "call"
+  },
+  {
+   "path": "internal/transport/retry.go",
+   "line": 48,
+   "name": "Sleep",
+   "kind": "call"
+  },
+  {
+   "path": "internal/transport/retry.go",
+   "line": 57,
+   "name": "append",
+   "kind": "call"
+  },
+  {
+   "path": "internal/transport/retry_test.go",
+   "line": 7,
+   "name": "Retry",
+   "kind": "call"
+  },
+  {
+   "path": "internal/transport/retry_test.go",
+   "line": 9,
+   "name": "Fatal",
+   "kind": "call"
   }
  ],
  "skipped": []

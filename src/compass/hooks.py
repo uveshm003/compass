@@ -2,13 +2,22 @@
 
 Reads the hook's JSON from stdin and dispatches. It fails open: an internal
 error is logged to ``.compass/logs/`` and the hook exits 0, so Compass never
-makes Claude Code worse than stock. Deliberate gate decisions (M3/M4) will be
-the only non-zero exits. Hooks only act in repos that have a ``.compass/``
-directory, and never touch the network.
+makes Claude Code worse than stock. Deliberate decisions are the only way a
+hook holds anything up: the Stop hook's request for missing anchors is a JSON
+answer on exit 0, and M4's gates will add the rest. Hooks only act in repos
+that have a ``.compass/`` directory, and never touch the network.
 
-M1 handles the index triggers (IX-08): SessionStart runs a staleness check and
-PostToolUse on Write/Edit re-indexes the edited file. The other events are
-accepted and ignored until their milestones land.
+Handled so far:
+
+- SessionStart: the index staleness check (IX-08), then the session context:
+  the query-tools rule and, with review on, the anchor and reply rules for the
+  active task (RO-01, RO-02).
+- UserPromptSubmit: starts the session's turn and announces a new task id.
+- PostToolUse on Write/Edit: re-indexes the edited file and records it for
+  the task's manifest.
+- Stop: rewrites the manifest and asks once for missing anchors (RO-03, RO-04).
+
+PreToolUse (the spec gate) and the prompt gate itself arrive with M4.
 """
 
 from __future__ import annotations
@@ -98,12 +107,35 @@ def refresh_or_hand_off(repo: Repo, lock_wait: float) -> bool:
 
 
 def on_session_start(repo: Repo, payload: dict[str, Any]) -> int:
-    if refresh_or_hand_off(repo, SESSION_LOCK_WAIT_S):
-        print(NOT_READY)
+    notices = []
+    try:
+        if refresh_or_hand_off(repo, SESSION_LOCK_WAIT_S):
+            notices.append(NOT_READY)
+    except Exception as exc:  # the context below still matters
+        log_error(repo.root, "hook session-start refresh", exc)
+    from compass import review
+
+    config = _config(repo)
+    try:
+        task = review.session_task(repo, config.review, _session(payload))
+    except Exception as exc:  # the query-tools rule still goes out
+        log_error(repo.root, "hook session-start task", exc)
+        task = None
+    print("\n".join([review.instructions(config.review, task), *notices]))
+    return 0
+
+
+def on_prompt(repo: Repo, payload: dict[str, Any]) -> int:
+    from compass import review
+
+    notice = review.new_turn(repo, _config(repo).review, _session(payload))
+    if notice:
+        print(notice)
     return 0
 
 
 def on_post_edit(repo: Repo, payload: dict[str, Any]) -> int:
+    from compass import review
     from compass.index.indexer import FullBuildNeeded, Indexer
     from compass.lock import LockTimeout
 
@@ -113,11 +145,13 @@ def on_post_edit(repo: Repo, payload: dict[str, Any]) -> int:
     target = tool_input.get("file_path") or tool_input.get("notebook_path")
     if not isinstance(target, str) or not target:
         return 0
-    if not os.path.isabs(target):
-        target = os.path.join(payload.get("cwd") or str(repo.root), target)
-    rel = repo.relpath(target)
-    if not rel or rel == ".compass" or rel.startswith(".compass/"):
+    rel = review.relative_to_repo(repo, target, payload.get("cwd"))
+    if rel is None:
         return 0
+    try:
+        review.record_edit(repo, _config(repo).review, rel, _session(payload))
+    except Exception as exc:  # the re-index below still matters
+        log_error(repo.root, "hook post-edit record", exc)
     try:
         Indexer(repo).update([rel], lock_timeout=POST_EDIT_LOCK_WAIT_S, allow_full=False)
     except LockTimeout:
@@ -127,7 +161,29 @@ def on_post_edit(repo: Repo, payload: dict[str, Any]) -> int:
     return 0
 
 
+def on_stop(repo: Repo, payload: dict[str, Any]) -> int:
+    from compass import review
+
+    answer = review.on_stop(repo, _config(repo), payload)
+    if answer:
+        print(json.dumps(answer, ensure_ascii=False))
+    return 0
+
+
+def _config(repo: Repo):
+    from compass.config import load_config
+
+    return load_config(repo.root)
+
+
+def _session(payload: dict[str, Any]) -> str | None:
+    session = payload.get("session_id")
+    return session if isinstance(session, str) and session else None
+
+
 HANDLERS: dict[str, Callable[[Repo, dict[str, Any]], int]] = {
     "session-start": on_session_start,
+    "prompt": on_prompt,
     "post-edit": on_post_edit,
+    "stop": on_stop,
 }

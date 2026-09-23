@@ -57,9 +57,11 @@ compass/
 │   │   ├── docs.py         # doc-comment attachment
 │   │   ├── store.py        # SQLite schema and queries
 │   │   ├── shards.py       # Markdown map shard writer
+│   │   ├── resolve.py      # import targets -> repo files
 │   │   └── indexer.py      # full builds, stat-based refresh, per-file updates
 │   ├── queries/            # per language: language.yaml, tags.scm, imports.scm
 │   ├── stacks/             # stack detectors: detect(repo) -> dict | None
+│   ├── query.py            # the query engine behind the MCP tools and CLI twins
 │   ├── mcp_server.py       # MCP tools over the index
 │   ├── manifest.py         # anchor scan + change manifest
 │   ├── gate.py             # prompt gate + context pack
@@ -85,7 +87,7 @@ dependencies = [
   "tree-sitter==0.25.2",
   "tree-sitter-language-pack==0.13.0",
   "pyyaml",
-  # "mcp" joins in M2 with the MCP server
+  "mcp>=2.2,<3",   # SDK v2: MCPServer (v1's FastMCP was renamed)
 ]
 [project.scripts]
 compass = "compass.cli:app"
@@ -247,27 +249,33 @@ Git hooks call `compass update --from-git`. `compass init` installs them and cha
 Expose the index through a stdio MCP server, and give every tool a CLI twin so the same logic serves Claude, developers and CI.
 
 ```python
-from mcp.server.fastmcp import FastMCP
-from compass.index import store
+from mcp.server.mcpserver import MCPServer   # MCP SDK v2; v1 called it FastMCP
+from mcp.types import ToolAnnotations
 
-mcp = FastMCP("compass")
+server = MCPServer("compass", instructions=INSTRUCTIONS)
+READ_ONLY = ToolAnnotations(readOnlyHint=True, idempotentHint=True, openWorldHint=False)
 
-@mcp.tool()
-def find_symbol(name: str, kind: str | None = None) -> list[dict]:
-    """Locate a class, function or method by name. Use this before Grep or Read."""
-    return store.find(name, kind, limit=20)
+@server.tool(annotations=READ_ONLY, structured_output=False)
+def find_symbol(name: str, kind: str | None = None, path: str | None = None, cursor: int | str | None = None) -> str:
+    """Find where a class, function or method is defined. Use this instead of Grep or Glob."""
+    return answer(lambda q: q.find_symbol(name, kind, path), cursor)
 
-@mcp.tool()
-def read_symbol(name: str, path: str | None = None, context: int = 3) -> str:
-    """Return only the source lines of one symbol. Prefer this to reading whole files."""
-    sym = store.resolve(name, path)
-    return slice_lines(sym.path, sym.start_line - context, sym.end_line + context)
+# also: read_symbol, file_outline, map, stack_profile, tests_for, importers_of, callers_of
 
-# also: file_outline, map(dir), stack_profile, tests_for, importers_of
-
-if __name__ == "__main__":
-    mcp.run()   # stdio transport
+server.run("stdio")
 ```
+
+All behaviour lives in one query engine (`compass/query.py`), and each tool has a CLI twin with the same name in kebab case (`compass find-symbol`, `compass callers-of`, …; `--json` for structured output). Answers are compact text in the map-shard format, `path:start-end  kind signature — doc`, because that costs far fewer tokens than JSON.
+
+The tools need three things the M1 index lacked, all configured per language in `language.yaml`:
+
+- **Call sites** (`@reference.call` captures in `tags.scm`), for `callers_of`.
+- **Resolved imports**, for `importers_of`. Resolvers: `path` (JS, TS, including tsconfig `paths` and `baseUrl`), `module` (Python, Rust) and `package` (Go, via `go.mod`). `from pkg import models` points at `pkg/models.py`, not the package, and a stray `scripts/os.py` must not capture every `import os`.
+- **Test files and naming conventions** (`test_x.py`, `x.test.ts`, `x_test.go`, Rust inline `mod tests`), for `tests_for`.
+
+The server must also keep the index fresh by itself. Edits made through Bash or an editor never reach the Claude Code hooks, so every tool runs SessionStart's staleness check at most every 20 s, and a tool about one file re-indexes it first if it changed on disk. `read_symbol` and `file_outline` take line numbers from the file as it is now, since the index can lag behind (another process may hold its lock). Until the first build commits, tools answer "being built" rather than empty results.
+
+The SDK runs tool calls on worker threads, so the engine must be safe to share: one SQLite connection per call and a lock around tree-sitter parsing. Adding or deleting a file re-resolves every import inside the post-edit hook, so resolution has to share work across rows to stay within NF-04.
 
 Register it in the plugin's `.mcp.json`:
 
@@ -278,14 +286,14 @@ Register it in the plugin's `.mcp.json`:
 ### Make Claude actually use it
 
 - Tool descriptions state when to prefer them over Read, Grep and Glob; the model follows descriptions closely.
-- The plugin's CLAUDE.md fragment adds one rule: look up symbols through Compass tools, and read whole files only when editing them.
-- Cap every response (default 4,000 characters) and return a `next` cursor beyond that.
+- One rule goes in the server's `instructions` (and, from M3, the plugin's CLAUDE.md fragment): look up symbols through Compass tools, and read whole files only when editing them.
+- Cap every response (default 4,000 characters, `query.max_response_chars`, cursor line included) and end a longer one with a `cursor` to continue. Accept the cursor as a number or a string: models send both.
 
 **Done when:** in a test session, "where is retry handled and what calls it?" is answered with Compass tools and zero Read calls.
 
 ## Step 5: Plugin scaffold and local install
 
-The plugin is plain files: a manifest, a hooks config, subagent and command Markdown files, and the MCP registration from Step 4. Check field names against the current [Claude Code plugin docs](https://docs.claude.com/en/docs/claude-code/overview) before each release, since the plugin format still evolves.
+The plugin is plain files: a manifest, a hooks config, subagent and command Markdown files, an optional output style, and the MCP registration from Step 4. Check field names against the current [Claude Code plugin docs](https://docs.claude.com/en/docs/claude-code/overview) before each release, since the plugin format still evolves. `claude plugin validate --strict plugin` checks the files locally, with no model call; CI validates them against SchemaStore's schemas.
 
 ### plugin.json
 
@@ -302,16 +310,16 @@ The plugin is plain files: a manifest, a hooks config, subagent and command Mark
 ```json
 {
   "hooks": {
-    "SessionStart":     [{ "hooks": [{ "type": "command", "command": "compass hook session-start" }] }],
-    "UserPromptSubmit": [{ "hooks": [{ "type": "command", "command": "compass hook prompt" }] }],
-    "PreToolUse":  [{ "matcher": "Write|Edit", "hooks": [{ "type": "command", "command": "compass hook pre-edit" }] }],
-    "PostToolUse": [{ "matcher": "Write|Edit", "hooks": [{ "type": "command", "command": "compass hook post-edit" }] }],
-    "Stop":        [{ "hooks": [{ "type": "command", "command": "compass hook stop" }] }]
+    "SessionStart":     [{ "hooks": [{ "type": "command", "command": "compass hook session-start", "timeout": 30 }] }],
+    "UserPromptSubmit": [{ "hooks": [{ "type": "command", "command": "compass hook prompt", "timeout": 10 }] }],
+    "PostToolUse": [{ "matcher": "Write|Edit|MultiEdit|NotebookEdit",
+                      "hooks": [{ "type": "command", "command": "compass hook post-edit", "timeout": 30 }] }],
+    "Stop":             [{ "hooks": [{ "type": "command", "command": "compass hook stop", "timeout": 30 }] }]
   }
 }
 ```
 
-Route every hook through one `compass hook <event>` entry point. It reads JSON from stdin, dispatches, catches all exceptions and exits 0 on internal errors, so Compass always fails open.
+Route every hook through one `compass hook <event>` entry point. It reads JSON from stdin, dispatches, catches all exceptions and exits 0 on internal errors, so Compass always fails open. Set a `timeout` on each: the default is ten minutes, and a hung hook would stall the session that long. Add `PreToolUse` with the spec gate (Step 7); until then it would only start a process on every edit.
 
 ### A subagent: agents/digest.md
 
@@ -328,9 +336,9 @@ If asked a question the input cannot answer, say so in one line.
 
 ### Install locally while developing
 
-1. Add a local marketplace file that points at `./plugin`.
-2. In Claude Code, add that marketplace and install `compass` from it.
-3. After changing hooks or agents, reinstall or restart Claude Code, then run `/hooks` and `/agents` to confirm they loaded.
+1. `uv tool install --editable .` puts `compass` on PATH, running your working copy.
+2. `.claude-plugin/marketplace.json` at the repo root lists `./plugin`. Add it and install from it: `claude plugin marketplace add ./`, then `claude plugin install compass@compass-marketplace` (or `/plugin marketplace add` and `/plugin install` inside Claude Code). For a one-off session, `claude --plugin-dir ./plugin` loads it without installing.
+3. After changing hooks or agents, reinstall or restart Claude Code, then run `/hooks`, `/agents` and `/mcp` to confirm they loaded.
 4. Keep a scratch repo open in a second terminal for manual testing.
 
 **Done when:** a fresh machine goes from clone to working plugin with `uv tool install .` and the two install commands.
@@ -339,7 +347,7 @@ If asked a question the input cannot answer, say so in one line.
 
 The team's repos may live on either host, so both distribution paths must work before release:
 
-- **Plugin:** Claude Code accepts any git URL as a marketplace source, so `/plugin marketplace add` takes either `owner/repo` for GitHub or `https://dev.azure.com/<org>/<project>/_git/<repo>` for Azure Repos. Private repos authenticate through the user's git credential helper (Git Credential Manager on Windows).
+- **Plugin:** Claude Code accepts any git URL as a marketplace source, so `/plugin marketplace add` takes either `owner/repo` for GitHub or `https://dev.azure.com/<org>/<project>/_git/<repo>` for Azure Repos. Private repos authenticate through the user's git credential helper (Git Credential Manager on Windows). `--sparse .claude-plugin plugin` fetches only the plugin, not the whole source tree.
 - **CLI package:** `uv tool install git+<repo URL>` works against either host. For a package feed, use PyPI or an Azure Artifacts Python feed; GitHub Packages has no Python registry.
 
 ## Step 6: Review manifest and anchor tags
@@ -355,15 +363,17 @@ Build this before the gates. It gives visible value on day one and needs only a 
 | `@ai:review <id>` | Judgment call | Read carefully |
 | `@ai:todo <id>` | Deliberately left undone | Decide |
 
-Write tags in the file's own comment syntax. The scanner matches `@ai:(change|assume|review|todo)\s+(\S+)\s*[—-]?\s*(.*)` on any line, so it needs no per-language logic.
+Write tags in the file's own comment syntax. The scanner matches `@ai:(change|assume|review|todo)\s+(\S+)\s*[—-]?\s*(.*)` on any line, so it needs no per-language logic. Two refinements keep documentation from counting as tags: the id must start and end with a letter or digit (so `<id>` placeholders never match), and a tag right after a backtick is a Markdown code span quoting one.
+
+Until M4's `/task` exists, tasks are implicit: the first time Compass needs an id it starts `T<n>` in `.compass/state.json`, and that task stays active until it is accepted.
 
 ### Pieces to build
 
-1. **Output style** telling Claude to: tag every change, keep the chat reply to about 10 lines, and link the manifest instead of pasting code.
-2. **`compass manifest <id>`** scans anchors plus `git diff --stat`, then writes `.compass/changes/<id>.md` grouped into Review, Assumptions, TODO and Mechanical, each line as `path:line — note`.
-3. **Stop hook**: if files changed this turn but have no anchors, exit 2 with a short message so Claude adds them.
-4. **`/accept <id>`** command: strips that task's anchors and archives the manifest.
-5. **Pre-commit git hook**: blocks any commit that still contains `@ai:`.
+1. **Reply rules** telling Claude to: tag every change, keep the chat reply to about 10 lines, and link the manifest instead of pasting code. The SessionStart hook injects them with the active task id and `review.reply_max_lines`, so config can switch them off; the same rules ship as an opt-in output style. A forced plugin style would override the developer's own style with no way to turn it off.
+2. **`compass manifest <id>`** scans anchors plus `git diff`, then writes `.compass/changes/<id>.md` grouped into Review, Assumptions, TODO and Mechanical, each line as `path:line — note` linking to the line. `--hosted` prints the same page with links into GitHub or Azure DevOps (NF-16), for a pull request.
+3. **Stop hook**: if files changed this turn but have no anchors, answer `{"decision": "block", "reason": …}` so Claude adds them. Exempt files that cannot hold comments (`review.anchor_exempt`: JSON and the like), binaries and edits that were undone. The hook also rewrites the manifest, so it is never missing.
+4. **`/compass:accept <id>`** command: strips that task's anchors and archives the manifest, with line numbers moved to where the code sits once standalone tag lines are gone. Only the developer can run it (`disable-model-invocation`).
+5. **Pre-commit git hook**: blocks any commit that adds a tag. It checks only the lines the commit adds, so a tag quoted in an already committed file never blocks later commits.
 
 Guard the Stop hook against loops: check `stop_hook_active` in the hook input and never block twice in a row.
 

@@ -50,3 +50,11 @@
     (var_spec_list
       (var_spec
         (identifier) @name) @definition.variable)))
+
+; References: call sites, for callers_of. Matched by name only.
+(call_expression
+  function: (identifier) @name) @reference.call
+
+(call_expression
+  function: (selector_expression
+    field: (field_identifier) @name)) @reference.call
