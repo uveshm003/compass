@@ -20,6 +20,10 @@ compass = "compass.cli:app"
 [dependency-groups]
 dev = [
   "pytest>=8",
+  # Validates both CI definitions against their published schemas (bundled,
+  # no network): the Azure pipeline cannot run until there is an Azure
+  # DevOps organization, so GitHub CI checks it instead.
+  "check-jsonschema>=0.38",
 ]
 
 [build-system]

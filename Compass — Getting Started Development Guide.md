@@ -456,7 +456,9 @@ Without measurement, the token-saving claim stays a belief. Start collecting tel
 
 ### CI
 
-- Defined twice, identically: `.github/workflows/ci.yml` for GitHub Actions and `azure-pipelines.yml` for Azure Pipelines (NF-16); `tests/test_ci_configs.py` fails if their matrices or commands drift apart
+- Defined twice, identically: `.github/workflows/ci.yml` for GitHub Actions and `azure-pipelines.yml` for Azure Pipelines (NF-16); `tests/test_ci_configs.py` fails if their matrices or commands drift apart, and validates both against their published schemas
+- Must run on a free personal GitHub account: no organization-only features, superseded runs cancelled, root-doc-only pushes skipped, one macOS leg in private repos (macOS minutes cost about ten times Linux against the free 2,000 a month). Pin third-party actions to exact release tags; not every action publishes a moving major tag
+- On Azure DevOps, projects are always private: the hosted free tier (one job at a time, 1,800 minutes a month) needs the organization linked to an Azure subscription, and one self-hosted agent is free without it
 - Matrix: macOS, Ubuntu, Windows on Python 3.11 and 3.12
 - On every push: unit, snapshot, hook-contract and latency tests
 - Weekly: install the latest Claude Code and run the end-to-end suite, so breaking changes are caught before users hit them; schedule it on both systems (`on: schedule` in GitHub Actions, `schedules:` in Azure Pipelines)

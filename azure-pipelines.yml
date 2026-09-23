@@ -1,8 +1,17 @@
 # CI for Azure DevOps. Mirrors .github/workflows/ci.yml step for step: GitHub
 # and Azure DevOps are both first-class (NF-16), so change the two together.
 # tests/test_ci_configs.py fails when their matrices or commands drift apart.
+#
+# Free tier: Azure DevOps projects are private, and the hosted free tier (one
+# job at a time, 60 minutes a run, 1,800 minutes a month) switches on once the
+# organization is linked to an Azure subscription. One self-hosted agent is
+# free without that.
 
+# Azure reads every YAML scalar as a string, so "true" and true mean the same
+# to it; the quotes keep Microsoft's published schema (which types these
+# fields as strings) passing in tests/test_ci_configs.py.
 trigger:
+  batch: "true"  # while a run is in progress, queue one run for everything pushed since
   branches:
     include: ["*"]
 
@@ -13,6 +22,7 @@ pr:
 jobs:
   - job: test
     displayName: Tests
+    timeoutInMinutes: "20"
     strategy:
       matrix:  # NF-08: native Windows, no WSL
         ubuntu_py311: { imageName: ubuntu-latest, UV_PYTHON: "3.11" }

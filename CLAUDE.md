@@ -87,7 +87,13 @@ uv run pytest --update-snapshots  # accept new output in tests/snapshots/ — re
 COMPASS_TEST_CTAGS=/path/to/ctags uv run pytest tests/test_ctags.py   # real universal-ctags
 ```
 
-Fixture repos live in `tests/fixtures/` (one per language family); `tests/snapshots/<fixture>/` holds the expected index rows, map shards, file list and stack profile. Tests isolate git from the developer's config and set `COMPASS_CTAGS=off`, so installed tools never change snapshot output. Latency checks use plain timers with p95 rather than `pytest-benchmark`. Still planned from Step 9: weekly end-to-end runs via headless `claude -p` against the latest Claude Code release, scheduled on both CI systems. CI is macOS, Ubuntu and Windows on Python 3.11 and 3.12 — Windows without WSL is a requirement (NF-08), not an afterthought. It is defined twice, identically: `.github/workflows/ci.yml` (GitHub Actions) and `azure-pipelines.yml` (Azure Pipelines). Change both together; `tests/test_ci_configs.py` fails when their matrices or commands drift apart.
+Fixture repos live in `tests/fixtures/` (one per language family); `tests/snapshots/<fixture>/` holds the expected index rows, map shards, file list and stack profile. Tests isolate git from the developer's config and set `COMPASS_CTAGS=off`, so installed tools never change snapshot output. Latency checks use plain timers with p95 rather than `pytest-benchmark`. Still planned from Step 9: weekly end-to-end runs via headless `claude -p` against the latest Claude Code release, scheduled on both CI systems. CI is macOS, Ubuntu and Windows on Python 3.11 and 3.12 — Windows without WSL is a requirement (NF-08), not an afterthought. It is defined twice, identically: `.github/workflows/ci.yml` (GitHub Actions) and `azure-pipelines.yml` (Azure Pipelines). Change both together; `tests/test_ci_configs.py` fails when their matrices or commands drift apart, and it also validates both files against their published schemas, so the Azure pipeline gets checked on every GitHub run.
+
+**CI constraints during development.** CI runs on a free personal GitHub account, with no organization, so:
+- Use no organization-only features.
+- Spend minutes carefully. Public repos are free; private repos get 2,000 minutes a month, and macOS costs about 10× Linux. The workflow cancels superseded runs, skips pushes that only touch root-level docs, and runs one macOS leg in private repos.
+- Pin third-party actions to exact release tags or commit SHAs, and check the tag exists before using it. setup-uv publishes no moving major tags; `@v10` broke the first run. The tests enforce the pinning; actionlint does not check that tags exist.
+- Azure DevOps has no organization yet. Its projects are always private: the hosted free tier (one job, 1,800 minutes a month) needs a linked Azure subscription, while one self-hosted agent is free.
 
 ### Implementation notes
 
