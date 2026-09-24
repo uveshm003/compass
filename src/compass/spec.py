@@ -85,10 +85,23 @@ def classify(prompt: ParsedPrompt, config: Config) -> tuple[str, str]:
     for keyword in rules["keywords"]:
         if re.search(rf"\b{re.escape(keyword.lower())}\w*", text):  # "refactor" also finds "refactoring"
             return "large", f'keyword "{keyword}"'
-    paths = {c.text.rstrip("/") for c in prompt.candidates if c.kind == "path"}
+    paths = {c.text.rstrip("/") for c in prompt.candidates if _counts_as_a_file(c, prompt)}
     if len(paths) >= rules["files_mentioned_gte"]:
         return "large", f"{len(paths)} files mentioned"
     return "small", ""
+
+
+def _counts_as_a_file(candidate, prompt: ParsedPrompt) -> bool:
+    """A path the task will touch: one the code map knows, or a new file named
+    with an extension. A directory named only as a filter ("under .compass/")
+    or Compass's own state is not a file the task changes."""
+    path = candidate.text.removeprefix("./")
+    if candidate.kind != "path" or path == ".compass" or path.startswith(".compass/"):
+        return False
+    if candidate.text in prompt.resolved:
+        return True
+    tail = candidate.text.rstrip("/").rsplit("/", 1)[-1]
+    return not candidate.text.endswith("/") and "." in tail.lstrip(".")
 
 
 def spec_rel(task: str) -> str:

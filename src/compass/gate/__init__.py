@@ -162,7 +162,8 @@ def _candidates(text: str) -> list[Candidate]:
     out: dict[str, Candidate] = {}
 
     def add(token: str, quoted: bool) -> None:
-        token = token.strip().strip(".,;:!?'\"[]{}<>")
+        # Sentence punctuation comes off the end only: `.compass/` keeps its dot.
+        token = token.strip().rstrip(".,;:!?'\"]}>").lstrip("'\"[{<")
         called = token.endswith("()")  # reset() is code even in plain prose
         token = token.removesuffix("()").strip("()")
         if not token or token.lower() in _NOT_NAMES or len(token) < 2 or "://" in token:

@@ -159,6 +159,19 @@ def test_size_classification(text, size, reason):
     assert spec.classify(parse(text), default_config()) == (size, reason)
 
 
+def test_only_files_a_task_touches_count_towards_its_size(repo):
+    # Three paths, but one is a directory named as a filter and one is Compass's
+    # own state: a small task. (Found dogfooding: it was sized large.)
+    text = "Make `on_stop` in src/transport/socket.ts skip files under .compass/ and lib/ and add tests in x.test.ts"
+    parsed = parse(text)
+    assert ".compass/" in [c.text for c in parsed.candidates]  # the leading dot survives
+    with Store.open(repo.db_path) as store:
+        resolve(store, parsed)
+    assert spec.classify(parsed, default_config()) == ("small", "")
+    parsed = parse("touch ./compass/a.py, ./compass/b.py and src/c.py")  # a project's own compass/ package counts
+    assert spec.classify(parsed, default_config()) == ("large", "3 files mentioned")
+
+
 # -- the context pack (CP-01 to CP-03) ------------------------------------------------------
 
 
