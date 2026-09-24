@@ -64,6 +64,7 @@ index:
   shard_token_limit: 2000
 
 query:
+  enabled: true             # the MCP query tools, and the SessionStart rule to use them
   max_response_chars: 4000  # longer MCP answers end with a cursor to continue
   context_lines: 3          # lines shown around a symbol by read_symbol
 
@@ -98,8 +99,8 @@ local_llm:
   enrich_limit: 200            # symbols `compass enrich` summarises per run
 
 telemetry:
-  enabled: true
-  export: false
+  enabled: true      # per-turn tokens, time and tool counts in .compass/telemetry.jsonl; never prompts or code
+  export: false      # or a file path: also append every row there, e.g. a folder the pilot owner collects
 """
 
 CACHE_NAME = "config.cache.json"
@@ -140,6 +141,7 @@ class IndexSettings:
 class QuerySettings:
     max_response_chars: int
     context_lines: int
+    enabled: bool = True
 
 
 @dataclass(frozen=True)
@@ -155,6 +157,12 @@ class DelegationSettings:
     enabled: bool
     digest_threshold_lines: int
     enforce_contracts: bool
+
+
+@dataclass(frozen=True)
+class TelemetrySettings:
+    enabled: bool
+    export: str | None  # a file path, or None
 
 
 @dataclass(frozen=True)
@@ -184,6 +192,11 @@ class Config:
         )
 
     @property
+    def telemetry(self) -> TelemetrySettings:
+        section = self.data["telemetry"]
+        return TelemetrySettings(section["enabled"], section["export"] or None)
+
+    @property
     def review(self) -> ReviewSettings:
         section = self.data["review"]
         return ReviewSettings(
@@ -196,7 +209,7 @@ class Config:
     @property
     def query(self) -> QuerySettings:
         section = self.data["query"]
-        return QuerySettings(section["max_response_chars"], section["context_lines"])
+        return QuerySettings(section["max_response_chars"], section["context_lines"], section["enabled"])
 
     @property
     def index(self) -> IndexSettings:
@@ -278,9 +291,17 @@ def parse_config(text: str) -> Config:
 
 
 _CHOICES = {"prompt_gate.strictness": ("off", "warn", "block")}
+_PATH_OR_OFF = {"telemetry.export"}  # false (or empty) for off, else a file path
 
 
 def _merge(default: Any, user: Any, path: str, warnings: list[str]) -> Any:
+    if path in _PATH_OR_OFF:
+        if user is None or user is False or user == "":
+            return False
+        if isinstance(user, str) and user.strip():
+            return user.strip()
+        warnings.append(f"{path} should be false or a file path; using the default {default!r}")
+        return default
     if path in _CHOICES:
         if isinstance(user, bool):  # YAML reads a bare `off` as false (and `on` as true)
             user = "off" if user is False else "warn"

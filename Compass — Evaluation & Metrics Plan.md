@@ -88,6 +88,15 @@ The full benchmark is 120 runs: 20 tasks × 2 conditions × 3 repeats. All runs 
 6. Run the hidden acceptance test and record pass or fail.
 7. Save the transcript, subagent transcripts, hook logs and `git diff` to `bench/results/<run-id>/`.
 
+### The harness
+
+`bench/run.py` carries out these steps, and `compass report bench/results/<batch>` writes the report below from what it saves. Some details the protocol leaves open:
+
+- Active time comes from the transcript, not a stopwatch. It is the time from each prompt to the end of its turn, which leaves out the approval pause as step 4 requires. The harness also records the process time, and Claude Code's own cost estimate for the net cost-weighted metric.
+- User settings and other MCP servers stay out in both conditions (`--setting-sources project,local`, `--strict-mcp-config`).
+- The ablation conditions are `on-no-map` (query tools and context pack), `on-no-gates` (prompt and spec gates), `on-no-delegation` and `on-no-review`.
+- Pilot telemetry uses the same row format as the harness, so one report reads both.
+
 ### Controls
 
 - Pin the Claude Code version and the model for the whole benchmark; record both in the report.
@@ -120,7 +129,9 @@ Developers tag each task with a category from the benchmark mix and a size (S, M
 
 ### Privacy
 
-Telemetry rows hold counts, timings and task tags only; they contain no prompts, code or file contents. Developers export their own `telemetry.jsonl` to the pilot owner at the end.
+Telemetry rows hold counts, timings and task tags only; they contain no prompts, code or file contents. Developers export their own `telemetry.jsonl` to the pilot owner at the end, or set `telemetry.export` to a file in a folder the owner collects. `compass report` accepts several files at once.
+
+Tasks are tagged in the brief: `/compass:task Goal: … Category: bug fix Size: M`.
 
 ## Analysis and report
 

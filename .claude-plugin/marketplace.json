@@ -9,7 +9,7 @@
     {
       "name": "compass",
       "source": "./plugin",
-      "description": "Code map and query tools over MCP, review anchors and a change manifest for every AI change.",
+      "description": "A code map with query tools, checks on requests and large tasks, Haiku subagents held to output contracts, a review manifest for every AI change, and local telemetry.",
       "category": "development"
     }
   ]

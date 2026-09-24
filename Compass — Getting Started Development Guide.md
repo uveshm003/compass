@@ -69,7 +69,8 @@ compass/
 │   ├── llm.py              # local LLM client: OpenAI-compatible, loopback only
 │   ├── local_tools.py      # summarize_file, classify_files
 │   ├── enrich.py           # background summaries for undocumented symbols
-│   └── telemetry.py
+│   ├── telemetry.py        # per-turn rows from Claude Code's transcripts
+│   └── report.py           # compass report: on/off comparison, benchmark report
 ├── plugin/                 # the Claude Code plugin
 │   ├── .claude-plugin/plugin.json
 │   ├── hooks/hooks.json
@@ -78,7 +79,7 @@ compass/
 │   ├── skills/
 │   └── .mcp.json
 ├── tests/fixtures/         # small repos in 4+ languages
-└── bench/                  # benchmark tasks (see Evaluation plan)
+└── bench/                  # benchmark harness and tasks (see Evaluation plan)
 ```
 
 ### Core dependencies
@@ -472,10 +473,18 @@ Without measurement, the token-saving claim stays a belief. Start collecting tel
 
 ### Telemetry
 
-1. The Stop hook receives `transcript_path`. Parse the JSONL and sum the `usage` fields on assistant messages: input, output, cache-creation and cache-read tokens.
-2. Record wall-clock time from the first prompt to the last Stop, plus counts of tool calls by name (especially Read versus Compass tools).
-3. Append one row per task to `.compass/telemetry.jsonl`. Subagent sessions have their own transcripts, so attribute them to the parent task.
-4. `compass report` groups rows by `compass_enabled` and prints medians and deltas.
+1. The Stop hook receives `transcript_path`. Read the JSONL from where the last Stop left off, and sum the `usage` fields on assistant messages: input, output, cache-creation and cache-read tokens. Each API message is written as one line per content block, all repeating its usage, with output tokens still growing on the early lines, so count each message id once, at its largest values.
+2. Record active time, meaning time from each prompt to the end of its turn, with the developer's wait before a prompt left out. Also record counts of tool calls by name (especially Read versus Compass tools) and the context Compass itself injected.
+3. Append one row per turn to `.compass/telemetry.jsonl`, tagged with the active task and its `Category:` and `Size:`. Subagent sessions have their own transcripts: SubagentStop reads them into rows of their own, attributed to the parent task. `compass report` rolls the rows up into tasks.
+4. `compass report` groups tasks by whether Compass was on and prints medians and deltas, overall and by category (TM-03). Pointed at benchmark results, it writes the Evaluation Plan's report.
+
+Claude Code writes the transcript asynchronously, so a hook can start before the turn's last message is on disk. Wait until the last model message has a final stop reason. `tests/e2e/check_delegation.py` checks that the rows equal Claude Code's own per-model counts.
+
+For the pilot's baseline weeks, switch every module off but telemetry; `query.enabled: false` removes the query tools too. Rows then record `compass: false`, and SessionStart adds nothing.
+
+### Benchmark harness
+
+`bench/run.py` runs the Evaluation Plan's protocol: a fresh copy of each task's repo, Compass on (or an ablation) or off, `claude -p` with a pinned model, spec-gate approvals answered, and the hidden acceptance check. It saves the transcripts, diff and a `row.json` per run under `bench/results/<batch>/`, and `compass report bench/results/<batch>` turns them into the report. `bench/README.md` has the task format. The two example tasks run on a fixture repo and test the harness; the suite itself needs two 50k+ LOC repositories and 20 tasks written by a non-author.
 
 ### Tests
 
@@ -484,7 +493,8 @@ Without measurement, the token-saving claim stays a belief. Start collecting tel
 | Parser | Symbols and docs per language | Fixture repos + snapshot of extracted rows |
 | Shards | Byte-stable output | Snapshot tests; run twice and diff |
 | Hooks | Contract with Claude Code | Pipe recorded JSON to `compass hook <event>`; assert exit code, stdout, stderr |
-| Latency | NF-01 to NF-04 | pytest-benchmark on a generated 100k LOC repo |
+| Latency | NF-01 to NF-04 | Plain timers with p95 on a generated 100k LOC repo (`pytest --perf`) |
+| Telemetry | Transcript parsing, rows, report | Synthetic transcripts in Claude Code's line format; the harness against a fake `claude` |
 | End to end | Real Claude Code sessions | Headless `claude -p` runs of benchmark tasks, weekly |
 
 ### CI
@@ -494,7 +504,9 @@ Without measurement, the token-saving claim stays a belief. Start collecting tel
 - On Azure DevOps, projects are always private: the hosted free tier (one job at a time, 1,800 minutes a month) needs the organization linked to an Azure subscription, and one self-hosted agent is free without it
 - Matrix: macOS, Ubuntu, Windows on Python 3.11 and 3.12
 - On every push: unit, snapshot, hook-contract and latency tests
-- Weekly: install the latest Claude Code and run the end-to-end suite, so breaking changes are caught before users hit them; schedule it on both systems (`on: schedule` in GitHub Actions, `schedules:` in Azure Pipelines)
+- Weekly: install the latest Claude Code and run the end-to-end suite, so breaking changes are caught before users hit them; schedule it on both systems (`on: schedule` in GitHub Actions, `schedules:` in Azure Pipelines). `.github/workflows/e2e.yml` and `azure-pipelines-e2e.yml` run `tests/e2e/run_all.py`. They log Claude Code in with the developer's Claude subscription, never an API key: a token from `claude setup-token`, stored as the `CLAUDE_CODE_OAUTH_TOKEN` secret. Without it they do nothing, since every run counts against the subscription's usage
+
+**Done when:** the benchmark produces an on/off comparison report. `bench/run.py` over the example tasks, then `compass report bench/results/<batch>`, shows it end to end, and `tests/e2e/check_delegation.py` checks the telemetry rows against Claude Code's own counts.
 
 ### Conventions
 

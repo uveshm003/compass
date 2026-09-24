@@ -1,0 +1,20 @@
+# Repositories the benchmark tasks run against. Each run starts from a fresh
+# copy: `fixture` copies a folder under tests/fixtures/ and commits it; `url`
+# clones a git repository (mirrored once into bench/.cache/) at the task's
+# commit, from GitHub or Azure Repos alike.
+#
+# The Evaluation Plan's suite needs two repositories of at least 50k LOC in
+# different stacks: one internal repo from the pilot team (repo-a) and one
+# public open-source repo (repo-b). Add them here, for example:
+#
+#   repo-b:
+#     url: https://github.com/<owner>/<repo>.git
+#   repo-a:
+#     url: https://dev.azure.com/<org>/<project>/_git/<repo>
+
+python_app:
+  fixture: python_app
+ts_app:
+  fixture: ts_app
+go_app:
+  fixture: go_app

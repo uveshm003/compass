@@ -1,0 +1,64 @@
+# Weekly compatibility check (NF-14): every done-when check in real headless
+# Claude Code sessions, against the latest Claude Code release. Mirrors
+# .github/workflows/e2e.yml; tests/test_ci_configs.py fails when they drift.
+#
+# Compass is built on Claude Code, never on an API key. Set this file up as a
+# second pipeline and give it a secret variable CLAUDE_CODE_OAUTH_TOKEN: the
+# token `claude setup-token` prints, which logs Claude Code in with your
+# Claude subscription, as on your own machine. Optionally add E2E_MODEL (for
+# example "sonnet"). Without the token every step after the first is skipped.
+trigger: none
+pr: none
+
+schedules:
+  - cron: "17 6 * * 1"  # Mondays, 06:17 UTC
+    displayName: Weekly
+    branches:
+      include: [main]
+    always: "true"  # whether or not anything changed: Claude Code is what moves
+
+jobs:
+  - job: e2e
+    displayName: Claude Code (latest) · done-when checks
+    timeoutInMinutes: "60"
+    pool:
+      vmImage: ubuntu-latest
+    steps:
+      # A secret is not visible to conditions, so this step records whether it is set.
+      # An undefined variable arrives as the literal text $(CLAUDE_CODE_OAUTH_TOKEN).
+      - script: |
+          if [ -n "$TOKEN" ] && [ "$TOKEN" != '$''(CLAUDE_CODE_OAUTH_TOKEN)' ]; then present=true; else present=false; fi
+          echo "##vso[task.setvariable variable=HAS_LOGIN]$present"
+        displayName: Claude Code login present?
+        env:
+          TOKEN: $(CLAUDE_CODE_OAUTH_TOKEN)
+
+      - task: UsePythonVersion@0
+        displayName: Python 3.12
+        condition: eq(variables['HAS_LOGIN'], 'true')
+        inputs:
+          versionSpec: "3.12"
+
+      - script: python -m pip install --upgrade uv
+        displayName: Install uv
+        condition: eq(variables['HAS_LOGIN'], 'true')
+
+      # The latest release on purpose: this job exists to catch breaking changes.
+      - script: npm install -g @anthropic-ai/claude-code
+        displayName: Install Claude Code
+        condition: eq(variables['HAS_LOGIN'], 'true')
+
+      - script: uv sync --locked
+        displayName: Sync dependencies
+        condition: eq(variables['HAS_LOGIN'], 'true')
+
+      - script: claude --version
+        displayName: Claude Code version
+        condition: eq(variables['HAS_LOGIN'], 'true')
+
+      - script: uv run python tests/e2e/run_all.py
+        displayName: Done-when checks
+        condition: eq(variables['HAS_LOGIN'], 'true')
+        env:
+          CLAUDE_CODE_OAUTH_TOKEN: $(CLAUDE_CODE_OAUTH_TOKEN)
+          E2E_MODEL: $(E2E_MODEL)

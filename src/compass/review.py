@@ -51,10 +51,14 @@ def manifest_rel(task: str) -> str:
     return f".compass/changes/{task}.md"
 
 
-def instructions(settings: ReviewSettings, task: str | None) -> str:
-    """The session context Compass adds at SessionStart: the query-tools rule
-    (Step 4) and, with review on, the anchor and reply rules (RO-01, RO-02)."""
-    lines = ["[compass] Compass is active in this repository.", TOOLS_RULE]
+SESSION_HEADER = "[compass] Compass is active in this repository."
+
+
+def instructions(settings: ReviewSettings, task: str | None, tools: bool = True) -> list[str]:
+    """The rules Compass adds at SessionStart: the query-tools rule (Step 4,
+    unless ``query.enabled`` is off) and, with review on, the anchor and reply
+    rules (RO-01, RO-02)."""
+    lines = [TOOLS_RULE] if tools else []
     if settings.enabled and task:
         lines.append(
             f"- Review anchors, task {task}: mark every change with a comment in the file's own syntax,"
@@ -67,7 +71,7 @@ def instructions(settings: ReviewSettings, task: str | None) -> str:
             f" to at most {settings.reply_max_lines} lines: what changed, that manifest path, and risks or open"
             " questions. No code in chat; the manifest links every change."
         )
-    return "\n".join(lines)
+    return lines
 
 
 def announcement(task: str) -> str:

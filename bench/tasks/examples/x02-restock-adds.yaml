@@ -1,0 +1,21 @@
+# A harness example on a fixture repo, not one of the benchmark's 20 tasks.
+id: x02
+repo: python_app
+category: bug_fix
+setup:
+  - replace:
+      file: src/inventory/models.py
+      old: "self.quantity += amount"
+      new: "self.quantity = amount"
+prompt: |
+  Goal: StockItem.restock should add to the quantity on hand; a second restock currently loses the first.
+  Scope: src/inventory/models.py
+  Accept when: restocking 5 and then 3 leaves a quantity of 8, and negative amounts still raise ValueError.
+  Constraints: no new dependencies.
+hidden: [tests/hidden/test_x02.py]
+acceptance:
+  command: "{python} -m pytest -q -p no:cacheprovider tests/hidden/test_x02.py"
+  env: {PYTHONPATH: src}
+allowed_tools: ["Bash(python -m pytest:*)", "Bash(python3 -m pytest:*)", "Bash(pytest:*)"]
+timeout_min: 15
+max_turns: 30

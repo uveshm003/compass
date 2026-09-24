@@ -31,6 +31,8 @@ summaries.db*
 enrich.lock
 enrich.again
 telemetry.jsonl
+telemetry-offsets.json*
+telemetry.lock
 logs/
 """
 

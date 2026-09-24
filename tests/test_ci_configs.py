@@ -60,7 +60,13 @@ def test_private_repos_trim_only_macos_legs():
 def test_third_party_actions_pin_exact_versions():
     # Not every action publishes a moving major tag (setup-uv has no `v10`), so
     # third-party actions pin a full release tag or a commit SHA.
-    uses = [step["uses"] for step in github_job()["steps"] if "uses" in step]
+    uses = [
+        step["uses"]
+        for workflow in sorted((ROOT / ".github/workflows").glob("*.yml"))
+        for job in yaml.safe_load(workflow.read_text(encoding="utf-8"))["jobs"].values()
+        for step in job.get("steps", [])
+        if "uses" in step
+    ]
     assert uses
     for ref in uses:
         owner, version = ref.split("/", 1)[0], ref.rsplit("@", 1)[1]
@@ -80,13 +86,52 @@ def test_both_ci_systems_run_the_same_commands():
         assert any("universal-ctags" in c for c in commands)
 
 
+def weekly() -> tuple[dict, dict]:
+    github = yaml.safe_load((ROOT / ".github/workflows/e2e.yml").read_text(encoding="utf-8"))
+    azure = yaml.safe_load((ROOT / "azure-pipelines-e2e.yml").read_text(encoding="utf-8"))
+    return github, azure
+
+
+def test_both_ci_systems_run_the_weekly_claude_code_checks():
+    # NF-14: the latest Claude Code every week, on both systems, the same way.
+    github, azure = weekly()
+    on = github[True] if True in github else github["on"]  # YAML 1.1 reads a bare `on` key as true
+    assert [s["cron"] for s in on["schedule"]] == [s["cron"] for s in azure["schedules"]] == ["17 6 * * 1"]
+    assert azure["trigger"] == "none" and azure["pr"] == "none" and azure["schedules"][0]["always"] == "true"
+    job, pipeline = github["jobs"]["e2e"], azure["jobs"][0]
+    commands = [step["run"] for step in job["steps"] if "run" in step]
+    scripts = [step["script"] for step in pipeline["steps"] if "script" in step][1:]  # after the key check
+    assert commands == [s for s in scripts if not s.startswith("python -m pip")] == [
+        "npm install -g @anthropic-ai/claude-code",
+        "uv sync --locked",
+        "claude --version",
+        "uv run python tests/e2e/run_all.py",
+    ]
+    assert job["runs-on"] == pipeline["pool"]["vmImage"] == "ubuntu-latest"  # one cheap leg a week
+
+
+def test_the_weekly_checks_run_on_a_claude_code_login_or_not_at_all():
+    # Compass is built on Claude Code: CI logs it in with the subscription token
+    # `claude setup-token` prints, never an API key, and runs nothing without it.
+    github, azure = weekly()
+    assert github["jobs"]["e2e"]["if"] == "needs.login.outputs.present == 'true'"
+    assert github["jobs"]["login"]["steps"][0]["env"]["TOKEN"] == "${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}"
+    assert github["jobs"]["e2e"]["env"]["CLAUDE_CODE_OAUTH_TOKEN"] == "${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}"
+    first, *rest = azure["jobs"][0]["steps"]
+    assert "HAS_LOGIN" in first["script"] and "$''(CLAUDE_CODE_OAUTH_TOKEN)" in first["script"]
+    assert all(step["condition"] == "eq(variables['HAS_LOGIN'], 'true')" for step in rest)
+    assert rest[-1]["env"]["CLAUDE_CODE_OAUTH_TOKEN"] == "$(CLAUDE_CODE_OAUTH_TOKEN)"
+
+
 @pytest.mark.parametrize(
     ("path", "schema_args"),
     [
         (".github/workflows/ci.yml", ["--builtin-schema", "vendor.github-workflows"]),
+        (".github/workflows/e2e.yml", ["--builtin-schema", "vendor.github-workflows"]),
         # Azure's parser treats every scalar as a string, and so does its schema;
         # the transform also resolves ${{ }} template syntax before checking.
         ("azure-pipelines.yml", ["--builtin-schema", "vendor.azure-pipelines", "--data-transform", "azure-pipelines"]),
+        ("azure-pipelines-e2e.yml", ["--builtin-schema", "vendor.azure-pipelines", "--data-transform", "azure-pipelines"]),
     ],
 )
 def test_ci_files_match_their_published_schemas(path, schema_args):

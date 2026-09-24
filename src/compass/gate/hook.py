@@ -106,7 +106,7 @@ def on_prompt(repo: Repo, payload: dict[str, Any]) -> Answer:
                     f"[compass] The request does not state its {_names(missing)}, so Claude will ask."
                     " /compass:task has every field; a prompt starting with !quick skips the check."
                 )
-        waiting = state.needs_approval(state.read(repo))
+        waiting = state.needs_approval(state.read(repo)) if config.data["spec_gate"]["enabled"] else None
         if waiting and parsed.kind != "bypass" and not drafted:
             context.append(_waiting(waiting))
         if config.data["context_pack"]["enabled"] and store is not None and parsed.kind != "reply":
@@ -352,10 +352,14 @@ def dry_run(repo: Repo, text: str) -> str:
 # -- SessionStart extras -----------------------------------------------------------------
 
 
-def session_lines(repo: Repo) -> list[str]:
-    """The stack, with installed versions (ST-02), and a pending approval."""
-    lines = _stack_lines(repo)
-    waiting = state.needs_approval(state.read(repo))
+def session_lines(repo: Repo, config=None) -> list[str]:
+    """The stack, with installed versions (ST-02), when the context pack is on,
+    and a pending approval, when the spec gate is."""
+    from compass.config import load_config
+
+    config = config or load_config(repo.root)
+    lines = _stack_lines(repo) if config.data["context_pack"]["enabled"] else []
+    waiting = state.needs_approval(state.read(repo)) if config.data["spec_gate"]["enabled"] else None
     if waiting:
         lines.append(_waiting(waiting))
     return lines

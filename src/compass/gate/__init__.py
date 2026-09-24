@@ -39,7 +39,7 @@ TASK_TEMPLATE = "/compass:task Goal: … Scope: … Non-goals: … Accept when: 
 # Label spellings, normalised to a field. `Accept when:` is the template's own.
 _LABELS = re.compile(
     r"(?im)(?:^|(?<=[\s.;,(]))(goal|scope|non[- ]?goals?|accept(?:ance)?(?:\s+(?:when|criteria))?|done\s+when"
-    r"|success\s+criteria|constraints?)\s*:"
+    r"|success\s+criteria|constraints?|category|size)\s*:"  # the last two tag a task for telemetry
 )
 _LABEL_FIELD = {"goal": "goal", "scope": "scope", "constraint": "constraints", "constraints": "constraints"}
 

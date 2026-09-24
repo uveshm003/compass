@@ -1,0 +1,13 @@
+# A harness example on a fixture repo, not one of the benchmark's 20 tasks:
+# fixtures are far too small to show what Compass saves.
+id: x01
+repo: python_app
+category: explain
+prompt: |
+  Goal: I need to know where a sensor reading is judged to be an alarm, and what decides the threshold.
+  Scope: the inventory package.
+  Accept when: you name the method and the constant, with file and line.
+acceptance:
+  reply_contains: [is_alarm, DEFAULT_THRESHOLD]
+timeout_min: 10
+max_turns: 20

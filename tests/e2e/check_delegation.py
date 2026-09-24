@@ -7,6 +7,8 @@ commits".
    runs to 600+ lines with two failures. It must hand the run to
    ``compass:test-runner`` (or ``compass:digest``) rather than run it in the
    main conversation, get back a short answer, and name both failures.
+   Telemetry must have recorded the turn with exactly the tokens Claude Code
+   reports, and the subagent as delegated work (TM-01).
 2. Enrichment, only with ``--local-model``: a commit with local_llm switched
    on returns as fast as one without, and the summaries arrive in the code map
    afterwards. It needs a model already running on this machine (Ollama:
@@ -163,6 +165,14 @@ def check_delegation(work: Path, env: dict[str, str], model: str | None) -> tupl
     digest = "\n".join(answers.get(tid, "") for tid in ours)
     own = "\n".join(finals.get(tid) or answers.get(tid, "") for tid in ours)
     digest_lines = [line for line in own.splitlines() if line.strip()]
+    # Telemetry (TM-01) read the same session from its transcript: the turn must
+    # match Claude Code's own count exactly, and the subagent must show as delegated.
+    rows_file = repo / ".compass" / "telemetry.jsonl"
+    rows = [json.loads(line) for line in rows_file.read_text(encoding="utf-8").splitlines()] if rows_file.exists() else []
+    recorded = sum(sum(u.values()) for r in rows if r["kind"] == "turn" for u in r["main"].values())
+    reported = sum(usage.get(k, 0) or 0 for k in (
+        "input_tokens", "output_tokens", "cache_creation_input_tokens", "cache_read_input_tokens"))
+    delegated_rows = [r for r in rows if r["kind"] == "subagent" and r.get("agent") in ours.values() and r["delegated"]]
     checks = [
         (f"the full test output runs to {output_lines} lines (over 500)", output_lines > 500),
         (f"Claude delegated the run to a Compass subagent ({', '.join(ours.values()) or 'none'})", bool(ours)),
@@ -170,6 +180,8 @@ def check_delegation(work: Path, env: dict[str, str], model: str | None) -> tupl
         (f"  ... whose answer came back short ({len(digest_lines)} lines, at most 20)", 0 < len(digest_lines) <= 20),
         ("  ... and named both failures", all(f"test_add_{n}" in digest for n in FAILING)),
         ("Claude's reply names both failures", all(str(n) in result for n in FAILING)),
+        (f"telemetry counted the turn as Claude Code did ({recorded:,} tokens)", recorded == reported > 0),
+        ("  ... and the subagent as delegated work", bool(delegated_rows) or not ours),
     ]
     return checks, {"result": result, "digest": digest, "usage": usage, "stderr": proc.stderr, "code": proc.returncode}
 

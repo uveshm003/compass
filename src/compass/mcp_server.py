@@ -31,6 +31,8 @@ tests_for for relationships, and stack_profile for versions and commands. \
 Read whole files only when you are about to edit them. Answers give \
 path:line ranges; a long answer ends with a cursor to continue it."""
 
+QUERY_OFF = "[compass] The query tools are switched off in .compass/config.yaml (query.enabled)."
+
 READ_ONLY = ToolAnnotations(readOnlyHint=True, idempotentHint=True, openWorldHint=False)
 
 # Models send cursors both as strings and as numbers; accept either.
@@ -61,11 +63,16 @@ class _Session:
 
 def build_server(start: str | None = None) -> MCPServer:
     session = _Session(start)
-    server = MCPServer("compass", instructions=INSTRUCTIONS, version=__version__, log_level="WARNING")
+    tools = _query_enabled(session)
+    server = MCPServer(
+        "compass", instructions=INSTRUCTIONS if tools else None, version=__version__, log_level="WARNING"
+    )
 
-    def answer(run: Callable[[Queries], Result], cursor: Cursor = None) -> str:
+    def answer(run: Callable[[Queries], Result], cursor: Cursor = None, query_tool: bool = True) -> str:
         try:
             queries = session.queries()
+            if query_tool and not queries.config.query.enabled:  # switched off since the server started
+                return QUERY_OFF
             if parse_cursor(cursor) is None:
                 return page([], cursor, queries.settings.max_response_chars)  # says what a cursor is
             with queries.continuing(bool(parse_cursor(cursor))):
@@ -78,6 +85,23 @@ def build_server(start: str | None = None) -> MCPServer:
             log_error(repo.root if repo else None, "mcp", exc)
             return f"[compass] Internal error ({type(exc).__name__}); details are in .compass/logs/errors.log."
 
+    if tools:
+        _add_query_tools(server, answer)
+    model = _local_model(session)
+    if model is not None:
+        _add_local_tools(server, answer, model)
+    return server
+
+
+def _query_enabled(session: _Session) -> bool:
+    """``query.enabled`` at start-up; the tools stay offered when it cannot be read."""
+    try:
+        return session.queries().config.query.enabled
+    except Exception:
+        return True
+
+
+def _add_query_tools(server: MCPServer, answer) -> None:
     @server.tool(annotations=READ_ONLY, structured_output=False)
     def find_symbol(name: str, kind: str | None = None, path: str | None = None, cursor: Cursor = None) -> str:
         """Find where a class, function, method, interface, type or constant is
@@ -144,11 +168,6 @@ def build_server(start: str | None = None) -> MCPServer:
         before changing it."""
         return answer(lambda q: q.callers_of(name), cursor)
 
-    model = _local_model(session)
-    if model is not None:
-        _add_local_tools(server, answer, model)
-    return server
-
 
 def _local_model(session: _Session):
     """The local model, when ``local_llm`` is on and it answers now (DL-06):
@@ -176,13 +195,13 @@ def _add_local_tools(server: MCPServer, answer, model) -> None:
         cost: what it does and its main parts, with L<n> line references. Use it
         for the gist of a large file before reading it, not for exact code.
         focus asks something specific ("how are errors handled?")."""
-        return answer(lambda q: summarize(q, model, path, focus), cursor)
+        return answer(lambda q: summarize(q, model, path, focus), cursor, query_tool=False)
 
     @server.tool(annotations=READ_ONLY, structured_output=False)
     def classify_files(paths: list[str], labels: list[str], cursor: Cursor = None) -> str:
         """Sort up to 50 files into the labels you give (for example "test",
         "config", "business logic") with the local model, at no token cost."""
-        return answer(lambda q: classify(q, model, paths, labels), cursor)
+        return answer(lambda q: classify(q, model, paths, labels), cursor, query_tool=False)
 
 
 def serve(start: str | Path | None = None) -> None:

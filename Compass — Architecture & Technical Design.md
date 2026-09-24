@@ -102,7 +102,8 @@ All state lives in one `.compass/` folder per repo. Team-owned inputs are commit
 | `state.json` | Active task id and size, each task's brief, touched files and spec approval, per-session turn state, the scaffold subagent's delegated files and edits | No |
 | `stack.json`, `config.cache.json`, `llm.json` | Caches for the hooks: the stack summary from SessionStart, the parsed config, the local model's last health check | No |
 | `summaries.db` | Local-model summaries of undocumented symbols, keyed by content hash (`compass enrich`) | No; kept by `compass index --full`, since only the local model can rebuild it |
-| `telemetry.jsonl` | One row per task | No |
+| `telemetry.jsonl` | One row per turn and per subagent, tagged with its task: tokens per model, tool calls, prompts, active time, context Compass injected; never prompts or code. `compass report` rolls them up into tasks | No; the measurement record, which nothing can rebuild |
+| `telemetry-offsets.json` | How far the hooks have read each session's and subagent's transcript | No |
 | `logs/` | Hook errors (`errors.log`) and every prompt-gate decision, bypasses included (`gate.jsonl`) | No |
 
 Shards are derived and fast to regenerate, so there is no reason to commit them and create merge conflicts.
@@ -139,6 +140,7 @@ index:
   shard_token_limit: 2000
 
 query:
+  enabled: true             # the MCP query tools and the SessionStart rule to use them
   max_response_chars: 4000  # longer MCP answers end with a cursor (QT-05)
   context_lines: 3          # lines around a symbol in read_symbol (QT-02)
 
@@ -161,11 +163,13 @@ local_llm:
   enrich_limit: 200            # symbols `compass enrich` summarises per run
 
 telemetry:
-  enabled: true
-  export: false
+  enabled: true      # per-turn tokens, time and tool counts in .compass/telemetry.jsonl; never prompts or code
+  export: false      # or a file path: also append every row there, e.g. a folder the pilot owner collects
 ```
 
 The model name above is only an example; pick whatever runs well on the team's hardware.
+
+For the pilot's telemetry-only baseline, set `enabled: false` on `query`, `prompt_gate`, `context_pack`, `spec_gate`, `review` and `delegation`. Claude Code then runs as stock, while the Stop hook still records every turn, marked `compass: false`.
 
 ## Extension points
 

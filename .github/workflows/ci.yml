@@ -9,9 +9,9 @@ name: ci
 
 on:
   push:
-    paths-ignore: ["*.md"]  # root docs and specs only; fixture READMEs still run CI
+    paths-ignore: ["*.md", "docs/**"]  # root docs, specs and guides; fixture READMEs still run CI
   pull_request:
-    paths-ignore: ["*.md"]
+    paths-ignore: ["*.md", "docs/**"]
   workflow_dispatch:
 
 # A newer push to the same branch cancels the run it supersedes.
