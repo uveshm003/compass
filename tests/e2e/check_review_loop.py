@@ -26,10 +26,14 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 FIXTURES = ROOT / "tests" / "fixtures"
+# Each task needs a real edit in the fixture, with at least one judgment call.
 TASKS = {
-    "python_app": "In src/inventory/models.py, make StockItem.restock reject a negative amount with a ValueError.",
-    "ts_app": "In src/transport/reconnect.ts, cap ReconnectPolicy.next at maxDelayMs even with jitter.",
-    "go_app": "In internal/transport/retry.go, make Retry return an error when attempts is below 1.",
+    "python_app": (
+        "Add a StockItem.remove(amount) method in src/inventory/models.py that lowers the quantity, "
+        "raising ValueError for a negative amount or one larger than the stock on hand."
+    ),
+    "ts_app": "Make withRetry in src/transport/reconnect.ts give up after 5 attempts and rethrow the last error.",
+    "go_app": "Make Retry in internal/transport/retry.go wrap the last error from op with ErrGiveUp instead of dropping it.",
 }
 
 
@@ -56,9 +60,14 @@ def main() -> int:
     subprocess.run([*git, "add", "-A"], cwd=repo, check=True)
     subprocess.run([*git, "commit", "-q", "-m", "base"], cwd=repo, check=True, env=env)
 
+    # Only Compass's MCP server: account-level connectors would otherwise join
+    # the session and pad the reply with notes about themselves.
+    config = work / "mcp.json"
+    config.write_text(json.dumps({"mcpServers": {"compass": {"command": "compass", "args": ["mcp"]}}}), encoding="utf-8")
     command = [
         "claude", "-p", TASKS[args.fixture], "--output-format", "stream-json", "--verbose",
         "--no-session-persistence", "--plugin-dir", str(ROOT / "plugin"), "--permission-mode", "acceptEdits",
+        "--mcp-config", str(config), "--strict-mcp-config",
     ]
     if args.model:
         command += ["--model", args.model]
@@ -76,6 +85,7 @@ def main() -> int:
     checks: list[tuple[str, bool]] = []
     manifests = sorted((repo / ".compass" / "changes").glob("T*.md"))
     checks.append(("a manifest was written", bool(manifests)))
+    written = manifests[0].read_text(encoding="utf-8") if manifests else ""  # accept archives it below
     listed = subprocess.run(["compass", "check-anchors"], cwd=repo, capture_output=True, text=True, env=env).stdout
     checks.append(("the change carries anchor tags", bool(listed.strip())))
     reply_lines = [line for line in answer.strip().splitlines() if line.strip()]
@@ -91,7 +101,7 @@ def main() -> int:
 
     print(f"Task: {TASKS[args.fixture]}\n\nReply:\n{answer.strip() or proc.stderr.strip()}\n")
     if manifests:
-        print(f"Manifest ({manifests[0].name}):\n{manifests[0].read_text(encoding='utf-8')}")
+        print(f"Manifest ({manifests[0].name}):\n{written}")
     print(f"Anchors before accept:\n{listed.strip() or '(none)'}\n{accepted.stdout.strip()}\n")
     for name, ok in checks:
         print(f"{'ok  ' if ok else 'FAIL'}  {name}")

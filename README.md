@@ -57,7 +57,7 @@ checks that they are.
 | `compass update [paths]` | Re-index specific files; `--from-git` is what the git hooks call |
 | `compass files [--json]` | The files Compass indexes, with language and content hash |
 | `compass stack [--json]` | Stack profile from manifests and CI definitions (GitHub Actions, Azure Pipelines, GitLab CI): languages, frameworks, versions, commands |
-| `compass mcp` | The query tools as a stdio MCP server (this repo's `.mcp.json` runs it) |
+| `compass mcp` | The query tools as a stdio MCP server (the plugin's `.mcp.json` runs it) |
 | `compass find-symbol NAME` | Where a class, function or method is defined (twin of `find_symbol`) |
 | `compass read-symbol NAME` | Just that symbol's source lines (`read_symbol`) |
 | `compass file-outline PATH` | What a file defines (`file_outline`) |

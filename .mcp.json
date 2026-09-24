@@ -1,8 +1,0 @@
-{
-  "mcpServers": {
-    "compass": {
-      "command": "uv",
-      "args": ["run", "--quiet", "compass", "mcp"]
-    }
-  }
-}
