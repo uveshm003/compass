@@ -3,13 +3,14 @@
 from __future__ import annotations
 
 import os
-import subprocess
 import sys
 from pathlib import Path
 
 
 def spawn(args: list[str], cwd: Path) -> bool:
     """Start ``compass <args>`` detached from this process; False if it could not start."""
+    import subprocess  # not at import time: every hook imports this module
+
     kwargs: dict = {
         "cwd": str(cwd),
         "stdin": subprocess.DEVNULL,

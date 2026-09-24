@@ -3,6 +3,7 @@ index.db*
 index.lock
 map/
 changes/
-state.json
+state.json*
+state.lock
 telemetry.jsonl
 logs/

@@ -87,7 +87,10 @@ class Manifest:
 
 def build(repo: Repo, task: str, touched: list[str], exempt: tuple[str, ...] = ()) -> Manifest:
     """The manifest of ``task`` as the working tree stands: its anchors
-    anywhere in the repo, plus every file it touched."""
+    anywhere in the repo, plus every file it touched. In an ``exempt`` file
+    (JSON and the like, which cannot hold comments) tag-shaped text is data,
+    so it is never listed, and so never stripped by accept."""
+    is_exempt = compile_globs(exempt)
     anchors = scan_repo(repo.root, task)
     # Files the task touched may be ignored by git, so git grep missed them.
     seen = {(a.path, a.line) for a in anchors}
@@ -95,12 +98,11 @@ def build(repo: Repo, task: str, touched: list[str], exempt: tuple[str, ...] = (
         for anchor in scan_file(repo.root, rel, task):
             if (anchor.path, anchor.line) not in seen:
                 anchors.append(anchor)
-    anchors.sort()
+    anchors = sorted(a for a in anchors if not is_exempt(a.path))
     paths = sorted(set(touched) | {a.path for a in anchors})
     per_file: dict[str, int] = {}
     for anchor in anchors:
         per_file[anchor.path] = per_file.get(anchor.path, 0) + 1
-    is_exempt = compile_globs(exempt)
     files = [
         # A binary file cannot hold a comment either.
         FileChange(path, status, added, deleted, per_file.get(path, 0), bool(is_exempt(path)) or added is None)

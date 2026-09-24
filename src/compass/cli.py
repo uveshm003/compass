@@ -7,15 +7,19 @@ budget (NF-01). Heavier modules are imported inside the commands that use them.
 
 from __future__ import annotations
 
-import argparse
 import json
 import os
 import sys
+from typing import TYPE_CHECKING
 
 from compass import __version__
 
+if TYPE_CHECKING:  # argparse is imported only past the hook fast path
+    import argparse
+
 EXIT_OK = 0
 EXIT_ERROR = 1
+NOT_INITIALIZED = "this repository has no .compass/ yet; run `compass init` first"
 
 
 def app() -> None:
@@ -87,6 +91,8 @@ def _hook_event(argv: list[str]) -> str | None:
 
 
 def build_parser() -> argparse.ArgumentParser:
+    import argparse
+
     parser = argparse.ArgumentParser(
         prog="compass",
         description="Code map, prompt gates and review manifests for Claude Code.",
@@ -325,7 +331,7 @@ def cmd_task(args: argparse.Namespace) -> int:
 
     repo = find_repo()
     if not repo.initialized:
-        return _fail("this repository has no .compass/ yet; run `compass init`")
+        return _fail(NOT_INITIALIZED)
     with state.transaction(repo) as st:
         previous = state.active_task(st)
         if args.action == "new" and previous is not None:
@@ -347,6 +353,8 @@ def cmd_manifest(args: argparse.Namespace) -> int:
     from compass.repo import find_repo
 
     repo = find_repo()
+    if not repo.initialized:
+        return _fail(NOT_INITIALIZED)
     current = state.read(repo)
     task = args.task or state.active_task(current)
     if not task:
@@ -375,6 +383,8 @@ def cmd_accept(args: argparse.Namespace) -> int:
     from compass.repo import find_repo
 
     repo = find_repo()
+    if not repo.initialized:
+        return _fail(NOT_INITIALIZED)
     try:
         done = review.accept(repo, _config(repo), args.task)
     except review.NothingToAccept as exc:
@@ -410,10 +420,14 @@ def _pre_commit_check() -> int:
 
     repo = None
     try:
+        from compass.globs import compile_globs
+
         repo = find_repo()
-        if repo.initialized and not _config(repo, quiet=True).review.enabled:
+        settings = _config(repo, quiet=True).review
+        if not settings.enabled:
             return EXIT_OK
-        found = staged_anchors(repo.root)
+        exempt = compile_globs(settings.anchor_exempt)  # tag-shaped text in JSON is data
+        found = [a for a in staged_anchors(repo.root) if not exempt(a.path)]
     except Exception as exc:
         log_error(repo.root if repo else None, "check-anchors --staged", exc)
         return EXIT_OK

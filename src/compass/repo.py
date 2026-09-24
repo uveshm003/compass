@@ -3,9 +3,12 @@
 from __future__ import annotations
 
 import os
-import subprocess
 from dataclasses import dataclass
 from pathlib import Path
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    import subprocess
 
 COMPASS_DIR = ".compass"
 
@@ -115,6 +118,8 @@ class Repo:
 
 def run_git(cwd: Path, *args: str, input: bytes | None = None) -> subprocess.CompletedProcess[bytes]:
     """Run git without raising; callers inspect ``returncode``."""
+    import subprocess  # on first use: hooks that never run git skip its import
+
     return subprocess.run(
         ["git", *args],
         cwd=cwd,

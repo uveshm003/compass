@@ -119,15 +119,20 @@ def staged_anchors(root: Path) -> list[Anchor]:
     found = []
     path: str | None = None
     number = 0
+    in_header = False  # between `diff --git` and the first hunk: where `+++ b/path` lives
     for raw in proc.stdout.split(b"\n"):
         line = raw.decode("utf-8", "replace")
-        if line.startswith("+++ "):
-            target = line[4:].rstrip("\r").removesuffix("\t")  # git adds a tab after names with spaces
-            path = None if target == "/dev/null" else _diff_path(target)
+        if line.startswith("diff --git "):
+            in_header, path = True, None
         elif line.startswith("@@"):
+            in_header = False
             m = re.match(r"@@ -\d+(?:,\d+)? \+(\d+)", line)
             number = int(m.group(1)) if m else 0
-        elif line.startswith("+") and path is not None:
+        elif in_header:
+            if line.startswith("+++ "):
+                target = line[4:].rstrip("\r").removesuffix("\t")  # git adds a tab after names with spaces
+                path = None if target == "/dev/null" else _diff_path(target)
+        elif line.startswith("+") and path is not None:  # an added line, even one reading `++ x`
             parsed = parse_line(line[1:].rstrip("\r"))
             if parsed:
                 found.append(Anchor(path, number, parsed[0], parsed[1], parsed[2]))
@@ -171,7 +176,8 @@ def strip_line(line: str) -> str | None:
         tail = rest[offset + len(closer) :]
         opener = _OPENER_OF[closer]
         where = head.rfind(opener)
-        if where != -1 and not head[where + len(opener) :].strip():
+        # `/**`, `/*!` and `<!---` open a comment as well as `/*` and `<!--`.
+        if where != -1 and not head[where + len(opener) :].strip().strip(opener + "!"):
             kept = head[:where].rstrip() + tail
         else:
             kept = head.rstrip() + " " + closer + tail
@@ -185,13 +191,12 @@ def strip_line(line: str) -> str | None:
 def _without_line_comment(head: str) -> str:
     """``head`` minus a comment opener left with nothing after it."""
     stripped = head.rstrip()
-    if not stripped:
-        return ""
-    at_line_start = not stripped.lstrip(" \t").strip(_opener_chars())
-    openers = _LINE_OPENERS if at_line_start else _TRAILING_OPENERS
-    for opener in openers:
+    if not stripped.lstrip(" \t").strip(_opener_chars()):
+        return ""  # only comment punctuation before the tag (`#`, `///`, `//!`, ` * `): a comment line
+    for opener in _TRAILING_OPENERS:
         if stripped.endswith(opener):
-            return stripped[: -len(opener)].rstrip()
+            # The whole run goes: `x = 1  /// tag` and `x = 1  ## tag` both leave `x = 1`.
+            return stripped.rstrip(opener[0]).rstrip()
     return stripped  # the tag sat inside a longer comment: keep that comment
 
 

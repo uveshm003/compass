@@ -126,9 +126,14 @@ def on_session_start(repo: Repo, payload: dict[str, Any]) -> int:
 
 
 def on_prompt(repo: Repo, payload: dict[str, Any]) -> int:
+    from compass import state
+
+    session = _session(payload)
+    if state.quiet_turn(state.read(repo), session):
+        return 0  # the usual prompt: nothing to announce or reset, so no config or YAML to load (NF-01)
     from compass import review
 
-    notice = review.new_turn(repo, _config(repo).review, _session(payload))
+    notice = review.new_turn(repo, _config(repo).review, session)
     if notice:
         print(notice)
     return 0
@@ -166,7 +171,7 @@ def on_stop(repo: Repo, payload: dict[str, Any]) -> int:
 
     answer = review.on_stop(repo, _config(repo), payload)
     if answer:
-        print(json.dumps(answer, ensure_ascii=False))
+        print(json.dumps(answer))  # ASCII escapes: the answer is read whatever the console code page
     return 0
 
 

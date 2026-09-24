@@ -118,6 +118,14 @@ def session_record(state: dict[str, Any], session: str) -> dict[str, Any]:
     return record
 
 
+def quiet_turn(state: dict[str, Any], session: str | None) -> bool:
+    """True when a new prompt changes nothing: this session already knows the
+    active task, its last turn left nothing behind and no block is pending."""
+    record = state["sessions"].get(session) if session else None
+    task = active_task(state)
+    return bool(record and task and record["announced"] == task and not record["turn"] and not record["blocked"])
+
+
 def close_task(state: dict[str, Any], task: str) -> None:
     """``task`` is accepted: forget what it touched, never reuse its id."""
     state["tasks"].pop(task, None)

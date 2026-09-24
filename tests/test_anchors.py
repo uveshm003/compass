@@ -71,6 +71,17 @@ def test_text_that_only_looks_like_an_anchor_is_ignored(line):
         (f"/* keep this {AI}change T3 — note */", "/* keep this */"),
         (f"# {AI}assume T3 — handles (a*) globs", None),  # `*)` without `(*` is just text
         (f"<%-- {AI}change T3 — note --%>", None),
+        # Doc-comment and doubled openers leave nothing behind.
+        (f"/// {AI}change T3 — Rust or C# doc comment", None),
+        (f"//! {AI}change T3 — Rust inner doc", None),
+        (f"## {AI}change T3 — doubled hash", None),
+        (f"x = 1  /// {AI}change T3 — note", "x = 1"),
+        (f"/** {AI}change T3 — one-line JSDoc */", None),
+        (f"/*! {AI}change T3 — kept-license style */", None),
+        (f"<!--- {AI}change T3 — note -->", None),
+        (f"{{/** {AI}change T3 — JSX doc */}}", None),
+        (f"#!/bin/sh # {AI}change T3", "#!/bin/sh"),
+        (f"url = 'http://x'  // {AI}change T3", "url = 'http://x'"),
     ],
 )
 def test_strip_line_removes_the_tag_and_its_comment(line, kept):
@@ -141,3 +152,12 @@ def test_staged_anchors_are_only_the_added_lines(make_repo):
     git(root, "add", "old.py", "naïve dir/new.go")
     found = staged_anchors(root)
     assert [(a.path, a.line, a.kind) for a in found] == [("naïve dir/new.go", 3, "review"), ("old.py", 2, "assume")]
+
+
+def test_staged_lines_that_look_like_diff_headers_stay_content(make_repo):
+    root = make_repo(files={"notes.md": "base\n"})
+    git(root, "add", "-A")
+    git(root, "commit", "-q", "--no-verify", "-m", "base")
+    write(root, "notes.md", f"base\n++ b/elsewhere.md\n<!-- {AI}todo T4 — after a header-like line -->\n")
+    git(root, "add", "notes.md")
+    assert [(a.path, a.line) for a in staged_anchors(root)] == [("notes.md", 3)]

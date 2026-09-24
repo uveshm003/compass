@@ -333,3 +333,28 @@ def test_pre_commit_check_fails_open(make_repo, monkeypatch):
     monkeypatch.setattr(anchors, "staged_anchors", broken)
     assert cli.main(["check-anchors", "--staged"]) == 0
     assert "git exploded" in (Repo(root).logs_dir / "errors.log").read_text(encoding="utf-8")
+
+
+def test_tag_shaped_text_in_data_files_is_left_alone(make_repo):
+    # JSON cannot hold a comment, so a tag-shaped string in it is data: accept
+    # must not "strip" it, and neither the manifest nor the pre-commit check counts it.
+    data = f'{{"example": "{AI}change T1 — shown in the docs"}}\n'
+    repo = committed_repo(make_repo)
+    hook("session-start", repo.root, source="startup")
+    edit(repo.root, "docs/example.json", data)
+    edit(repo.root, "src/inventory/alerts.py", f"# {AI}change T1 — helper\ndef alarm():\n    pass\n")
+    assert run_compass("-C", str(repo.root), "manifest").stdout == ".compass/changes/T1.md: 1 mechanical\n"
+    assert run_compass("-C", str(repo.root), "accept").returncode == 0
+    assert (repo.root / "docs/example.json").read_text(encoding="utf-8") == data
+    run_compass("init", "--no-index", cwd=repo.root)  # installs the pre-commit hook
+    git(repo.root, "add", "-A")
+    assert commit(repo.root).returncode == 0
+
+
+@pytest.mark.parametrize("command", [["task"], ["manifest"], ["accept", "T1"]])
+def test_review_commands_need_compass_init(make_repo, command):
+    root = make_repo("python_app")
+    write(root, "a.py", f"x = 1  # {AI}change T1 — note\n")
+    proc = run_compass("-C", str(root), *command)
+    assert proc.returncode == 1 and "run `compass init` first" in proc.stderr
+    assert not (root / ".compass").exists()  # and nothing starts acting in this repo

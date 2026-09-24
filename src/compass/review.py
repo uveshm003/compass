@@ -109,11 +109,9 @@ def new_turn(repo: Repo, settings: ReviewSettings, session: str | None) -> str |
     if not settings.enabled:
         return None
     current = state.read(repo)
-    record = current["sessions"].get(session or "")
-    task = state.active_task(current)
-    busy = record is not None and (record["turn"] or record["blocked"])
-    if record is not None and task is not None and record["announced"] == task and not busy:
+    if state.quiet_turn(current, session):
         return None  # nothing to change: skip the lock and the write
+    task = state.active_task(current)
     taken = None if task else taken_ids(repo)
     with state.transaction(repo, STATE_LOCK_WAIT_S) as st:
         task = state.ensure_task(st, taken)
