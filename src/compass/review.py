@@ -22,7 +22,7 @@ from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any
 
-from compass import manifest, state
+from compass import state
 from compass.anchors import Anchor, is_binary, scan_file, scan_repo, shift_line, strip_file
 from compass.config import Config, ReviewSettings
 from compass.globs import compile_globs
@@ -104,10 +104,10 @@ def session_task(repo: Repo, settings: ReviewSettings, session: str | None) -> s
 
 
 def new_turn(repo: Repo, settings: ReviewSettings, session: str | None) -> str | None:
-    """UserPromptSubmit: start the session's turn; returns an announcement
-    when the active task changed since this session last heard of it."""
-    if not settings.enabled:
-        return None
+    """UserPromptSubmit: start the session's turn (and a task, if none is
+    active: the gates need one even with review off); returns an announcement
+    when review is on and the active task changed since this session last
+    heard of it."""
     current = state.read(repo)
     if state.quiet_turn(current, session):
         return None  # nothing to change: skip the lock and the write
@@ -120,10 +120,11 @@ def new_turn(repo: Repo, settings: ReviewSettings, session: str | None) -> str |
         record = state.session_record(st, session)
         record["turn"] = []
         record["blocked"] = False
+        record["quick"] = False  # !quick lasts one turn
         if record["announced"] == task:
             return None
         record["announced"] = task
-    return announcement(task)
+    return announcement(task) if settings.enabled else None
 
 
 def record_edit(repo: Repo, settings: ReviewSettings, rel: str, session: str | None) -> None:
@@ -139,6 +140,8 @@ def record_edit(repo: Repo, settings: ReviewSettings, rel: str, session: str | N
 
 def on_stop(repo: Repo, config: Config, payload: dict[str, Any]) -> dict[str, Any] | None:
     """Stop: refresh the manifest; the hook's JSON answer, or None to stay quiet."""
+    from compass import manifest  # the Stop and accept paths only; the prompt hook never needs it
+
     settings = config.review
     if not settings.enabled:
         return None
@@ -201,6 +204,8 @@ class NothingToAccept(Exception):
 def accept(repo: Repo, config: Config, task: str | None = None) -> Accepted:
     """Strip ``task``'s anchors (default: the active task) and archive its
     manifest, with lines moved to where the tagged code now sits."""
+    from compass import manifest
+
     current = state.read(repo)
     task = task or state.active_task(current)
     if not task:

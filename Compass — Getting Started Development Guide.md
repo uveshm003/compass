@@ -385,37 +385,46 @@ All three run in hooks, so they must be pure Python over the index with no netwo
 
 ### Prompt gate + context pack (UserPromptSubmit)
 
-For this event, exit code 2 blocks the prompt and shows stderr to the user, while stdout on exit 0 is added to Claude's context.
+For this event, exit code 2 blocks the prompt and shows stderr to the user. On exit 0, JSON on stdout can add `additionalContext` for Claude and a `systemMessage` for the developer.
 
 ```python
-def on_prompt(evt: dict) -> int:
-    prompt = evt["prompt"]
-    cfg = load_config()
-    if prompt.startswith(cfg.bypass_prefix):
-        log_bypass(evt); return 0
-
-    missing = [f for f in cfg.required_fields if not has_field(prompt, f)]
-    if missing and cfg.strictness == "block":
-        sys.stderr.write(checklist(missing)); return 2
-
-    pack = build_context_pack(prompt, budget=cfg.pack_tokens)  # map lines, stack, tests
-    if missing:                                                 # warn mode
-        pack += f"\n[compass] Prompt is missing: {', '.join(missing)}. Ask before assuming."
-    print(pack); return 0
+def on_prompt(evt: dict) -> Answer:
+    parsed = parse(evt["prompt"])            # kind, labels, code names; no config needed yet
+    if nothing_to_do(parsed, state):         # a reply, a question or a follow-up naming no code
+        return Answer()                      # the common case stays near interpreter start-up
+    cfg = load_config()                      # cached as JSON; YAML only when config.yaml changes
+    if parsed.kind == "bypass":              # `!quick`
+        log_bypass(evt); mark_turn_quick()
+    elif parsed.kind == "task" and task_is_fresh():
+        missing = [f for f in cfg.required_fields if f in missing_fields(parsed, cfg)]
+        if missing and cfg.strictness == "block":
+            return Answer(code=2, stderr=checklist(missing))
+        define_task(parsed)                  # brief, size (SG-01), spec draft if large
+        if missing:                          # warn mode
+            context += ask_first(missing); messages += short_notice(missing)
+    context += build_context_pack(parsed, budget=cfg.pack_tokens)  # map lines, stack, tests
+    return Answer(stdout=json(context, messages))
 ```
 
-`has_field` starts as simple rules: a `Goal:` label or an imperative first sentence, a path or symbol for scope, a `when` or `should` clause for acceptance. Refine the rules from the bypass log, not guesses.
+Only a prompt that starts a task is checked. Questions, short replies ("yes", "go ahead"), slash commands and follow-ups inside a task that is already under way pass untouched, because a gate that nags on every message gets switched off. `has_field` starts as simple rules, one module per field in `gate/rules/`:
+- **Goal:** a `Goal:` label, or a first word that is a task verb.
+- **Scope:** a path, a backticked or code-shaped name, or a framework the stack profile knows.
+- **Acceptance:** a `should`, `when` or `if` clause, a number, a test, a behaviour such as raise or return, or a request whose end state is the request itself (a rename).
 
-`build_context_pack` extracts candidate names (backticked text, path-like tokens, CamelCase and snake\_case words), looks them up in SQLite, and emits the matching shard lines and `tests_for` results.
+Refine the rules from the bypass log (`.compass/logs/gate.jsonl` records every decision), not guesses; `compass check-prompt` replays a prompt against them.
+
+`build_context_pack` extracts candidate names (backticked text, path-like tokens, CamelCase and snake_case words), looks them up in SQLite, and emits the matching shard lines, `tests_for` results, stack versions for any framework named, and "did you mean" for misspelt names (CP-03). A name the map has never seen and nothing resembles adds nothing, so `ValueError` stays out.
 
 ### Spec gate (PreToolUse on Write|Edit)
 
-1. `/task` writes `.compass/state.json` with the active task id and size (small or large).
-2. For large tasks, Claude writes `.compass/specs/<id>.md` from a template with Goal, Scope, Non-goals, Acceptance, Open questions, and `status: draft`.
-3. The pre-edit hook exits 2 with "Spec \<id> not approved; answer open questions first" while status is draft. Writes to the spec file itself are allowed.
-4. `/approve <id>` sets `status: approved`, with approver and timestamp.
+1. The first request of a task sets its size. `/compass:task` does it from an explicit brief, passed to `compass task new --brief -` through a quoted heredoc so the shell never expands it. A large task (a `large_task_when` keyword, or enough paths) is recorded in `.compass/state.json`.
+2. For large tasks, Compass writes `.compass/specs/<id>.md` from a template with Goal, Scope, Non-goals, Acceptance, Open questions and `status: draft`, and tells Claude to fill it in and stop.
+3. The pre-edit hook exits 2 with "Spec \<id> not approved; answer open questions first" while the task is unapproved. Writes to the spec file itself, and to files outside the repo, are allowed. `!quick` lifts the gate for one turn.
+4. `/compass:approve <id>` sets `status: approved` with approver and timestamp in the spec, and records the approval in `state.json`, which is what the gate reads. Claude editing the spec's `status:` line therefore approves nothing. It warns about open questions still unticked.
 
-**Done when:** a vague prompt gets a checklist, and a large task cannot edit code until its spec is approved.
+SessionStart adds the stack with its installed versions (ST-02) and reminds Claude of a spec still waiting for approval.
+
+**Done when:** a vague prompt gets a checklist, and a large task cannot edit code until its spec is approved. `tests/e2e/check_gates.py` checks both in real sessions.
 
 ## Step 8: Delegation and local LLM adapter
 

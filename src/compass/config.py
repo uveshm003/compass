@@ -10,11 +10,13 @@ come back as warnings.
 from __future__ import annotations
 
 import copy
+import functools
+import hashlib
+import json
+import os
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
-
-import yaml
 
 from compass.globs import invalid_globs
 
@@ -96,7 +98,20 @@ telemetry:
   export: false
 """
 
-DEFAULTS: dict[str, Any] = yaml.safe_load(DEFAULT_CONFIG_TEXT)
+CACHE_NAME = "config.cache.json"
+
+
+@functools.cache
+def _defaults() -> dict[str, Any]:
+    import yaml
+
+    return yaml.safe_load(DEFAULT_CONFIG_TEXT)
+
+
+def __getattr__(name: str) -> Any:  # DEFAULTS stays importable without parsing YAML at import time
+    if name == "DEFAULTS":
+        return _defaults()
+    raise AttributeError(name)
 
 # Integer settings that must be positive (or at least zero) to make sense.
 _POSITIVE = {
@@ -162,37 +177,67 @@ class Config:
 
 
 def default_config() -> Config:
-    return Config(copy.deepcopy(DEFAULTS))
+    return Config(copy.deepcopy(_defaults()))
 
 
 def load_config(repo_root: Path) -> Config:
-    """Read ``.compass/config.yaml`` over the defaults; never raises."""
+    """Read ``.compass/config.yaml`` over the defaults; never raises.
+
+    Every prompt's hook loads the config, and YAML is the slowest part of that
+    (importing and parsing it costs about as much as the whole gate), so the
+    merged result is cached in ``.compass/config.cache.json``, keyed on the
+    file's bytes and on this module's own source."""
     path = repo_root / ".compass" / "config.yaml"
     try:
-        text = path.read_text(encoding="utf-8")
+        raw = path.read_bytes()
     except FileNotFoundError:
-        return default_config()
+        raw = None
     except OSError as exc:
-        return Config(copy.deepcopy(DEFAULTS), [f"cannot read {path.name}: {exc}; using defaults"])
-    return parse_config(text)
+        return Config(copy.deepcopy(_defaults()), [f"cannot read {path.name}: {exc}; using defaults"])
+    key = _cache_key(raw)
+    cache = path.with_name(CACHE_NAME)
+    try:
+        cached = json.loads(cache.read_text(encoding="utf-8"))
+        if cached.get("key") == key:
+            return Config(cached["data"], list(cached["warnings"]))
+    except (OSError, ValueError, KeyError, TypeError, AttributeError):
+        pass
+    config = default_config() if raw is None else parse_config(raw.decode("utf-8", "replace"))
+    if path.parent.is_dir():
+        try:
+            tmp = cache.with_name(f"{CACHE_NAME}.{os.getpid()}.tmp")
+            tmp.write_text(json.dumps({"key": key, "data": config.data, "warnings": config.warnings}), encoding="utf-8")
+            os.replace(tmp, cache)
+        except OSError:
+            pass
+    return config
+
+
+def _cache_key(raw: bytes | None) -> str:
+    digest = hashlib.blake2b(digest_size=16)
+    digest.update(Path(__file__).read_bytes())
+    digest.update(b"\0" + (raw if raw is not None else b"<none>"))
+    return digest.hexdigest()
 
 
 def parse_config(text: str) -> Config:
+    import yaml
+
     try:
         user = yaml.safe_load(text)
     except yaml.YAMLError as exc:
         where = getattr(exc, "problem_mark", None)
         line = f" (line {where.line + 1})" if where is not None else ""
-        return Config(copy.deepcopy(DEFAULTS), [f"config.yaml is not valid YAML{line}; using defaults"])
+        return Config(copy.deepcopy(_defaults()), [f"config.yaml is not valid YAML{line}; using defaults"])
     if user is None:
         return default_config()
     warnings: list[str] = []
     if not isinstance(user, dict):
-        return Config(copy.deepcopy(DEFAULTS), ["config.yaml must be a mapping; using defaults"])
+        return Config(copy.deepcopy(_defaults()), ["config.yaml must be a mapping; using defaults"])
     version = user.get("version", CONFIG_VERSION)
     if version != CONFIG_VERSION:
         warnings.append(f"config.yaml version {version!r} is not {CONFIG_VERSION}; reading it anyway")
-    merged = _merge(DEFAULTS, user, "", warnings)
+    merged = _merge(_defaults(), user, "", warnings)
     for key in ("index.exclude", "review.anchor_exempt"):
         section, name = key.split(".")
         for pattern in invalid_globs(merged[section][name]):
@@ -200,7 +245,17 @@ def parse_config(text: str) -> Config:
     return Config(merged, warnings)
 
 
+_CHOICES = {"prompt_gate.strictness": ("off", "warn", "block")}
+
+
 def _merge(default: Any, user: Any, path: str, warnings: list[str]) -> Any:
+    if path in _CHOICES:
+        if isinstance(user, bool):  # YAML reads a bare `off` as false (and `on` as true)
+            user = "off" if user is False else "warn"
+        if user not in _CHOICES[path]:
+            warnings.append(f"{path} should be one of {', '.join(_CHOICES[path])}; using the default {default!r}")
+            return default
+        return user
     if isinstance(default, dict):
         if not isinstance(user, dict):
             warnings.append(f"{path} should be a mapping; using the default")

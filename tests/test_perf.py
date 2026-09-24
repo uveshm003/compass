@@ -247,3 +247,76 @@ def test_stop_hook_with_a_changed_file_p95_under_500ms(big_repo):
         target.write_text(original, encoding="utf-8")
     print(f"\nstop hook: median {statistics.median(samples) * 1000:.0f} ms, p95 {p95(samples) * 1000:.0f} ms")
     assert p95(samples) <= 0.5
+
+
+def _fresh_task(repo) -> None:
+    """Make the active task wait for its first request again, so the next
+    prompt is gated (only a prompt that starts a task is checked)."""
+    from compass import state
+
+    with state.transaction(repo) as st:
+        task = state.ensure_task(st)
+        record = state.task_record(st, task)
+        record["brief"], record["size"], record["touched"] = None, None, []
+
+
+def _timed_prompts(repo, text: str) -> list[float]:
+    payload = json.dumps({"session_id": "perf-gate", "cwd": str(repo.root), "prompt": text})
+    samples = []
+    for _ in range(RUNS):
+        _fresh_task(repo)
+        started = time.perf_counter()
+        proc = run_compass("hook", "prompt", input=payload)
+        samples.append(time.perf_counter() - started)
+        assert proc.returncode == 0, proc.stderr
+    return samples
+
+
+def _bare_p95() -> float:
+    samples = []
+    for _ in range(RUNS):
+        started = time.perf_counter()
+        subprocess.run([sys.executable, "-c", "pass"], check=True)
+        samples.append(time.perf_counter() - started)
+    return p95(samples)
+
+
+def test_prompt_gate_p95_under_100ms(big_repo):
+    # NF-01: the rules on a request that starts a task, with nothing to look up.
+    # As for the plain prompt hook, Windows is judged on Compass's own share.
+    repo, *_ = big_repo
+    samples = _timed_prompts(repo, "improve the retry handling so it gives up sooner")
+    bare = _bare_p95()
+    print(f"\nprompt gate: median {statistics.median(samples) * 1000:.0f} ms, p95 {p95(samples) * 1000:.0f} ms"
+          f" (bare interpreter p95 {bare * 1000:.0f} ms)")
+    assert p95(samples) - bare <= 0.07
+    if os.name != "nt":
+        assert p95(samples) <= 0.1
+
+
+def test_context_pack_p95_under_300ms(big_repo):
+    # NF-02: the gate plus a pack for five names: symbols, a qualified method, a path, a typo.
+    repo, *_ = big_repo
+    module = sorted((repo.root / "python").rglob("*.py"))[40].relative_to(repo.root).as_posix()
+    text = f"Make Service40.method_1 and helper_2 faster in {module}; keep LIMIT_3 and check `Servce40` too"
+    proc = run_compass("check-prompt", text, cwd=repo.root)
+    assert "Service40.method_1" in proc.stdout and "did you mean Service40?" in proc.stdout, proc.stdout
+    samples = _timed_prompts(repo, text)
+    print(f"\ncontext pack: median {statistics.median(samples) * 1000:.0f} ms, p95 {p95(samples) * 1000:.0f} ms")
+    assert p95(samples) <= 0.3
+
+
+def test_pre_edit_hook_p95_under_100ms(big_repo):
+    # The spec gate runs before every Write and Edit; with no spec pending it decides from state.json alone.
+    repo, *_ = big_repo
+    target = sorted((repo.root / "go").rglob("*.go"))[3]
+    payload = json.dumps({"session_id": "perf", "cwd": str(repo.root), "tool_name": "Edit",
+                          "tool_input": {"file_path": str(target)}})
+    samples = []
+    for _ in range(RUNS):
+        started = time.perf_counter()
+        proc = run_compass("hook", "pre-edit", input=payload)
+        samples.append(time.perf_counter() - started)
+        assert (proc.returncode, proc.stdout, proc.stderr) == (0, "", "")
+    print(f"\npre-edit hook: median {statistics.median(samples) * 1000:.0f} ms, p95 {p95(samples) * 1000:.0f} ms")
+    assert p95(samples) <= 0.1 if os.name != "nt" else p95(samples) <= 0.2

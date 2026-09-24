@@ -1,9 +1,11 @@
 """``.compass/state.json``: the active task and what each task touched.
 
 Not committed; every clone numbers its own tasks. A task is the unit a review
-manifest covers (RO-03): it starts implicitly the first time Compass needs an
-id, collects every file Claude edits, and ends with ``compass accept``. M4's
-``/task`` will start tasks explicitly and add their size and spec.
+manifest covers (RO-03). It starts explicitly with ``/compass:task`` or
+implicitly the first time Compass needs an id; the prompt that first asks for
+work becomes its brief, and sets its size (small or large, SG-01). It collects
+every file Claude edits and ends with ``compass accept``. A large task carries
+its spec approval here (SG-05), where the spec gate reads it.
 
 Hooks run in parallel (one PostToolUse per tool call), so every change goes
 through ``transaction``: a lock file plus an atomic replace. A reader never
@@ -87,13 +89,36 @@ def ensure_task(state: dict[str, Any], taken: set[str] | None = None) -> str:
     task = f"T{max([state['next'] - 1, *numbers]) + 1}"
     state["next"] = int(task[1:]) + 1
     state["task"] = task
-    state["tasks"][task] = {"started": _now(), "touched": []}
+    state["tasks"][task] = new_task_record()
     return task
+
+
+def new_task_record() -> dict[str, Any]:
+    return {"started": _now(), "touched": [], "brief": None, "size": None, "reason": None, "approved": None}
+
+
+def task_record(state: dict[str, Any], task: str) -> dict[str, Any]:
+    return state["tasks"].setdefault(task, new_task_record())
+
+
+def is_fresh(state: dict[str, Any], task: str) -> bool:
+    """Nothing asked for and nothing changed yet: the next request defines it."""
+    record = state["tasks"].get(task) or {}
+    return not record.get("brief") and not record.get("touched")
+
+
+def needs_approval(state: dict[str, Any]) -> str | None:
+    """The active task, when it is large and its spec is not approved yet."""
+    task = active_task(state)
+    record = state["tasks"].get(task) if task else None
+    if record and record.get("size") == "large" and not record.get("approved"):
+        return task
+    return None
 
 
 def touch(state: dict[str, Any], task: str, rel: str, session: str | None) -> None:
     """Record that ``rel`` changed in ``task`` (and this turn of ``session``)."""
-    record = state["tasks"].setdefault(task, {"started": _now(), "touched": []})
+    record = task_record(state, task)
     if rel not in record["touched"]:
         record["touched"] = sorted([*record["touched"], rel])
     if session:
@@ -110,7 +135,7 @@ def session_record(state: dict[str, Any], session: str) -> dict[str, Any]:
     sessions = state["sessions"]
     record = sessions.get(session)
     if record is None:
-        record = sessions[session] = {"turn": [], "announced": None, "blocked": False}
+        record = sessions[session] = {"turn": [], "announced": None, "blocked": False, "quick": False}
         # Keep the newest sessions only; old ones are finished.
         for stale in sorted(sessions, key=lambda s: sessions[s].get("seen", 0))[:-MAX_SESSIONS]:
             del sessions[stale]
@@ -123,7 +148,8 @@ def quiet_turn(state: dict[str, Any], session: str | None) -> bool:
     active task, its last turn left nothing behind and no block is pending."""
     record = state["sessions"].get(session) if session else None
     task = active_task(state)
-    return bool(record and task and record["announced"] == task and not record["turn"] and not record["blocked"])
+    busy = record and (record["turn"] or record["blocked"] or record["quick"])
+    return bool(record and task and record["announced"] == task and not busy)
 
 
 def close_task(state: dict[str, Any], task: str) -> None:
@@ -149,19 +175,28 @@ def _normalised(raw: Any) -> dict[str, Any]:
     for task, record in (raw.get("tasks") or {}).items() if isinstance(raw.get("tasks"), dict) else ():
         if isinstance(task, str) and isinstance(record, dict):
             files = [f for f in record.get("touched", []) if isinstance(f, str)]
-            state["tasks"][task] = {"started": str(record.get("started", "")), "touched": sorted(set(files))}
+            approved = record.get("approved")
+            state["tasks"][task] = {
+                "started": str(record.get("started", "")),
+                "touched": sorted(set(files)),
+                "brief": record.get("brief") if isinstance(record.get("brief"), str) else None,
+                "size": record.get("size") if record.get("size") in ("small", "large") else None,
+                "reason": record.get("reason") if isinstance(record.get("reason"), str) else None,
+                "approved": approved if isinstance(approved, dict) and approved.get("by") else None,
+            }
     for session, record in (raw.get("sessions") or {}).items() if isinstance(raw.get("sessions"), dict) else ():
         if isinstance(session, str) and isinstance(record, dict):
             state["sessions"][session] = {
                 "turn": [f for f in record.get("turn", []) if isinstance(f, str)],
                 "announced": record.get("announced") if isinstance(record.get("announced"), str) else None,
                 "blocked": bool(record.get("blocked", False)),
+                "quick": bool(record.get("quick", False)),
                 "seen": record.get("seen", 0) if isinstance(record.get("seen"), (int, float)) else 0,
             }
     accepted = raw.get("accepted")
     state["accepted"] = [t for t in accepted if isinstance(t, str)] if isinstance(accepted, list) else []
     if state["task"] is not None and state["task"] not in state["tasks"]:
-        state["tasks"][state["task"]] = {"started": _now(), "touched": []}
+        state["tasks"][state["task"]] = new_task_record()
     return state
 
 

@@ -24,6 +24,8 @@ map/
 changes/
 state.json*
 state.lock
+stack.json
+config.cache.json*
 telemetry.jsonl
 logs/
 """

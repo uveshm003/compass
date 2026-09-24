@@ -31,17 +31,21 @@ every hook calls (`compass hook <event>`), so install both.
 3. In each repository: `compass init` (config, git hooks, first index).
 
 Restart Claude Code after installing or changing the plugin, then check
-`/hooks`, `/agents` and `/mcp`.
+`/hooks`, `/agents` and `/mcp`. The first time Claude calls a Compass tool,
+allow it for good ("don't ask again"): the tools only read the code map.
 
 ## What it does
 
 | Piece | File | Does |
 | --- | --- | --- |
 | SessionStart hook | `hooks/hooks.json` | Refreshes the index; tells Claude to look code up through Compass and to tag its changes for the active task |
-| UserPromptSubmit hook | | Starts the turn; announces a new task id |
+| UserPromptSubmit hook | | Checks a new request for goal, scope and acceptance (warns by default, or blocks); adds the code map's lines for the names it mentions; starts the turn |
+| PreToolUse hook (Write, Edit) | | While a large task's spec is unapproved, refuses edits to anything but the spec |
 | PostToolUse hook (Write, Edit) | | Re-indexes the edited file; records it for the task's manifest |
 | Stop hook | | Writes `.compass/changes/<task>.md`; asks Claude once to tag changed files it left untagged |
 | MCP server | `.mcp.json` | `find_symbol`, `read_symbol`, `file_outline`, `map`, `stack_profile`, `tests_for`, `importers_of`, `callers_of` |
+| `/compass:task <brief>` | `commands/task.md` | Starts a task from `Goal: … Scope: … Non-goals: … Accept when: … Constraints: …`; a large one gets a spec draft (developer only) |
+| `/compass:approve [task]` | `commands/approve.md` | Approves a large task's spec, recording who and when (developer only) |
 | `/compass:accept [task]` | `commands/accept.md` | Strips the task's anchor tags and archives its manifest (developer only) |
 | `digest` subagent | `agents/digest.md` | Condenses large logs and files to 30 lines |
 | Output style (opt-in) | `output-styles/compass-review.md` | The same reply rules as a system-prompt style |
@@ -60,5 +64,19 @@ tags. The git pre-commit hook that `compass init` installs refuses any commit
 that still adds a tag. `compass manifest <task> --hosted` prints an accepted
 manifest with links into GitHub or Azure DevOps, ready for a pull request.
 
-Everything can be switched off in `.compass/config.yaml` (`review.enabled`,
-`review.require_anchors`, `review.reply_max_lines`, `review.anchor_exempt`).
+## Gates
+
+A request that starts a task is checked for a goal, a scope and how to tell it
+is done. By default Compass warns: Claude is told to ask before assuming, and
+you see a one-line notice. With `prompt_gate.strictness: block` the prompt is
+refused with a checklist instead. Questions, short replies and follow-ups are
+never checked, and a prompt starting with `!quick` skips the check (and the
+spec gate) for that turn.
+
+A large task (a refactor or migration, or several files named) gets a spec at
+`.compass/specs/<task>.md`. Claude fills it in with its open questions and
+stops; until you run `/compass:approve`, it can change nothing else.
+
+Everything can be switched off in `.compass/config.yaml`: `prompt_gate`,
+`context_pack`, `spec_gate`, and `review` (`enabled`, `require_anchors`,
+`reply_max_lines`, `anchor_exempt`).
