@@ -322,7 +322,51 @@ class Indexer:
                 tagged = {}
             records = [(info, tagged.get(info.path, parse)) for info, parse in records]
         records.sort(key=lambda r: r[0].path)
-        return records
+        return self._with_generated_docs(records, items)
+
+    def _with_generated_docs(self, records, items):
+        """Summaries `compass enrich` wrote earlier, for symbols still without
+        a doc comment (DL-05). Nothing happens unless the cache exists, so a
+        repo that never enriched indexes exactly as before (NF-13)."""
+        from compass import enrich
+
+        if not enrich.summaries_exist(self.repo.root):
+            return records
+        data = {info.path: raw for info, raw in items}
+        cache = enrich.Cache.open(self.repo)
+        try:
+            return [(info, enrich.with_cached_docs(cache, info.path, parse, data[info.path])) for info, parse in records]
+        except Exception as exc:  # a broken cache must not stop the index
+            log_error(self.repo.root, "enrich cache", exc)
+            return records
+        finally:
+            cache.close()
+
+    def apply_generated_docs(self, updates: list[tuple[str, str, str, str, int]], lock_timeout: float = 30.0) -> int:
+        """Set ``(summary, path, name, kind, start_line)`` as generated docs on
+        symbols that still have none, and rewrite their shards. Returns how
+        many symbols changed."""
+        self.repo.ensure_state_dir()
+        with file_lock(self.repo.lock_path, lock_timeout):
+            store, fresh = self._open_for_write()
+            with store:
+                if fresh:
+                    return 0
+                changed = 0
+                dirs = set()
+                with store.write():
+                    for summary, path, name, kind, start_line in updates:
+                        cur = store.conn.execute(
+                            "UPDATE symbols SET doc = ?, doc_source = 'generated'"
+                            " WHERE path = ? AND name = ? AND kind = ? AND start_line = ? AND doc IS NULL",
+                            (summary, path, name, kind, start_line),
+                        )
+                        if cur.rowcount:
+                            changed += cur.rowcount
+                            dirs.add(posixpath.dirname(path))
+                    if dirs:
+                        self._shards(store).write_dirs(sorted(dirs))
+        return changed
 
     def _resolve_imports(self, store: Store, paths: list[str] | None) -> None:
         """Point each import at the repo file it names (None: every import).

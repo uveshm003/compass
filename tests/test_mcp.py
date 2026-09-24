@@ -13,6 +13,7 @@ from mcp.client.stdio import stdio_client
 from compass.index.indexer import Indexer
 from compass.repo import Repo
 from conftest import copy_fixture, write
+from fake_llm import FakeLLM
 
 TOOLS = {
     "find_symbol", "read_symbol", "file_outline", "map", "stack_profile", "tests_for", "importers_of", "callers_of",
@@ -152,3 +153,31 @@ def test_outside_a_repo_the_tools_explain(tmp_path):
     plain = copy_fixture("go_app", tmp_path / "plain")  # a git repo, never initialised
     is_error, text = session_run(plain, body)
     assert not is_error and "compass init" in text
+
+
+def test_the_local_model_tools_are_offered_only_while_a_model_answers(tmp_path):
+    repo = Repo(copy_fixture("go_app", tmp_path / "go"))
+    Indexer(repo).build()
+
+    def reply(body):
+        return "code" if "sort files" in body["messages"][0]["content"] else "Retries with backoff (L12)."
+
+    async def body(session, _init):
+        tools = {t.name: t for t in (await session.list_tools()).tools}
+        if "summarize_file" not in tools:
+            return set(tools), None, None
+        summary = await call(session, "summarize_file", path="internal/transport/retry.go")
+        labels = await call(session, "classify_files", paths=["internal/transport/retry.go"], labels=["code", "test"])
+        assert all(t.annotations.read_only_hint for t in tools.values())
+        return set(tools), summary, labels
+
+    fake = FakeLLM(reply=reply).start()
+    try:
+        write(repo.root, ".compass/config.yaml", fake.config())
+        tools, summary, labels = session_run(repo.root, body)
+    finally:
+        fake.stop()
+    assert tools == TOOLS | {"summarize_file", "classify_files"}  # DL-04
+    assert summary == (False, "[local model fake] internal/transport/retry.go:\nRetries with backoff (L12).")
+    assert labels == (False, "[local model fake] 1 file:\ninternal/transport/retry.go: code")
+    assert session_run(repo.root, body)[0] == TOOLS  # the model is gone: so are its tools (DL-06)

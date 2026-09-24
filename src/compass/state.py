@@ -33,7 +33,10 @@ _TASK_ID = re.compile(r"T(\d+)")
 
 
 def empty() -> dict[str, Any]:
-    return {"version": STATE_VERSION, "task": None, "next": 1, "tasks": {}, "sessions": {}, "accepted": []}
+    return {
+        "version": STATE_VERSION, "task": None, "next": 1, "tasks": {}, "sessions": {}, "accepted": [],
+        "agents": {}, "pending": {},  # subagents' edits and scaffold delegations (compass.delegation)
+    }
 
 
 def read(repo: Repo) -> dict[str, Any]:
@@ -195,6 +198,22 @@ def _normalised(raw: Any) -> dict[str, Any]:
             }
     accepted = raw.get("accepted")
     state["accepted"] = [t for t in accepted if isinstance(t, str)] if isinstance(accepted, list) else []
+    for agent, record in (raw.get("agents") or {}).items() if isinstance(raw.get("agents"), dict) else ():
+        if isinstance(agent, str) and isinstance(record, dict):
+            allowed = record.get("allowed")
+            state["agents"][agent] = {
+                "type": str(record.get("type", "")),
+                "session": record.get("session") if isinstance(record.get("session"), str) else None,
+                "touched": [f for f in record.get("touched", []) if isinstance(f, str)],
+                "allowed": [f for f in allowed if isinstance(f, str)] if isinstance(allowed, list) else None,
+                "seen": record.get("seen", 0) if isinstance(record.get("seen"), (int, float)) else 0,
+            }
+    for session, queue in (raw.get("pending") or {}).items() if isinstance(raw.get("pending"), dict) else ():
+        if isinstance(session, str) and isinstance(queue, list):
+            state["pending"][session] = [
+                {"paths": [f for f in entry.get("paths", []) if isinstance(f, str)], "t": entry.get("t", 0)}
+                for entry in queue if isinstance(entry, dict)
+            ]
     if state["task"] is not None and state["task"] not in state["tasks"]:
         state["tasks"][state["task"]] = new_task_record()
     return state

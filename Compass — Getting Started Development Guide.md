@@ -64,7 +64,11 @@ compass/
 │   ├── query.py            # the query engine behind the MCP tools and CLI twins
 │   ├── mcp_server.py       # MCP tools over the index
 │   ├── manifest.py         # anchor scan + change manifest
-│   ├── gate.py             # prompt gate + context pack
+│   ├── gate/               # prompt gate rules, context pack, spec gate hook
+│   ├── delegation.py       # subagent rules and output contracts
+│   ├── llm.py              # local LLM client: OpenAI-compatible, loopback only
+│   ├── local_tools.py      # summarize_file, classify_files
+│   ├── enrich.py           # background summaries for undocumented symbols
 │   └── telemetry.py
 ├── plugin/                 # the Claude Code plugin
 │   ├── .claude-plugin/plugin.json
@@ -434,23 +438,33 @@ Ship the Haiku subagents first, since they work for everyone. The local-LLM adap
 
 | Agent | Tools | Output contract |
 | --- | --- | --- |
-| `digest` | Read, Grep, Glob, Bash | ≤ 30 lines, file:line refs |
+| `digest` | Read, Grep, Glob, Bash | ≤ 30 lines, file:line refs, code blocks ≤ 5 lines |
 | `test-runner` | Bash, Read | Failures only: test name, assertion, file:line, ≤ 20 lines |
-| `scaffold` | Read, Write, Edit | Only files named in the spec; every change anchored `@ai:change` |
+| `scaffold` | Read, Write, Edit | Only files named in its instructions or the task's spec; every change anchored `@ai:change` |
 
-Add a delegation rule to the CLAUDE.md fragment: delegate when the input is over about 500 lines and the needed output is short. Tiny tasks stay inline because a subagent starts from an empty context.
+The delegation rules are the "CLAUDE.md fragment", which SessionStart prints so that `delegation.enabled: false` can remove it (CF-03). Delegate when the input is over about 500 lines (`delegation.digest_threshold_lines`) and the needed output is short. Run test suites and builds through `test-runner` rather than Bash. Tiny tasks stay inline because a subagent starts from an empty context.
+
+State the test-runner rule unconditionally. In the first real session, a rule that only said "to run tests" let the main model run `unittest -v | tail -150` itself, because trimmed output looked small. Saying that `tail` output lands in context too got the run delegated every time.
+
+The contracts are enforced by hooks, not only asked for:
+
+1. **SubagentStop** checks each `compass:*` agent's `last_assistant_message` against its contract. When the message is too long, carries a longer code block or cites nothing, the hook answers `{"decision": "block", "reason": …}`, and the agent rewrites the answer once; the retry (`stop_hook_active`) always passes.
+2. **PreToolUse on the Agent tool** records the files a scaffold delegation names. The agent is bound to its delegation at its first edit, and PreToolUse on Write/Edit refuses any file outside the delegation's paths and the task spec's paths (exit 2, with the list).
+3. At **SubagentStop**, every file scaffold changed must carry a tag for the task.
+
+A subagent's tool hooks carry its `agent_id` and `agent_type` (`compass:scaffold`), which is how the hooks tell its edits from the main model's.
 
 ### Local LLM adapter
 
-1. Config: `local_llm.base_url` (e.g. `http://localhost:11434/v1` for Ollama), `model`, `timeout`.
-2. Client: a plain OpenAI-compatible `/chat/completions` call over HTTP, with no SDK lock-in.
-3. Health check at start-up; if unreachable, every local feature silently turns off.
-4. MCP tools `summarize_file` and `classify_files` call the local model and return only the result.
-5. Background job `compass enrich`: for symbols with no doc comment, generate a one-line summary, cache it by the symbol's content hash, and store it with `doc_source = 'generated'`.
+1. Config: `local_llm.base_url` (e.g. `http://localhost:11434/v1` for Ollama), `model`, `timeout_s` and `enrich_limit`. Only loopback addresses count, so code never leaves the machine (NF-10).
+2. Client: a plain OpenAI-compatible `/chat/completions` call over HTTP at temperature 0, with no SDK lock-in and no proxies.
+3. Health check at start-up: `GET /models` within a second, cached for five minutes. If the endpoint is unreachable, every local feature silently turns off.
+4. MCP tools `summarize_file` and `classify_files` call the local model and return only the result. The server registers them only when the model answers at start-up; `compass summarize-file` and `compass classify-files` are their CLI twins.
+5. Background job `compass enrich`: for symbols with no doc comment, generate a one-line summary, cache it by the symbol's content hash in `.compass/summaries.db`, and store it with `doc_source = 'generated'`, shown as `~` in the map. The indexer re-applies cached summaries on every parse, so a full rebuild keeps them.
 
-Run `compass enrich` from the post-commit hook in the background (detached, low priority), never from a Claude Code hook.
+Run `compass enrich` from the post-commit hook in the background (detached, low priority), never from a Claude Code hook. One run goes at a time: a run started while another is going leaves a flag, and the running one makes another pass.
 
-**Done when:** test output over 500 lines reaches the main model as a short digest, and enrichment fills summaries without slowing commits.
+**Done when:** test output over 500 lines reaches the main model as a short digest, and enrichment fills summaries without slowing commits. `tests/e2e/check_delegation.py` checks both in a real session; its enrichment part needs a model already running on the machine.
 
 ## Step 9: Telemetry, benchmark, testing and CI
 

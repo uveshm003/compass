@@ -16,6 +16,16 @@ def test_defaults_parse_and_match_the_template():
     assert DEFAULTS["prompt_gate"]["strictness"] == "warn"
 
 
+def test_delegation_and_local_llm_settings():
+    config = default_config()
+    assert (config.delegation.enabled, config.delegation.digest_threshold_lines) == (True, 500)
+    assert config.delegation.enforce_contracts is True
+    assert config.local_llm.enabled is False and config.local_llm.base_url == "http://localhost:11434/v1"
+    config = parse_config("local_llm:\n  enabled: true\n  model: gemma3\n  timeout_s: 0\n")
+    assert (config.local_llm.enabled, config.local_llm.model, config.local_llm.timeout_s) == (True, "gemma3", 30)
+    assert config.warnings == ["local_llm.timeout_s must be positive; using the default 30"]
+
+
 def test_user_values_merge_over_defaults():
     config = parse_config("index:\n  max_file_kb: 64\n  exclude: ['docs/**']\n")
     assert config.warnings == []

@@ -7,5 +7,9 @@ state.json*
 state.lock
 stack.json
 config.cache.json*
+llm.json
+summaries.db*
+enrich.lock
+enrich.again
 telemetry.jsonl
 logs/
