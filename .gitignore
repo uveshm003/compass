@@ -8,5 +8,6 @@ dist/
 .DS_Store
 .ruff_cache/
 
-# Claude Code session state
+# Claude Code session state and per-developer settings (the plugin's local install)
 .claude/scheduled_tasks.lock
+.claude/settings.local.json

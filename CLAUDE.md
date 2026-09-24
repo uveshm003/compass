@@ -13,7 +13,7 @@ What exists:
 
 Gates, the context pack, delegation rules and telemetry do not exist yet. Two done-when checks need a real Claude Code session and so a manual run (see Testing): M2's "answered through Compass with zero Read calls" and M3's "a real task produces a manifest" (the scripted half, a commit with leftover tags being rejected, is covered by `tests/test_review.py`).
 
-This repo dogfoods Compass: `.compass/config.yaml` (which excludes `tests/fixtures/**`, `tests/snapshots/**` and `tests/schemas/**`) and a project `.mcp.json` that serves the tools with `uv run compass mcp`. With the plugin installed as well, drop `.mcp.json` or the tools appear twice; `uv tool install --editable .` makes the plugin's `compass` the working copy.
+This repo dogfoods Compass through its own plugin. `uv tool install --editable .` puts this checkout's `compass` on PATH, and the plugin is installed for this project only: `claude plugin marketplace add ./ --scope local`, then `claude plugin install compass@compass-marketplace --scope local`, which land in the untracked `.claude/settings.local.json`. Claude Code runs a cached copy of `plugin/` pinned to a commit, so after changing it run `claude plugin update compass@compass-marketplace` and restart, or iterate with `claude --plugin-dir ./plugin`; changes under `src/` apply at once. `compass init` installed the git hooks here, including the pre-commit anchor check. `.compass/config.yaml` excludes `tests/fixtures/**`, `tests/snapshots/**` and `tests/schemas/**` from the map.
 
 The specs are internally cross-referenced, so a change to one usually needs matching edits in the others.
 

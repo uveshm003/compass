@@ -6,9 +6,11 @@ It spends a little Claude usage, so pytest does not run it:
 
     uv run python tests/e2e/check_query_tools.py [--fixture go_app] [--model sonnet] [--keep]
 
-The session runs with --bare (no personal hooks, plugins or memory) and only
-the Compass MCP server. Read, Grep and Glob stay available, so Claude really
-chooses between them and Compass.
+The session sees only the Compass MCP server (--strict-mcp-config), started
+from this checkout. Read, Grep and Glob stay available, so Claude really
+chooses between them and Compass. It cannot use --bare: that mode accepts only
+an API key, never a claude.ai login, so your own user-level hooks and plugins
+load too.
 """
 
 from __future__ import annotations
@@ -46,7 +48,7 @@ def main() -> int:
     config.write_text(json.dumps({"mcpServers": {"compass": {"command": sys.executable, "args": ["-m", "compass", "mcp"]}}}))
 
     command = [
-        "claude", "-p", QUESTION, "--output-format", "stream-json", "--verbose", "--bare",
+        "claude", "-p", QUESTION, "--output-format", "stream-json", "--verbose",
         "--no-session-persistence", "--mcp-config", str(config), "--strict-mcp-config",
         "--allowedTools", "mcp__compass",
     ]
