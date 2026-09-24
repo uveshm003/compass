@@ -16,8 +16,8 @@ Handled so far:
 - PostToolUse on Write/Edit: re-indexes the edited file and records it for
   the task's manifest.
 - Stop: rewrites the manifest and asks once for missing anchors (RO-03, RO-04).
-
-PreToolUse (the spec gate) and the prompt gate itself arrive with M4.
+- UserPromptSubmit also runs the prompt gate and adds the context pack, and
+  PreToolUse on Write/Edit is the spec gate (M4, in ``compass.gate.hook``).
 """
 
 from __future__ import annotations
@@ -121,22 +121,35 @@ def on_session_start(repo: Repo, payload: dict[str, Any]) -> int:
     except Exception as exc:  # the query-tools rule still goes out
         log_error(repo.root, "hook session-start task", exc)
         task = None
-    print("\n".join([review.instructions(config.review, task), *notices]))
+    extra: list[str] = []
+    try:
+        from compass.gate.hook import session_lines
+
+        extra = session_lines(repo)
+    except Exception as exc:
+        log_error(repo.root, "hook session-start stack", exc)
+    print("\n".join([review.instructions(config.review, task), *extra, *notices]))
     return 0
 
 
 def on_prompt(repo: Repo, payload: dict[str, Any]) -> int:
-    from compass import state
+    from compass.gate.hook import on_prompt as gate
 
-    session = _session(payload)
-    if state.quiet_turn(state.read(repo), session):
-        return 0  # the usual prompt: nothing to announce or reset, so no config or YAML to load (NF-01)
-    from compass import review
+    return _answer(gate(repo, payload))
 
-    notice = review.new_turn(repo, _config(repo).review, session)
-    if notice:
-        print(notice)
-    return 0
+
+def on_pre_edit(repo: Repo, payload: dict[str, Any]) -> int:
+    from compass.gate.hook import on_pre_edit as gate
+
+    return _answer(gate(repo, payload))
+
+
+def _answer(answer) -> int:
+    if answer.stdout:
+        print(answer.stdout)
+    if answer.stderr:
+        print(answer.stderr, file=sys.stderr)
+    return answer.code
 
 
 def on_post_edit(repo: Repo, payload: dict[str, Any]) -> int:
@@ -189,6 +202,7 @@ def _session(payload: dict[str, Any]) -> str | None:
 HANDLERS: dict[str, Callable[[Repo, dict[str, Any]], int]] = {
     "session-start": on_session_start,
     "prompt": on_prompt,
+    "pre-edit": on_pre_edit,
     "post-edit": on_post_edit,
     "stop": on_stop,
 }

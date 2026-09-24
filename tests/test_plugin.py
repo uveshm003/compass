@@ -79,6 +79,7 @@ def test_every_hook_is_a_thin_shell_out_to_a_handled_event():
     assert wired == {
         "SessionStart": ("session-start", None),
         "UserPromptSubmit": ("prompt", None),
+        "PreToolUse": ("pre-edit", "Write|Edit|MultiEdit|NotebookEdit"),
         "PostToolUse": ("post-edit", "Write|Edit|MultiEdit|NotebookEdit"),
         "Stop": ("stop", None),
     }
@@ -95,6 +96,17 @@ def test_accept_is_the_developers_call_not_claudes():
     assert meta["disable-model-invocation"] is True  # accepting a change is the reviewer's decision
     assert meta["allowed-tools"] == "Bash(compass accept:*)"
     assert "```!\ncompass accept $ARGUMENTS\n```" in body
+
+
+def test_task_and_approve_are_the_developers_too():
+    meta, body = frontmatter(PLUGIN / "commands/approve.md")
+    assert meta["disable-model-invocation"] is True  # Claude must not approve its own spec
+    assert "```!\ncompass approve $ARGUMENTS\n```" in body
+    meta, body = frontmatter(PLUGIN / "commands/task.md")
+    assert meta["disable-model-invocation"] is True
+    assert meta["allowed-tools"] == "Bash(compass task new:*)"
+    # The brief goes in through a quoted heredoc, so the shell never expands it.
+    assert "```!\ncompass task new --brief - <<'COMPASS_BRIEF'\n$ARGUMENTS\nCOMPASS_BRIEF\n```" in body
 
 
 def test_digest_agent_contract():

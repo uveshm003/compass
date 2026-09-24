@@ -33,6 +33,14 @@ def hook(event: str, root, session: str = "s1", **fields) -> subprocess.Complete
     return run_compass("hook", event, input=json.dumps(payload))
 
 
+def context(proc: subprocess.CompletedProcess) -> str:
+    """What a UserPromptSubmit answer adds to Claude's context."""
+    assert (proc.returncode, proc.stderr) == (0, "")
+    if not proc.stdout.strip():
+        return ""
+    return json.loads(proc.stdout).get("hookSpecificOutput", {}).get("additionalContext", "")
+
+
 def edit(root, rel: str, text: str, session: str = "s1") -> None:
     """What Claude's Write tool does, then its PostToolUse hook."""
     path = write(root, rel, text)
@@ -93,10 +101,9 @@ def test_a_prompt_announces_a_task_only_when_it_is_new(repo):
     hook("session-start", repo.root, source="startup")
     assert hook("prompt", repo.root, prompt="hi").stdout == ""
     assert run_compass("-C", str(repo.root), "task", "new").stdout.startswith("T2 ")
-    announced = hook("prompt", repo.root, prompt="next").stdout
-    assert announced.startswith("[compass] Task T2 is now active")
+    assert context(hook("prompt", repo.root, prompt="next")).startswith("[compass] Task T2 is now active")
     assert hook("prompt", repo.root, prompt="again").stdout == ""
-    assert hook("prompt", repo.root, session="other", prompt="hi").stdout.startswith("[compass] Task T2")
+    assert context(hook("prompt", repo.root, session="other", prompt="hi")).startswith("[compass] Task T2")
 
 
 def test_tags_already_in_files_keep_their_ids(repo):
@@ -227,7 +234,7 @@ def test_accept_strips_the_task_and_archives_its_manifest(repo):
     assert current["task"] is None and current["accepted"] == ["T1"] and "T1" not in current["tasks"]
     with Store.open(repo.db_path) as store:  # the index followed the stripped files
         assert store.file_info("src/inventory/alerts.py")["size"] == len("def alarm():\n    pass\n")
-    assert hook("prompt", repo.root, prompt="next").stdout.startswith("[compass] Task T2 is now active")
+    assert context(hook("prompt", repo.root, prompt="next")).startswith("[compass] Task T2 is now active")
 
 
 def test_accept_without_anything_to_accept(repo):

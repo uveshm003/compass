@@ -99,9 +99,10 @@ All state lives in one `.compass/` folder per repo. Team-owned inputs are commit
 | `index.db` | SQLite: files (with a test-file flag), symbols, imports resolved to files, call sites | No |
 | `map/` | Markdown shards per directory + `_index.md` | No |
 | `changes/<id>.md` | Change manifests, each with a `.json` twin | No; moved to `changes/archive/` on `/compass:accept` |
-| `state.json` | Active task id and size, the files each task touched, per-session turn state | No |
+| `state.json` | Active task id and size, each task's brief, touched files and spec approval, per-session turn state | No |
+| `stack.json`, `config.cache.json` | Caches for the hooks: the stack summary from SessionStart, the parsed config | No |
 | `telemetry.jsonl` | One row per task | No |
-| `logs/` | Hook errors and bypass log | No |
+| `logs/` | Hook errors (`errors.log`) and every prompt-gate decision, bypasses included (`gate.jsonl`) | No |
 
 Shards are derived and fast to regenerate, so there is no reason to commit them and create merge conflicts.
 

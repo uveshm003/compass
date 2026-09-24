@@ -4,12 +4,14 @@ A Claude Code plugin plus a local CLI that routes work to the cheapest executor
 that can do it correctly, and makes AI changes reviewable. The design lives in
 the five `Compass — *.md` specs in this directory; `CLAUDE.md` summarises them.
 
-**Status:** M1 (index core), M2 (query tools) and M3 (plugin and review
-manifest) are done: a tree-sitter code map in SQLite and Markdown shards, kept
-current by git hooks and Claude Code hooks, served by a stdio MCP server whose
-every tool also has a CLI twin; and a Claude Code plugin that has Claude tag
-each change for review, writes a change manifest every turn, and refuses
-commits that still carry the tags. The gates (M4) come next.
+**Status:** M1 to M4 are done: a tree-sitter code map in SQLite and Markdown
+shards, kept current by git hooks and Claude Code hooks, served by a stdio MCP
+server whose every tool also has a CLI twin; a Claude Code plugin that has
+Claude tag each change for review, writes a change manifest every turn and
+refuses commits that still carry the tags; and the gates: vague requests get a
+checklist, every prompt gets the code-map lines for the names it mentions, and
+a large task changes no code until its spec is approved. Delegation (M5) comes
+next.
 
 ## Use it
 
@@ -65,7 +67,9 @@ checks that they are.
 | `compass tests-for TARGET` | Tests for a file, directory or symbol (`tests_for`) |
 | `compass importers-of TARGET` | Files importing a file, directory or module (`importers_of`) |
 | `compass callers-of NAME` | Call sites of a function or method (`callers_of`) |
-| `compass task [new]` | The active review task (started if there is none), or a fresh one |
+| `compass task [new]` | The active task (started if there is none), or a fresh one; `--brief -` is `/compass:task` |
+| `compass approve [ID]` | Approve a large task's spec, recording who and when (`/compass:approve`) |
+| `compass check-prompt TEXT` | What the prompt gate and context pack would do with a prompt; changes nothing |
 | `compass manifest [ID]` | Write `.compass/changes/<id>.md`; `--hosted` prints it with GitHub or Azure DevOps links |
 | `compass accept [ID]` | Strip a reviewed task's anchor tags and archive its manifest (`/compass:accept`) |
 | `compass check-anchors [ID]` | List anchor tags; `--staged` is the git pre-commit check |
@@ -94,6 +98,8 @@ src/compass/
   state.py          .compass/state.json: tasks and turns
   manifest.py       change manifests, local and hosted links
   review.py         the review loop the hooks and CLI run
+  gate/             prompt gate (rules/ has one module per field), context pack, hook logic
+  spec.py           large-task specs and their approval
   hooks.py          compass hook <event>
   githooks.py       post-commit/checkout/merge/rewrite and pre-commit hooks
 plugin/             the Claude Code plugin (hooks, command, agent, style, MCP)

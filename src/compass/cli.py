@@ -164,7 +164,14 @@ def build_parser() -> argparse.ArgumentParser:
     # Review output (RO-02 to RO-05).
     p = sub.add_parser("task", help="show the active task, or start a new one")
     p.add_argument("action", nargs="?", choices=["show", "new"], default="show")
+    p.add_argument("--brief", help="with new: the task's brief, or - to read it from stdin (what /compass:task runs)")
     p.add_argument("--json", action="store_true", help="print as JSON")
+
+    p = sub.add_parser("approve", help="approve a large task's spec so Claude may change code (/compass:approve)")
+    p.add_argument("task", nargs="?", help="task id (default: the active task)")
+
+    p = sub.add_parser("check-prompt", help="dry-run the prompt gate and context pack on a prompt")
+    p.add_argument("prompt", help="the prompt text, or - to read it from stdin")
 
     p = sub.add_parser("manifest", help="write the change manifest of a task (default: the active one)")
     p.add_argument("task", nargs="?", help="task id, e.g. T3")
@@ -332,6 +339,11 @@ def cmd_task(args: argparse.Namespace) -> int:
     repo = find_repo()
     if not repo.initialized:
         return _fail(NOT_INITIALIZED)
+    if args.action == "new" and args.brief is not None:
+        from compass.gate.hook import start_task
+
+        print(start_task(repo, sys.stdin.read() if args.brief == "-" else args.brief))
+        return EXIT_OK
     with state.transaction(repo) as st:
         previous = state.active_task(st)
         if args.action == "new" and previous is not None:
@@ -341,10 +353,41 @@ def cmd_task(args: argparse.Namespace) -> int:
             st["task"] = None
         task = state.ensure_task(st, None if state.active_task(st) else review.taken_ids(repo))
         touched = state.touched(st, task)
+        record = dict(st["tasks"].get(task) or {})
+    size = record.get("size") or "not sized yet"
     if args.json:
-        print(json.dumps({"task": task, "touched": touched, "manifest": review.manifest_rel(task)}))
+        print(json.dumps({
+            "task": task, "touched": touched, "manifest": review.manifest_rel(task), "size": record.get("size"),
+            "reason": record.get("reason"), "approved": record.get("approved"), "brief": record.get("brief"),
+        }))
     else:
-        print(f"{task}  ({len(touched)} files changed; manifest {review.manifest_rel(task)})")
+        approval = ""
+        if record.get("size") == "large":
+            approval = f"; spec approved by {record['approved']['by']}" if record.get("approved") else "; spec not approved"
+        print(f"{task}  ({size}{approval}; {len(touched)} files changed; manifest {review.manifest_rel(task)})")
+    return EXIT_OK
+
+
+def cmd_approve(args: argparse.Namespace) -> int:
+    from compass.gate.hook import approve_task
+    from compass.repo import find_repo
+
+    repo = find_repo()
+    if not repo.initialized:
+        return _fail(NOT_INITIALIZED)
+    code, message = approve_task(repo, args.task)
+    if code:
+        return _fail(message)
+    print(message)
+    return EXIT_OK
+
+
+def cmd_check_prompt(args: argparse.Namespace) -> int:
+    from compass.gate.hook import dry_run
+    from compass.repo import find_repo
+
+    repo = find_repo()
+    print(dry_run(repo, sys.stdin.read() if args.prompt == "-" else args.prompt))
     return EXIT_OK
 
 
@@ -502,6 +545,8 @@ COMMANDS = {
     "stack-profile": cmd_stack,
     "mcp": cmd_mcp,
     "task": cmd_task,
+    "approve": cmd_approve,
+    "check-prompt": cmd_check_prompt,
     "manifest": cmd_manifest,
     "accept": cmd_accept,
     "check-anchors": cmd_check_anchors,
