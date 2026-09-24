@@ -86,12 +86,16 @@ review:
     - "**/go.sum"
 
 delegation:
-  digest_threshold_lines: 500
+  enabled: true
+  digest_threshold_lines: 500  # hand reading this much to a subagent when the answer is short
+  enforce_contracts: true      # a subagent whose answer breaks its contract is sent back once
 
 local_llm:
   enabled: false
-  base_url: http://localhost:11434/v1
+  base_url: http://localhost:11434/v1  # loopback only: code never leaves the machine (NF-10)
   model: qwen2.5-coder:7b
+  timeout_s: 30
+  enrich_limit: 200            # symbols `compass enrich` summarises per run
 
 telemetry:
   enabled: true
@@ -116,7 +120,7 @@ def __getattr__(name: str) -> Any:  # DEFAULTS stays importable without parsing 
 # Integer settings that must be positive (or at least zero) to make sense.
 _POSITIVE = {
     "index.max_file_kb", "index.shard_token_limit", "context_pack.token_budget", "query.max_response_chars",
-    "review.reply_max_lines",
+    "review.reply_max_lines", "delegation.digest_threshold_lines", "local_llm.timeout_s", "local_llm.enrich_limit",
 }
 _NON_NEGATIVE = {"query.context_lines"}
 
@@ -146,10 +150,38 @@ class ReviewSettings:
     anchor_exempt: tuple[str, ...]
 
 
+@dataclass(frozen=True)
+class DelegationSettings:
+    enabled: bool
+    digest_threshold_lines: int
+    enforce_contracts: bool
+
+
+@dataclass(frozen=True)
+class LocalLLMSettings:
+    enabled: bool
+    base_url: str
+    model: str
+    timeout_s: int
+    enrich_limit: int
+
+
 @dataclass
 class Config:
     data: dict[str, Any]
     warnings: list[str] = field(default_factory=list)
+
+    @property
+    def delegation(self) -> DelegationSettings:
+        section = self.data["delegation"]
+        return DelegationSettings(section["enabled"], section["digest_threshold_lines"], section["enforce_contracts"])
+
+    @property
+    def local_llm(self) -> LocalLLMSettings:
+        section = self.data["local_llm"]
+        return LocalLLMSettings(
+            section["enabled"], section["base_url"], section["model"], section["timeout_s"], section["enrich_limit"]
+        )
 
     @property
     def review(self) -> ReviewSettings:

@@ -1,8 +1,8 @@
 # Compass plugin for Claude Code
 
-The plugin is plain files: hooks, one command, one subagent, an optional output
-style and the MCP registration. All behaviour lives in the `compass` CLI, which
-every hook calls (`compass hook <event>`), so install both.
+The plugin is plain files: hooks, three commands, three subagents, an optional
+output style and the MCP registration. All behaviour lives in the `compass`
+CLI, which every hook calls (`compass hook <event>`), so install both.
 
 ## Install
 
@@ -38,16 +38,20 @@ allow it for good ("don't ask again"): the tools only read the code map.
 
 | Piece | File | Does |
 | --- | --- | --- |
-| SessionStart hook | `hooks/hooks.json` | Refreshes the index; tells Claude to look code up through Compass and to tag its changes for the active task |
+| SessionStart hook | `hooks/hooks.json` | Refreshes the index; tells Claude to look code up through Compass, to tag its changes for the active task, and when to delegate |
 | UserPromptSubmit hook | | Checks a new request for goal, scope and acceptance (warns by default, or blocks); adds the code map's lines for the names it mentions; starts the turn |
-| PreToolUse hook (Write, Edit) | | While a large task's spec is unapproved, refuses edits to anything but the spec |
+| PreToolUse hook (Write, Edit) | | While a large task's spec is unapproved, refuses edits to anything but the spec; keeps the `scaffold` subagent to the files it was given |
+| PreToolUse hook (Agent) | | Notes which files a `scaffold` delegation names |
 | PostToolUse hook (Write, Edit) | | Re-indexes the edited file; records it for the task's manifest |
 | Stop hook | | Writes `.compass/changes/<task>.md`; asks Claude once to tag changed files it left untagged |
-| MCP server | `.mcp.json` | `find_symbol`, `read_symbol`, `file_outline`, `map`, `stack_profile`, `tests_for`, `importers_of`, `callers_of` |
+| SubagentStop hook | | Sends a Compass subagent's answer back once when it breaks its output contract (too long, no `file:line`, untagged changes) |
+| MCP server | `.mcp.json` | `find_symbol`, `read_symbol`, `file_outline`, `map`, `stack_profile`, `tests_for`, `importers_of`, `callers_of`; with a local model, `summarize_file` and `classify_files` |
 | `/compass:task <brief>` | `commands/task.md` | Starts a task from `Goal: … Scope: … Non-goals: … Accept when: … Constraints: …`; a large one gets a spec draft (developer only) |
 | `/compass:approve [task]` | `commands/approve.md` | Approves a large task's spec, recording who and when (developer only) |
 | `/compass:accept [task]` | `commands/accept.md` | Strips the task's anchor tags and archives its manifest (developer only) |
-| `digest` subagent | `agents/digest.md` | Condenses large logs and files to 30 lines |
+| `digest` subagent | `agents/digest.md` | Condenses large logs and files to 30 lines, citing `file:line` |
+| `test-runner` subagent | `agents/test-runner.md` | Runs tests or a build and reports only the failures, in 20 lines at most |
+| `scaffold` subagent | `agents/scaffold.md` | Makes mechanical edits to the files it is given, tagging each change |
 | Output style (opt-in) | `output-styles/compass-review.md` | The same reply rules as a system-prompt style |
 
 ## Reviewing a change
@@ -77,6 +81,36 @@ A large task (a refactor or migration, or several files named) gets a spec at
 `.compass/specs/<task>.md`. Claude fills it in with its open questions and
 stops; until you run `/compass:approve`, it can change nothing else.
 
+## Delegation
+
+The subagents run on Haiku in their own context, so a 600-line test log or a
+large file never reaches the main conversation: only the subagent's short
+answer does. Claude decides when to delegate, from rules Compass adds at
+session start: tests and builds go to `test-runner`, reading more than about
+500 lines for a short answer to `digest`, spelled-out edits to `scaffold`.
+Compass holds each answer to its contract and sends it back once when it
+breaks it, and it refuses any edit `scaffold` makes outside the files named in
+its instructions or the task's spec.
+
+## A local model (optional)
+
+With a model running on your machine (Ollama, llama.cpp, LM Studio) and
+
+```yaml
+local_llm:
+  enabled: true
+  base_url: http://localhost:11434/v1
+  model: gemma3
+```
+
+in `.compass/config.yaml`, Claude also gets `summarize_file` and
+`classify_files`, answered locally at no token cost, and after each commit
+`compass enrich` writes one-line summaries of undocumented functions and
+classes into the code map in the background. Only addresses on this machine
+are accepted, so code never leaves it. When the model is not running, all of
+this simply stays off.
+
 Everything can be switched off in `.compass/config.yaml`: `prompt_gate`,
-`context_pack`, `spec_gate`, and `review` (`enabled`, `require_anchors`,
-`reply_max_lines`, `anchor_exempt`).
+`context_pack`, `spec_gate`, `review` (`enabled`, `require_anchors`,
+`reply_max_lines`, `anchor_exempt`), `delegation` (`enabled`,
+`enforce_contracts`) and `local_llm`.

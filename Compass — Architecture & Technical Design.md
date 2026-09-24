@@ -85,7 +85,7 @@ Every piece of work goes to the lowest tier that can do it correctly. Most savin
 3. Work that needs judgment, or is under about 50 lines of input, stays in Tier 3; a subagent's fresh context would cost more than it saves.
 4. Tier 1 is never awaited by a developer-facing step.
 
-Rules 2 and 3 live in the CLAUDE.md fragment and subagent descriptions, since the main model makes the delegation call.
+Rules 2 and 3 live in the CLAUDE.md fragment, which SessionStart prints, and in the subagent descriptions, since the main model makes the delegation call. Compass enforces what comes back: the SubagentStop hook sends an answer that breaks its subagent's output contract back once, and PreToolUse keeps the `scaffold` agent to the files it was given (DL-02).
 
 ## Data and storage layout
 
@@ -99,8 +99,9 @@ All state lives in one `.compass/` folder per repo. Team-owned inputs are commit
 | `index.db` | SQLite: files (with a test-file flag), symbols, imports resolved to files, call sites | No |
 | `map/` | Markdown shards per directory + `_index.md` | No |
 | `changes/<id>.md` | Change manifests, each with a `.json` twin | No; moved to `changes/archive/` on `/compass:accept` |
-| `state.json` | Active task id and size, each task's brief, touched files and spec approval, per-session turn state | No |
-| `stack.json`, `config.cache.json` | Caches for the hooks: the stack summary from SessionStart, the parsed config | No |
+| `state.json` | Active task id and size, each task's brief, touched files and spec approval, per-session turn state, the scaffold subagent's delegated files and edits | No |
+| `stack.json`, `config.cache.json`, `llm.json` | Caches for the hooks: the stack summary from SessionStart, the parsed config, the local model's last health check | No |
+| `summaries.db` | Local-model summaries of undocumented symbols, keyed by content hash (`compass enrich`) | No; kept by `compass index --full`, since only the local model can rebuild it |
 | `telemetry.jsonl` | One row per task | No |
 | `logs/` | Hook errors (`errors.log`) and every prompt-gate decision, bypasses included (`gate.jsonl`) | No |
 
@@ -148,12 +149,16 @@ review:
   anchor_exempt: ["**/*.json", "**/*.lock", "**/*.svg"]   # files that cannot hold comments (shortened)
 
 delegation:
-  digest_threshold_lines: 500
+  enabled: true
+  digest_threshold_lines: 500  # hand reading this much to a subagent when the answer is short
+  enforce_contracts: true      # a subagent whose answer breaks its contract is sent back once
 
 local_llm:
   enabled: false
-  base_url: http://localhost:11434/v1
+  base_url: http://localhost:11434/v1  # loopback only: code never leaves the machine (NF-10)
   model: qwen2.5-coder:7b
+  timeout_s: 30
+  enrich_limit: 200            # symbols `compass enrich` summarises per run
 
 telemetry:
   enabled: true
@@ -188,7 +193,9 @@ Compass must never make Claude Code worse than stock. Any failure other than a d
 | Hook raises an exception | Exit 0, error logged | Nothing; session continues |
 | Index missing or corrupt | SessionStart triggers a rebuild in the background; query tools answer "index not ready" | One-line notice |
 | Hook exceeds its time budget | Context pack returns what it has so far | Smaller context pack |
-| Local LLM unreachable | Local features disabled for the session | Nothing |
+| Local LLM unreachable | Local features disabled for the session; `compass enrich` does nothing | Nothing |
+| Subagent answer breaks its contract | SubagentStop sends it back once with the reason; the retry always passes | A slightly longer delegation |
+| `scaffold` edits a file it was not given | PreToolUse refuses the edit and names the allowed files; the agent reports back | The subagent's report names the file |
 | Stop hook would block twice in a row | Second block skipped (`stop_hook_active` check, plus Compass's own record of its last block) | Normal stop |
 | `compass` CLI not installed but the plugin is | Each hook command fails to start; Claude Code treats that as a non-blocking error | A hook error notice; session continues |
 | Pre-commit check fails internally | Commit allowed, error logged | Nothing |

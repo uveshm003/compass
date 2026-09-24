@@ -127,15 +127,24 @@ def new_turn(repo: Repo, settings: ReviewSettings, session: str | None) -> str |
     return announcement(task) if settings.enabled else None
 
 
-def record_edit(repo: Repo, settings: ReviewSettings, rel: str, session: str | None) -> None:
-    """PostToolUse on Write/Edit: remember ``rel`` for the task and this turn."""
-    if not settings.enabled:
+def record_edit(
+    repo: Repo, settings: ReviewSettings, rel: str, session: str | None,
+    agent_id: str | None = None, agent_type: str | None = None,
+) -> None:
+    """PostToolUse on Write/Edit: remember ``rel`` for the task and this turn
+    and, for an edit a subagent made, for that subagent's contract check."""
+    if not settings.enabled and not agent_id:
         return
-    current = state.read(repo)
-    taken = None if state.active_task(current) else taken_ids(repo)
+    taken = None
+    if settings.enabled and not state.active_task(state.read(repo)):
+        taken = taken_ids(repo)
     with state.transaction(repo, STATE_LOCK_WAIT_S) as st:
-        task = state.ensure_task(st, taken)
-        state.touch(st, task, rel, session)
+        if settings.enabled:
+            state.touch(st, state.ensure_task(st, taken), rel, session)
+        if agent_id:
+            from compass.delegation import record_agent_edit
+
+            record_agent_edit(st, agent_id, agent_type or "", session, rel)
 
 
 def on_stop(repo: Repo, config: Config, payload: dict[str, Any]) -> dict[str, Any] | None:

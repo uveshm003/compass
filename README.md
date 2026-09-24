@@ -4,13 +4,16 @@ A Claude Code plugin plus a local CLI that routes work to the cheapest executor
 that can do it correctly, and makes AI changes reviewable. The design lives in
 the five `Compass — *.md` specs in this directory; `CLAUDE.md` summarises them.
 
-**Status:** M1 to M4 are done: a tree-sitter code map in SQLite and Markdown
+**Status:** M1 to M5 are done: a tree-sitter code map in SQLite and Markdown
 shards, kept current by git hooks and Claude Code hooks, served by a stdio MCP
 server whose every tool also has a CLI twin; a Claude Code plugin that has
 Claude tag each change for review, writes a change manifest every turn and
-refuses commits that still carry the tags; and the gates: vague requests get a
+refuses commits that still carry the tags; the gates: vague requests get a
 checklist, every prompt gets the code-map lines for the names it mentions, and
-a large task changes no code until its spec is approved. Delegation (M5) comes
+a large task changes no code until its spec is approved; and delegation: Haiku
+subagents run tests, digest large inputs and make spelled-out edits, each held
+to an output contract, while an optional local model summarises files and
+undocumented symbols at no token cost. Telemetry and the benchmark (M6) come
 next.
 
 ## Use it
@@ -74,6 +77,9 @@ checks that they are.
 | `compass accept [ID]` | Strip a reviewed task's anchor tags and archive its manifest (`/compass:accept`) |
 | `compass check-anchors [ID]` | List anchor tags; `--staged` is the git pre-commit check |
 | `compass uninstall` | Remove Compass's git hooks, restoring any they chained |
+| `compass enrich [--limit N]` | One-line local-model summaries for undocumented symbols, shown as `~` in the map; the git hooks run it in the background |
+| `compass summarize-file PATH` | The gist of a file from the local model (`summarize_file`); `--focus` asks something specific |
+| `compass classify-files PATHS… --labels a,b` | Sort files into labels with the local model (`classify_files`) |
 | `compass hook <event>` | Entry point for Claude Code hooks (JSON on stdin; always fails open) |
 
 Query commands print what the MCP tool returns; `--json` gives structured
@@ -100,9 +106,13 @@ src/compass/
   review.py         the review loop the hooks and CLI run
   gate/             prompt gate (rules/ has one module per field), context pack, hook logic
   spec.py           large-task specs and their approval
+  delegation.py     the subagents' rules and output contracts
+  llm.py            local-model client (OpenAI-compatible, loopback only)
+  local_tools.py    summarize_file and classify_files
+  enrich.py         background summaries for undocumented symbols
   hooks.py          compass hook <event>
   githooks.py       post-commit/checkout/merge/rewrite and pre-commit hooks
-plugin/             the Claude Code plugin (hooks, command, agent, style, MCP)
+plugin/             the Claude Code plugin (hooks, commands, agents, style, MCP)
 .claude-plugin/     marketplace.json, so Claude Code can install ./plugin
 tests/
   fixtures/         small repos in Python, TypeScript/JavaScript, Go and Rust

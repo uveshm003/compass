@@ -144,7 +144,45 @@ def build_server(start: str | None = None) -> MCPServer:
         before changing it."""
         return answer(lambda q: q.callers_of(name), cursor)
 
+    model = _local_model(session)
+    if model is not None:
+        _add_local_tools(server, answer, model)
     return server
+
+
+def _local_model(session: _Session):
+    """The local model, when ``local_llm`` is on and it answers now (DL-06):
+    otherwise its tools are simply not offered."""
+    try:
+        queries = session.queries()
+        settings = queries.config.local_llm
+        if not settings.enabled:
+            return None
+        from compass.llm import LocalModel
+
+        model = LocalModel(settings, queries.repo)
+        return model if model.healthy(timeout=2.0, use_cache=False) else None
+    except Exception:
+        return None
+
+
+def _add_local_tools(server: MCPServer, answer, model) -> None:
+    from compass.local_tools import classify_files as classify
+    from compass.local_tools import summarize_file as summarize
+
+    @server.tool(annotations=READ_ONLY, structured_output=False)
+    def summarize_file(path: str, focus: str | None = None, cursor: Cursor = None) -> str:
+        """Summarise one file with the local model on this machine, at no token
+        cost: what it does and its main parts, with L<n> line references. Use it
+        for the gist of a large file before reading it, not for exact code.
+        focus asks something specific ("how are errors handled?")."""
+        return answer(lambda q: summarize(q, model, path, focus), cursor)
+
+    @server.tool(annotations=READ_ONLY, structured_output=False)
+    def classify_files(paths: list[str], labels: list[str], cursor: Cursor = None) -> str:
+        """Sort up to 50 files into the labels you give (for example "test",
+        "config", "business logic") with the local model, at no token cost."""
+        return answer(lambda q: classify(q, model, paths, labels), cursor)
 
 
 def serve(start: str | Path | None = None) -> None:

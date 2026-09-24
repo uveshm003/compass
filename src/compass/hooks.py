@@ -18,6 +18,9 @@ Handled so far:
 - Stop: rewrites the manifest and asks once for missing anchors (RO-03, RO-04).
 - UserPromptSubmit also runs the prompt gate and adds the context pack, and
   PreToolUse on Write/Edit is the spec gate (M4, in ``compass.gate.hook``).
+- PreToolUse on the Agent tool notes which files a scaffold delegation names,
+  and SubagentStop holds each Compass subagent to its output contract (M5, in
+  ``compass.delegation``).
 """
 
 from __future__ import annotations
@@ -32,7 +35,7 @@ from compass import background
 from compass.log import log_error
 from compass.repo import Repo, find_initialized_repo
 
-EVENTS = ("session-start", "prompt", "pre-edit", "post-edit", "stop")
+EVENTS = ("session-start", "prompt", "pre-edit", "post-edit", "stop", "delegate", "subagent-stop")
 
 # Budgets for work done inline; anything bigger moves to a background process.
 INLINE_REFRESH_LIMIT = 100
@@ -128,6 +131,15 @@ def on_session_start(repo: Repo, payload: dict[str, Any]) -> int:
         extra = session_lines(repo)
     except Exception as exc:
         log_error(repo.root, "hook session-start stack", exc)
+    if config.delegation.enabled:
+        from compass.delegation import rules
+
+        local = False
+        if config.local_llm.enabled:  # urllib only when there may be a model to ask
+            from compass import llm
+
+            local = llm.available(repo, config)
+        extra = [*rules(config.delegation.digest_threshold_lines, local), *extra]
     print("\n".join([review.instructions(config.review, task), *extra, *notices]))
     return 0
 
@@ -166,8 +178,10 @@ def on_post_edit(repo: Repo, payload: dict[str, Any]) -> int:
     rel = review.relative_to_repo(repo, target, payload.get("cwd"))
     if rel is None:
         return 0
+    agent_id = payload.get("agent_id") if isinstance(payload.get("agent_id"), str) else None
+    agent_type = payload.get("agent_type") if isinstance(payload.get("agent_type"), str) else None
     try:
-        review.record_edit(repo, _config(repo).review, rel, _session(payload))
+        review.record_edit(repo, _config(repo).review, rel, _session(payload), agent_id, agent_type)
     except Exception as exc:  # the re-index below still matters
         log_error(repo.root, "hook post-edit record", exc)
     try:
@@ -188,6 +202,22 @@ def on_stop(repo: Repo, payload: dict[str, Any]) -> int:
     return 0
 
 
+def on_delegate(repo: Repo, payload: dict[str, Any]) -> int:
+    from compass.delegation import on_delegate as note
+
+    note(repo, payload)
+    return 0
+
+
+def on_subagent_stop(repo: Repo, payload: dict[str, Any]) -> int:
+    from compass.delegation import on_subagent_stop as check
+
+    answer = check(repo, _config(repo), payload)
+    if answer:
+        print(json.dumps(answer))
+    return 0
+
+
 def _config(repo: Repo):
     from compass.config import load_config
 
@@ -205,4 +235,6 @@ HANDLERS: dict[str, Callable[[Repo, dict[str, Any]], int]] = {
     "pre-edit": on_pre_edit,
     "post-edit": on_post_edit,
     "stop": on_stop,
+    "delegate": on_delegate,
+    "subagent-stop": on_subagent_stop,
 }

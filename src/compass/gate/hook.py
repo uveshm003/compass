@@ -167,6 +167,10 @@ def _waiting(task: str) -> str:
 
 
 def on_pre_edit(repo: Repo, payload: dict[str, Any]) -> Answer:
+    if payload.get("agent_type") == "compass:scaffold":
+        refused = _scaffold_check(repo, payload)
+        if refused:
+            return refused
     snapshot = state.read(repo)
     task = state.needs_approval(snapshot)
     if task is None:
@@ -198,6 +202,27 @@ def on_pre_edit(repo: Repo, payload: dict[str, Any]) -> Answer:
             " The developer can also start a prompt with !quick to allow edits for one turn."
         ),
     )
+
+
+def _scaffold_check(repo: Repo, payload: dict[str, Any]) -> Answer | None:
+    """The scaffold subagent changes only files it was given (DL-02)."""
+    from compass.config import load_config
+    from compass.delegation import scaffold_denial
+
+    settings = load_config(repo.root).delegation
+    if not settings.enabled or not settings.enforce_contracts:
+        return None
+    tool_input = payload.get("tool_input") if isinstance(payload.get("tool_input"), dict) else {}
+    target = tool_input.get("file_path") or tool_input.get("notebook_path")
+    if not isinstance(target, str) or not target:
+        return None
+    if not os.path.isabs(target):
+        target = os.path.join(payload.get("cwd") or str(repo.root), target)
+    rel = repo.relpath(target)
+    if not rel:
+        return None
+    reason = scaffold_denial(repo, payload, rel)
+    return Answer(code=2, stderr=reason) if reason else None
 
 
 # -- /compass:task and /compass:approve ------------------------------------------------

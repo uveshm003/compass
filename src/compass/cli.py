@@ -173,6 +173,21 @@ def build_parser() -> argparse.ArgumentParser:
     p = sub.add_parser("check-prompt", help="dry-run the prompt gate and context pack on a prompt")
     p.add_argument("prompt", help="the prompt text, or - to read it from stdin")
 
+    # The local model (DL-04, DL-05): off unless local_llm.enabled.
+    p = sub.add_parser("enrich", help="summarise undocumented symbols with the local model (background job)")
+    p.add_argument("--limit", type=int, help="most symbols to summarise this run (default: local_llm.enrich_limit)")
+    p.add_argument("--json", action="store_true", help="print the result as JSON")
+
+    p = sub.add_parser("summarize-file", help="the gist of a file from the local model (MCP: summarize_file)")
+    p.add_argument("path")
+    p.add_argument("--focus", help="a specific question about the file")
+    _query_output(p)
+
+    p = sub.add_parser("classify-files", help="sort files into labels with the local model (MCP: classify_files)")
+    p.add_argument("paths", nargs="+")
+    p.add_argument("--labels", required=True, help="comma-separated labels, e.g. test,config,logic")
+    _query_output(p)
+
     p = sub.add_parser("manifest", help="write the change manifest of a task (default: the active one)")
     p.add_argument("task", nargs="?", help="task id, e.g. T3")
     p.add_argument("--hosted", action="store_true", help="print it with links into GitHub or Azure DevOps")
@@ -290,6 +305,11 @@ def _update_from_git() -> int:
         repo = find_repo()
         if repo.initialized:
             refresh_or_hand_off(repo, lock_wait=2.0)
+            if _config(repo, quiet=True).local_llm.enabled:
+                # Summaries for new code, detached and at low priority: the commit never waits (DL-05).
+                from compass import background
+
+                background.spawn(["-C", str(repo.root), "enrich"], repo.root, low_priority=True)
     except Exception as exc:
         log_error(repo.root if repo else None, "update --from-git", exc)
     return EXIT_OK
@@ -380,6 +400,50 @@ def cmd_approve(args: argparse.Namespace) -> int:
         return _fail(message)
     print(message)
     return EXIT_OK
+
+
+def cmd_enrich(args: argparse.Namespace) -> int:
+    from compass import enrich
+    from compass.repo import find_repo
+
+    repo = find_repo()
+    if not repo.initialized:
+        return _fail(NOT_INITIALIZED)
+    result = enrich.run(repo, _config(repo, quiet=True), args.limit)
+    if args.json:
+        print(json.dumps(result))
+    elif "skipped" in result:
+        print(f"compass enrich: nothing done: {result['skipped']}.")
+    else:
+        print(
+            f"Summarised {result['summarised']} symbols ({result['cached']} already cached, {result['left']} left"
+            f" for the next run); {result['applied']} applied to the code map."
+        )
+    return EXIT_OK
+
+
+def _local_query(args: argparse.Namespace, run) -> int:
+    """The local-model twins: like the query commands, when a model answers."""
+    from compass.llm import LocalModel
+    from compass.repo import find_repo
+
+    repo = find_repo()
+    model = LocalModel(_config(repo, quiet=True).local_llm, repo)
+    if not model.healthy(use_cache=False):
+        return _fail("no local model answering; set local_llm in .compass/config.yaml and start it (Ollama, LM Studio)")
+    return _run_query(args, lambda q: run(q, model))
+
+
+def cmd_summarize_file(args: argparse.Namespace) -> int:
+    from compass.local_tools import summarize_file
+
+    return _local_query(args, lambda q, model: summarize_file(q, model, args.path, args.focus))
+
+
+def cmd_classify_files(args: argparse.Namespace) -> int:
+    from compass.local_tools import classify_files
+
+    return _local_query(args, lambda q, model: classify_files(q, model, args.paths, args.labels.split(",")))
 
 
 def cmd_check_prompt(args: argparse.Namespace) -> int:
@@ -547,6 +611,9 @@ COMMANDS = {
     "task": cmd_task,
     "approve": cmd_approve,
     "check-prompt": cmd_check_prompt,
+    "enrich": cmd_enrich,
+    "summarize-file": cmd_summarize_file,
+    "classify-files": cmd_classify_files,
     "manifest": cmd_manifest,
     "accept": cmd_accept,
     "check-anchors": cmd_check_anchors,

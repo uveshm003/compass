@@ -66,7 +66,7 @@ def test_the_marketplace_serves_this_plugin():
 
 def test_every_hook_is_a_thin_shell_out_to_a_handled_event():
     config = json.loads((PLUGIN / "hooks/hooks.json").read_text(encoding="utf-8"))["hooks"]
-    wired = {}
+    wired = set()
     for event, groups in config.items():
         for group in groups:
             for entry in group["hooks"]:
@@ -75,15 +75,18 @@ def test_every_hook_is_a_thin_shell_out_to_a_handled_event():
                 assert (program, sub) == ("compass", "hook")  # no logic in the plugin (Architecture, layer 1)
                 assert name in HANDLERS, f"{event} runs `compass hook {name}`, which the core does not handle"
                 assert 0 < entry["timeout"] <= 30  # a hung hook must not stall a session for minutes
-                wired[event] = (name, group.get("matcher"))
+                wired.add((event, name, group.get("matcher")))
+    edits = "Write|Edit|MultiEdit|NotebookEdit"
     assert wired == {
-        "SessionStart": ("session-start", None),
-        "UserPromptSubmit": ("prompt", None),
-        "PreToolUse": ("pre-edit", "Write|Edit|MultiEdit|NotebookEdit"),
-        "PostToolUse": ("post-edit", "Write|Edit|MultiEdit|NotebookEdit"),
-        "Stop": ("stop", None),
+        ("SessionStart", "session-start", None),
+        ("UserPromptSubmit", "prompt", None),
+        ("PreToolUse", "pre-edit", edits),
+        ("PreToolUse", "delegate", "Agent|Task"),  # Task is the Agent tool's older name
+        ("PostToolUse", "post-edit", edits),
+        ("SubagentStop", "subagent-stop", None),
+        ("Stop", "stop", None),
     }
-    assert set(HANDLERS) == {name for name, _ in wired.values()}  # and every handler is wired
+    assert set(HANDLERS) == {name for _event, name, _matcher in wired}  # and every handler is wired
 
 
 def test_the_mcp_server_is_the_compass_cli():
@@ -109,10 +112,21 @@ def test_task_and_approve_are_the_developers_too():
     assert "```!\ncompass task new --brief - <<'COMPASS_BRIEF'\n$ARGUMENTS\nCOMPASS_BRIEF\n```" in body
 
 
-def test_digest_agent_contract():
-    meta, body = frontmatter(PLUGIN / "agents/digest.md")
-    assert (meta["name"], meta["model"]) == ("digest", "haiku")
-    assert "Return at most 30 lines." in body and "file:line" in body
+def test_subagents_match_their_contracts():
+    # DL-01, DL-02: the Step 8 table, and the limits compass.delegation enforces.
+    from compass.delegation import CONTRACTS
+
+    expected = {
+        "digest": ("Read, Grep, Glob, Bash", "at most 30 lines"),
+        "test-runner": ("Bash, Read", "At most 20 lines"),
+        "scaffold": ("Read, Write, Edit", "Change only the files your instructions name"),
+    }
+    for name, (tools, rule) in expected.items():
+        meta, body = frontmatter(PLUGIN / f"agents/{name}.md")
+        assert (meta["name"], meta["model"], meta["tools"]) == (name, "haiku", tools)
+        assert rule.lower() in body.lower(), name
+        assert f"compass:{name}" in CONTRACTS
+    assert CONTRACTS["compass:digest"].max_lines == 30 and CONTRACTS["compass:test-runner"].max_lines == 20
 
 
 def test_output_style_is_opt_in_and_keeps_coding_instructions():
