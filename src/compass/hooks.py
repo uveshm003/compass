@@ -21,6 +21,8 @@ Handled so far:
 - PreToolUse on the Agent tool notes which files a scaffold delegation names,
   and SubagentStop holds each Compass subagent to its output contract (M5, in
   ``compass.delegation``).
+- Stop and SubagentStop also append a telemetry row for the turn or the
+  subagent (M6, in ``compass.telemetry``).
 """
 
 from __future__ import annotations
@@ -128,7 +130,7 @@ def on_session_start(repo: Repo, payload: dict[str, Any]) -> int:
     try:
         from compass.gate.hook import session_lines
 
-        extra = session_lines(repo)
+        extra = session_lines(repo, config)
     except Exception as exc:
         log_error(repo.root, "hook session-start stack", exc)
     if config.delegation.enabled:
@@ -140,7 +142,16 @@ def on_session_start(repo: Repo, payload: dict[str, Any]) -> int:
 
             local = llm.available(repo, config)
         extra = [*rules(config.delegation.digest_threshold_lines, local), *extra]
-    print("\n".join([review.instructions(config.review, task), *extra, *notices]))
+    try:
+        from compass import telemetry
+
+        telemetry.on_session_start(repo, config, payload)
+    except Exception as exc:
+        log_error(repo.root, "hook session-start telemetry", exc)
+    tools = config.query.enabled
+    lines = [*review.instructions(config.review, task, tools), *extra, *(notices if tools else [])]
+    if lines:  # with every module off (a telemetry-only baseline) Claude gets nothing extra
+        print("\n".join([review.SESSION_HEADER, *lines]))
     return 0
 
 
@@ -196,7 +207,9 @@ def on_post_edit(repo: Repo, payload: dict[str, Any]) -> int:
 def on_stop(repo: Repo, payload: dict[str, Any]) -> int:
     from compass import review
 
-    answer = review.on_stop(repo, _config(repo), payload)
+    config = _config(repo)
+    _telemetry(repo, config, payload, "on_stop")  # first: a review failure must not lose the turn's row
+    answer = review.on_stop(repo, config, payload)
     if answer:
         print(json.dumps(answer))  # ASCII escapes: the answer is read whatever the console code page
     return 0
@@ -212,10 +225,22 @@ def on_delegate(repo: Repo, payload: dict[str, Any]) -> int:
 def on_subagent_stop(repo: Repo, payload: dict[str, Any]) -> int:
     from compass.delegation import on_subagent_stop as check
 
-    answer = check(repo, _config(repo), payload)
+    config = _config(repo)
+    _telemetry(repo, config, payload, "on_subagent_stop")
+    answer = check(repo, config, payload)
     if answer:
         print(json.dumps(answer))
     return 0
+
+
+def _telemetry(repo: Repo, config, payload: dict[str, Any], handler: str) -> None:
+    """Record the turn's cost (TM-01); a failure here never changes the hook's answer."""
+    try:
+        from compass import telemetry
+
+        getattr(telemetry, handler)(repo, config, payload)
+    except Exception as exc:
+        log_error(repo.root, f"hook telemetry {handler}", exc)
 
 
 def _config(repo: Repo):

@@ -3,7 +3,7 @@
   "name": "compass",
   "displayName": "Compass",
   "version": "0.1.0",
-  "description": "Code map and query tools over MCP, review anchors and a change manifest for every AI change. Needs the compass CLI on PATH (uv tool install).",
+  "description": "A code map with query tools, checks on requests and large tasks, Haiku subagents held to output contracts, a review manifest for every AI change, and local telemetry. Needs the compass CLI on PATH (uv tool install).",
   "author": {
     "name": "Compass contributors"
   },
@@ -11,6 +11,8 @@
     "code-map",
     "mcp",
     "review",
+    "delegation",
+    "telemetry",
     "tree-sitter",
     "tokens"
   ]

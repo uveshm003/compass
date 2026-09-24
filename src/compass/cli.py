@@ -173,6 +173,11 @@ def build_parser() -> argparse.ArgumentParser:
     p = sub.add_parser("check-prompt", help="dry-run the prompt gate and context pack on a prompt")
     p.add_argument("prompt", help="the prompt text, or - to read it from stdin")
 
+    p = sub.add_parser("report", help="compare tasks run with Compass on and off (telemetry or benchmark results)")
+    p.add_argument("paths", nargs="*", help="telemetry files or bench/results folders (default: this repo's telemetry)")
+    p.add_argument("--since", metavar="YYYY-MM-DD", help="only tasks from this date on")
+    p.add_argument("--json", action="store_true", help="print the numbers as JSON")
+
     # The local model (DL-04, DL-05): off unless local_llm.enabled.
     p = sub.add_parser("enrich", help="summarise undocumented symbols with the local model (background job)")
     p.add_argument("--limit", type=int, help="most symbols to summarise this run (default: local_llm.enrich_limit)")
@@ -402,6 +407,34 @@ def cmd_approve(args: argparse.Namespace) -> int:
     return EXIT_OK
 
 
+def cmd_report(args: argparse.Namespace) -> int:
+    from pathlib import Path
+
+    from compass import report
+    from compass.repo import find_repo
+
+    gate = None
+    if args.paths:
+        paths = [Path(p) for p in args.paths]
+    else:
+        repo = find_repo()
+        if not repo.initialized:
+            return _fail(NOT_INITIALIZED)
+        paths = [repo.compass_dir / "telemetry.jsonl"]
+        gate = report.gate_summary(repo.logs_dir / "gate.jsonl", args.since)
+    missing = [str(p) for p in paths if not p.exists()]
+    if missing and len(missing) == len(paths) and args.paths:
+        return _fail(f"no such file or folder: {', '.join(missing)}")
+    tasks = report.tasks_from_rows(report.load(paths), args.since)
+    if args.json:
+        print(json.dumps(report.as_json(tasks, gate), indent=2, sort_keys=True))
+    elif any(t.bench for t in tasks):
+        print(report.bench_text(tasks))
+    else:
+        print(report.pilot_text(tasks, [str(p) for p in paths if p.exists()], gate))
+    return EXIT_OK
+
+
 def cmd_enrich(args: argparse.Namespace) -> int:
     from compass import enrich
     from compass.repo import find_repo
@@ -611,6 +644,7 @@ COMMANDS = {
     "task": cmd_task,
     "approve": cmd_approve,
     "check-prompt": cmd_check_prompt,
+    "report": cmd_report,
     "enrich": cmd_enrich,
     "summarize-file": cmd_summarize_file,
     "classify-files": cmd_classify_files,

@@ -1,0 +1,63 @@
+# Weekly compatibility check (NF-14): every done-when check in real headless
+# Claude Code sessions, against the latest Claude Code release. Mirrors
+# azure-pipelines-e2e.yml; tests/test_ci_configs.py fails when they drift.
+#
+# Compass is built on Claude Code, never on an API key. This job logs Claude
+# Code in with your Claude subscription, as on your own machine: run
+# `claude setup-token` once and store the token as the repository secret
+# CLAUDE_CODE_OAUTH_TOKEN. Until that secret exists nothing runs. Each run
+# counts against the subscription's usage like any session; a repository
+# variable E2E_MODEL (for example "sonnet") picks a lighter model. One Linux
+# job a week stays well inside a free account's minutes.
+name: e2e
+
+on:
+  schedule:
+    - cron: "17 6 * * 1"  # Mondays, 06:17 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: e2e
+  cancel-in-progress: false
+
+jobs:
+  # Secrets cannot gate a job directly, so this job reports whether the token is there.
+  login:
+    name: Claude Code login present?
+    runs-on: ubuntu-latest
+    outputs:
+      present: ${{ steps.check.outputs.present }}
+    steps:
+      - id: check
+        env:
+          TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+        run: echo "present=$([ -n "$TOKEN" ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
+
+  e2e:
+    name: Claude Code (latest) · done-when checks
+    needs: login
+    if: needs.login.outputs.present == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+      E2E_MODEL: ${{ vars.E2E_MODEL }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: astral-sh/setup-uv@v10.2.0
+        with:
+          python-version: "3.12"
+          enable-cache: true
+
+      # The latest release on purpose: this job exists to catch breaking changes.
+      - run: npm install -g @anthropic-ai/claude-code
+
+      - run: uv sync --locked
+
+      - run: claude --version
+
+      - run: uv run python tests/e2e/run_all.py

@@ -11,3 +11,7 @@ dist/
 # Claude Code session state and per-developer settings (the plugin's local install)
 .claude/scheduled_tasks.lock
 .claude/settings.local.json
+
+# Benchmark runs and repository mirrors (bench/run.py)
+bench/results/
+bench/.cache/

@@ -30,6 +30,11 @@ CLI, which every hook calls (`compass hook <event>`), so install both.
 
 3. In each repository: `compass init` (config, git hooks, first index).
 
+Compass is built on Claude Code and your own Claude login; it never needs an
+API key. It is tested with Claude Code 2.1.281, and a weekly CI job checks the
+latest release once it has a Claude Code login token (`claude setup-token`,
+NF-14).
+
 Restart Claude Code after installing or changing the plugin, then check
 `/hooks`, `/agents` and `/mcp`. The first time Claude calls a Compass tool,
 allow it for good ("don't ask again"): the tools only read the code map.
@@ -43,10 +48,10 @@ allow it for good ("don't ask again"): the tools only read the code map.
 | PreToolUse hook (Write, Edit) | | While a large task's spec is unapproved, refuses edits to anything but the spec; keeps the `scaffold` subagent to the files it was given |
 | PreToolUse hook (Agent) | | Notes which files a `scaffold` delegation names |
 | PostToolUse hook (Write, Edit) | | Re-indexes the edited file; records it for the task's manifest |
-| Stop hook | | Writes `.compass/changes/<task>.md`; asks Claude once to tag changed files it left untagged |
-| SubagentStop hook | | Sends a Compass subagent's answer back once when it breaks its output contract (too long, no `file:line`, untagged changes) |
+| Stop hook | | Writes `.compass/changes/<task>.md`; asks Claude once to tag changed files it left untagged; records the turn's telemetry |
+| SubagentStop hook | | Sends a Compass subagent's answer back once when it breaks its output contract (too long, no `file:line`, untagged changes); records its telemetry |
 | MCP server | `.mcp.json` | `find_symbol`, `read_symbol`, `file_outline`, `map`, `stack_profile`, `tests_for`, `importers_of`, `callers_of`; with a local model, `summarize_file` and `classify_files` |
-| `/compass:task <brief>` | `commands/task.md` | Starts a task from `Goal: … Scope: … Non-goals: … Accept when: … Constraints: …`; a large one gets a spec draft (developer only) |
+| `/compass:task <brief>` | `commands/task.md` | Starts a task from `Goal: … Scope: … Non-goals: … Accept when: … Constraints: …`, optionally tagged `Category: … Size: S/M/L` for telemetry; a large one gets a spec draft (developer only) |
 | `/compass:approve [task]` | `commands/approve.md` | Approves a large task's spec, recording who and when (developer only) |
 | `/compass:accept [task]` | `commands/accept.md` | Strips the task's anchor tags and archives its manifest (developer only) |
 | `digest` subagent | `agents/digest.md` | Condenses large logs and files to 30 lines, citing `file:line` |
@@ -110,7 +115,17 @@ classes into the code map in the background. Only addresses on this machine
 are accepted, so code never leaves it. When the model is not running, all of
 this simply stays off.
 
-Everything can be switched off in `.compass/config.yaml`: `prompt_gate`,
-`context_pack`, `spec_gate`, `review` (`enabled`, `require_anchors`,
-`reply_max_lines`, `anchor_exempt`), `delegation` (`enabled`,
-`enforce_contracts`) and `local_llm`.
+## Telemetry
+
+After every turn, Compass records what it cost in `.compass/telemetry.jsonl`:
+tokens per model, cache reads included; tool calls by name; prompts; active
+time; and the context Compass added. Rows never hold prompts, code or file
+paths, and they stay on your machine unless `telemetry.export` names a file to
+copy them to. `compass report` compares tasks with Compass on and off.
+
+Everything can be switched off in `.compass/config.yaml`: `query` (the MCP
+tools), `prompt_gate`, `context_pack`, `spec_gate`, `review` (`enabled`,
+`require_anchors`, `reply_max_lines`, `anchor_exempt`), `delegation`
+(`enabled`, `enforce_contracts`), `local_llm` and `telemetry`. With every
+module off but telemetry, Claude Code runs as stock and the turns are still
+measured: that is the baseline to compare against.

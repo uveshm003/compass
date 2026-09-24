@@ -13,8 +13,16 @@ checklist, every prompt gets the code-map lines for the names it mentions, and
 a large task changes no code until its spec is approved; and delegation: Haiku
 subagents run tests, digest large inputs and make spelled-out edits, each held
 to an output contract, while an optional local model summarises files and
-undocumented symbols at no token cost. Telemetry and the benchmark (M6) come
-next.
+undocumented symbols at no token cost. M6 measures it all: every turn's
+tokens, time and tool calls from Claude Code's own transcripts, a report that
+compares tasks with Compass on and off, and a benchmark harness for the
+Evaluation Plan.
+
+## Guides
+
+- [Setup guide](docs/setup-guide.md): install Compass and set up a repository, in about ten minutes.
+- [User guide](docs/user-guide.md): working with Compass day to day, every command and setting, and a
+  ten-minute demo script.
 
 ## Use it
 
@@ -51,7 +59,19 @@ cat /path/to/repo/.compass/map/_index.md
 CI runs the same matrix (macOS, Ubuntu, Windows × Python 3.11 and 3.12) on
 GitHub Actions (`.github/workflows/ci.yml`) and Azure Pipelines
 (`azure-pipelines.yml`). Keep the two identical; `tests/test_ci_configs.py`
-checks that they are.
+checks that they are. A weekly job on both (`e2e.yml`,
+`azure-pipelines-e2e.yml`) runs the done-when checks against the latest
+Claude Code, logged in with your Claude subscription through a
+`CLAUDE_CODE_OAUTH_TOKEN` secret (`claude setup-token`); Compass never uses an
+API key.
+
+The benchmark harness runs tasks headless with Compass on and off; see
+`bench/README.md`:
+
+```bash
+uv run python bench/run.py --model claude-opus-5-5 --repeats 3
+uv run compass report bench/results/<batch>
+```
 
 ## Commands
 
@@ -77,6 +97,7 @@ checks that they are.
 | `compass accept [ID]` | Strip a reviewed task's anchor tags and archive its manifest (`/compass:accept`) |
 | `compass check-anchors [ID]` | List anchor tags; `--staged` is the git pre-commit check |
 | `compass uninstall` | Remove Compass's git hooks, restoring any they chained |
+| `compass report [PATHS]` | Tasks with Compass on against off, from telemetry; from `bench/results/<batch>`, the benchmark report |
 | `compass enrich [--limit N]` | One-line local-model summaries for undocumented symbols, shown as `~` in the map; the git hooks run it in the background |
 | `compass summarize-file PATH` | The gist of a file from the local model (`summarize_file`); `--focus` asks something specific |
 | `compass classify-files PATHS… --labels a,b` | Sort files into labels with the local model (`classify_files`) |
@@ -110,10 +131,13 @@ src/compass/
   llm.py            local-model client (OpenAI-compatible, loopback only)
   local_tools.py    summarize_file and classify_files
   enrich.py         background summaries for undocumented symbols
+  telemetry.py      per-turn rows from Claude Code's transcripts
+  report.py         compass report
   hooks.py          compass hook <event>
   githooks.py       post-commit/checkout/merge/rewrite and pre-commit hooks
 plugin/             the Claude Code plugin (hooks, commands, agents, style, MCP)
 .claude-plugin/     marketplace.json, so Claude Code can install ./plugin
+bench/              the benchmark harness, its task format and example tasks
 tests/
   fixtures/         small repos in Python, TypeScript/JavaScript, Go and Rust
   snapshots/        expected index rows and map shards per fixture

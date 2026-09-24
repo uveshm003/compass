@@ -136,6 +136,18 @@ def test_output_style_is_opt_in_and_keeps_coding_instructions():
     assert "at most 10 lines" in body
 
 
+def test_compass_never_asks_for_an_api_key():
+    # Compass runs on Claude Code and the developer's own login: its code, plugin,
+    # benchmark, e2e checks and CI never use an Anthropic API key.
+    places = [ROOT / "src", ROOT / "plugin", ROOT / "bench", ROOT / "tests" / "e2e", ROOT / ".github"]
+    files = [p for place in places for p in place.rglob("*") if p.is_file() and "results" not in p.parts]
+    files += sorted(ROOT.glob("azure-pipelines*.yml"))
+    for path in files:
+        if path.suffix in (".py", ".md", ".json", ".yml", ".yaml", ".sh", ".scm"):
+            text = path.read_text(encoding="utf-8", errors="replace")
+            assert "ANTHROPIC_API_KEY" not in text and "apiKeyHelper" not in text, path
+
+
 def test_compass_itself_carries_no_anchor_tags():
     # Compass's own commits go through its pre-commit check; every example tag
     # in its sources and docs must be quoted (after a backtick) or assembled.

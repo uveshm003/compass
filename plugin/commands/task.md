@@ -1,6 +1,6 @@
 ---
-description: Start a Compass task from a brief - Goal, Scope, Non-goals, Accept when, Constraints
-argument-hint: "Goal: … Scope: … Non-goals: … Accept when: … Constraints: …"
+description: Start a Compass task from a brief - Goal, Scope, Non-goals, Accept when, Constraints, and optionally a Category and Size for telemetry
+argument-hint: "Goal: … Scope: … Non-goals: … Accept when: … Constraints: … Category: … Size: S|M|L"
 allowed-tools: Bash(compass task new:*)
 disable-model-invocation: true
 ---
