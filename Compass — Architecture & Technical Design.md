@@ -52,7 +52,7 @@ sequenceDiagram
   participant S as Haiku subagent
   D->>C: /task prompt
   C->>X: UserPromptSubmit
-  X-->>C: context pack or checklist
+  X-->>C: context pack, and what to ask about
   C->>X: find_symbol / read_symbol (MCP)
   C->>C: writes spec, open questions
   D->>C: answers, /approve
@@ -110,7 +110,7 @@ Shards are derived and fast to regenerate, so there is no reason to commit them 
 
 ## Configuration
 
-One YAML file controls everything. Defaults favour adoption: gates warn rather than block, and every module can be switched off.
+One YAML file controls everything. Defaults favour adoption: the prompt gate never rejects a prompt, it has Claude ask about what is missing, and every module can be switched off.
 
 ```yaml
 # .compass/config.yaml
@@ -118,7 +118,7 @@ version: 1
 
 prompt_gate:
   enabled: true
-  strictness: warn          # off | warn | block
+  strictness: ask           # ask | strict (edits also wait for the answer) | off
   bypass_prefix: "!quick"
   required_fields: [goal, scope, acceptance]
 
@@ -131,6 +131,7 @@ spec_gate:
   large_task_when:
     files_mentioned_gte: 3
     keywords: [refactor, migrate, redesign, "new module"]
+    except_one_function: true   # a keyword alone doesn't count for one function the map knows
 
 index:
   exclude: ["**/generated/**", "**/*.min.js", "**/*.min.css", "**/*.js.map", "vendor/**",

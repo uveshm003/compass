@@ -20,7 +20,7 @@ flowchart LR
 | M1 Index core | 0–3 | `compass index` builds SQLite + shards for fixture repos in 4 languages; incremental update under 500 ms | 2 weeks |
 | M2 Query tools | 4 | Claude Code answers "where is X" through MCP with no Read calls | 1 week |
 | M3 Plugin + review | 5–6 | Plugin installs locally; every AI change produces a manifest | 1 week |
-| M4 Gates | 7 | Vague prompts get a checklist; large tasks need an approved spec | 1.5 weeks |
+| M4 Gates | 7 | Vague requests make Claude ask first; large tasks need an approved spec | 1.5 weeks |
 | M5 Delegation | 8 | Digest and test-runner subagents in use; local-LLM enrichment optional | 1 week |
 | M6 Measurement | 9 | Benchmark produces an on/off comparison report | 0.5 weeks |
 
@@ -390,7 +390,7 @@ All three run in hooks, so they must be pure Python over the index with no netwo
 
 ### Prompt gate + context pack (UserPromptSubmit)
 
-For this event, exit code 2 blocks the prompt and shows stderr to the user. On exit 0, JSON on stdout can add `additionalContext` for Claude and a `systemMessage` for the developer.
+For this event, exit code 2 would erase the prompt, so Compass never uses it: the prompt always goes through. On exit 0, JSON on stdout adds `additionalContext` for Claude and a `systemMessage` for the developer.
 
 ```python
 def on_prompt(evt: dict) -> Answer:
@@ -402,19 +402,22 @@ def on_prompt(evt: dict) -> Answer:
         log_bypass(evt); mark_turn_quick()
     elif parsed.kind == "task" and task_is_fresh():
         missing = [f for f in cfg.required_fields if f in missing_fields(parsed, cfg)]
-        if missing and cfg.strictness == "block":
-            return Answer(code=2, stderr=checklist(missing))
         define_task(parsed)                  # brief, size (SG-01), spec draft if large
-        if missing:                          # warn mode
-            context += ask_first(missing); messages += short_notice(missing)
+        if missing:                          # the prompt still goes through
+            context += ask_first(missing)    # Claude asks one short question, with its best guess
+            messages += short_notice(missing)
+            if cfg.strictness == "strict":
+                hold_edits_until_next_prompt()
     context += build_context_pack(parsed, budget=cfg.pack_tokens)  # map lines, stack, tests
     return Answer(stdout=json(context, messages))
 ```
 
-Only a prompt that starts a task is checked. Questions, short replies ("yes", "go ahead"), slash commands and follow-ups inside a task that is already under way pass untouched, because a gate that nags on every message gets switched off. `has_field` starts as simple rules, one module per field in `gate/rules/`:
-- **Goal:** a `Goal:` label, or a first word that is a task verb.
-- **Scope:** a path, a backticked or code-shaped name, or a framework the stack profile knows.
-- **Acceptance:** a `should`, `when` or `if` clause, a number, a test, a behaviour such as raise or return, or a request whose end state is the request itself (a rename).
+Only a prompt that starts a task is checked. Questions, replies to Claude ("yes, go ahead"), requests that change no code ("run the tests and tell me what fails", "commit this"), slash commands and follow-ups inside a task that is already under way pass untouched, because a gate that nags on every message gets switched off. `has_field` starts as simple rules, one module per field in `gate/rules/`, and counts anything Claude can find on its own:
+- **Goal:** a `Goal:` label, a clause that opens with a task verb ("run the tests and fix what fails"), or a symptom ("the login page breaks when …").
+- **Scope:** a path, a backticked or code-shaped name, or a framework the stack profile knows; also a symptom or a run's failures ("the failing tests", "the type errors"), a well-known file ("the README"), a command-line flag, the working tree, a concrete value ("the port to 8080"), and, in a conversation under way, "it" and "that".
+- **Acceptance:** a `should`, `when` or `if` clause, a number, a test, a behaviour such as raise or return, a purpose ("so I can run it locally"), or a request whose end state is the request itself (a rename, fixing what a run reports, adding a docstring or a flag).
+
+Strict mode (`strictness: strict`) keeps the prompt too, and makes sure Claude asks: PreToolUse on Write/Edit exits 2 until the developer's next prompt.
 
 Refine the rules from the bypass log (`.compass/logs/gate.jsonl` records every decision), not guesses; `compass check-prompt` replays a prompt against them.
 
@@ -422,14 +425,14 @@ Refine the rules from the bypass log (`.compass/logs/gate.jsonl` records every d
 
 ### Spec gate (PreToolUse on Write|Edit)
 
-1. The first request of a task sets its size. `/compass:task` does it from an explicit brief, passed to `compass task new --brief -` through a quoted heredoc so the shell never expands it. A large task (a `large_task_when` keyword, or enough paths) is recorded in `.compass/state.json`.
+1. The first request of a task sets its size. `/compass:task` does it from an explicit brief, passed to `compass task new --brief -` through a quoted heredoc so the shell never expands it. A large task (a `large_task_when` keyword, or enough paths) is recorded in `.compass/state.json`. A keyword alone doesn't count when the request is about one function or method the code map knows and names nothing broader (`except_one_function`), so "refactor `parse_config` to return a dataclass" needs no plan.
 2. For large tasks, Compass writes `.compass/specs/<id>.md` from a template with Goal, Scope, Non-goals, Acceptance, Open questions and `status: draft`, and tells Claude to fill it in and stop.
 3. The pre-edit hook exits 2 with "Spec \<id> not approved; answer open questions first" while the task is unapproved. Writes to the spec file itself, and to files outside the repo, are allowed. `!quick` lifts the gate for one turn.
 4. `/compass:approve <id>` sets `status: approved` with approver and timestamp in the spec, and records the approval in `state.json`, which is what the gate reads. Claude editing the spec's `status:` line therefore approves nothing. It warns about open questions still unticked.
 
 SessionStart adds the stack with its installed versions (ST-02) and reminds Claude of a spec still waiting for approval.
 
-**Done when:** a vague prompt gets a checklist, and a large task cannot edit code until its spec is approved. `tests/e2e/check_gates.py` checks both in real sessions.
+**Done when:** a vague request makes Claude ask before it changes code, a short answer lets it go ahead, and a large task cannot edit code until its spec is approved. `tests/e2e/check_gates.py` checks all three in real sessions.
 
 ## Step 8: Delegation and local LLM adapter
 

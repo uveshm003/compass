@@ -37,6 +37,19 @@ def run_row(task, condition, repeat, tokens, passed=True, active=100.0, category
 # -- telemetry -------------------------------------------------------------------------------------
 
 
+def test_answering_claudes_question_is_not_a_correction():
+    rows = [
+        {**turn("T1", 1000, prompts=1), "asked": True},  # the gate had Claude check with the developer
+        turn("T1", 3000, prompts=1),  # the answer
+        turn("T1", 500, prompts=1),  # and one real correction
+        {**turn("T2", 800, prompts=1), "asked": True},  # asked, but never answered
+    ]
+    t1, t2 = report.tasks_from_rows(rows)
+    assert (t1.answers, t1.corrections) == (1, 1) and (t2.answers, t2.corrections) == (0, 0)
+    text = report.pilot_text([t1, t2], ["t.jsonl"])
+    assert "Answers to Claude's questions" in text and "Correction prompts" in text
+
+
 def test_turns_roll_up_into_tasks():
     rows = [
         turn("T1", 1000, tools={"Read": 2, "compass:find_symbol": 3}),
@@ -148,10 +161,11 @@ def test_compass_report_reads_telemetry_and_benchmark_folders(make_repo, tmp_pat
     assert data["pilot"]["medians"]["tokens"]["change"] == pytest.approx(-0.4) and data["gate"] is None
 
     # The bypass rate comes from the gate's own log.
-    log = [{"t": 1790000000, "kind": "task", "outcome": o} for o in ("pass", "warn", "bypass", "pass", "pass")]
+    log = [{"t": 1790000000, "kind": "task", "outcome": o} for o in ("pass", "ask", "bypass", "pass", "warn")]
     write(root, ".compass/logs/gate.jsonl", "".join(json.dumps(r) + "\n" for r in log))
     proc = run_compass("-C", str(root), "report")
-    assert "Prompt gate: 5 prompts, 1 with !quick (20.0%; the target is under 20%), 1 warned, 0 blocked" in proc.stdout
+    assert ("Prompt gate: 5 prompts, 1 with !quick (20.0%; the target is under 20%), 2 where Claude checked with"
+            " the developer first") in proc.stdout  # "warn", the earlier name, counts too
 
     results = tmp_path / "results" / "batch1"
     for row in bench_rows():

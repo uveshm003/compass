@@ -84,7 +84,7 @@ Hooks and git events keep the index fresh; Claude reads it through MCP tools and
 
 | ID | Component | Responsibility |
 | --- | --- | --- |
-| C1 | Prompt gate | Checks prompt structure; blocks or warns |
+| C1 | Prompt gate | Checks a new request for goal, scope and acceptance; has Claude ask about what is missing |
 | C2 | Context pack builder | Resolves names in the prompt and injects matching map context |
 | C3 | Spec gate | Requires an approved spec before edits on non-trivial tasks |
 | C4 | Code map indexer | Parses the repo into symbols, trees and graphs; keeps them current |
@@ -103,9 +103,9 @@ v1 ships every Must item. Should items land if the pilot schedule allows, and Co
 | ID | Requirement | Priority |
 | --- | --- | --- |
 | PG-01 | Check each prompt for goal, scope, acceptance criteria and constraints using rules only, with no LLM call | Must |
-| PG-02 | On failure, block or warn (per config) and print the missing fields plus the `/task` template | Must |
+| PG-02 | On a missing field, never reject the prompt: it goes through, Claude is told to ask the developer about the missing fields before changing code (one short question, with its best guess), and the developer sees a one-line notice. Strict mode also holds file edits until the developer replies | Must |
 | PG-03 | Skip checks when the prompt starts with a configurable bypass prefix (default `!quick`); log every bypass | Must |
-| PG-04 | Read rules and strictness level (off, warn, block) from `.compass/config.yaml` | Must |
+| PG-04 | Read rules and strictness level (ask, strict, off) from `.compass/config.yaml` | Must |
 | PG-05 | Provide a `/task` command with fields Goal, Scope, Non-goals, Accept when, Constraints | Must |
 | PG-06 | Optionally score prompt clarity with a local model | Could |
 
@@ -269,7 +269,7 @@ v1 is accepted when every Must requirement passes its test and the pilot shows t
 | --- | --- | --- |
 | Main-model tokens per task | Transcript parsing in the Stop hook | −30% vs baseline |
 | Wall-clock time per task | Stop hook timestamps | ≤ +5% vs baseline |
-| Correction prompts per task | Count of follow-up prompts before task accepted | −25% vs baseline |
+| Correction prompts per task | Count of follow-up prompts before task accepted, not counting the answer to a question the prompt gate had Claude ask (reported separately) | −25% vs baseline |
 | Review time per change | Self-reported on pilot tasks | −30% vs baseline |
 | Gate bypass rate | Bypass log | < 20% of prompts |
 | Weekly active pilot users | Telemetry opt-in | ≥ 70% of pilot group after 4 weeks |
@@ -288,7 +288,7 @@ v1 is accepted when every Must requirement passes its test and the pilot shows t
 
 - [ ] Final product name
 - [ ] Python-only, or port hot paths to Go or Rust for a single binary?
-- [ ] Default strictness for the prompt gate: warn or block?
+- [x] Default strictness for the prompt gate: decided 2026-09-24. The gate never rejects a prompt; by default (`ask`) Claude checks with the developer before changing code, and `strict` also holds edits until the developer answers. Whether `strict` should become the default is for the pilot's gate log to show.
 - [ ] Where the org-wide standards pack lives and who owns it
 - [ ] Which pilot repos and teams, and what local-LLM hardware they have
 - [ ] Is telemetry export acceptable under company data policy?

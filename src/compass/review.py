@@ -125,6 +125,9 @@ def new_turn(repo: Repo, settings: ReviewSettings, session: str | None) -> str |
         record["turn"] = []
         record["blocked"] = False
         record["quick"] = False  # !quick lasts one turn
+        record["prompted"] = True  # later prompts can lean on this one ("fix it")
+        record["hold"] = []  # the developer has answered: strict mode's hold ends
+        record["asked"] = False
         if record["announced"] == task:
             return None
         record["announced"] = task

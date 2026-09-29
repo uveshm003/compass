@@ -54,6 +54,8 @@ def test_tools_and_instructions(go_repo):
     assert set(tools) == TOOLS  # QT-01 plus the QT-03 pair
     assert "before reaching for Read, Grep or Glob" in init.instructions
     assert all(t.annotations.read_only_hint and not t.annotations.open_world_hint for t in tools.values())
+    # Never deferred behind Claude Code's tool search: the first lookup needs no extra round trip.
+    assert all((t.meta or {}).get("anthropic/alwaysLoad") is True for t in tools.values())
     assert "instead of Grep or Glob" in tools["find_symbol"].description
     assert "instead of Read" in tools["read_symbol"].description
     assert "cursor" in tools["find_symbol"].input_schema["properties"]

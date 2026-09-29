@@ -138,7 +138,10 @@ def session_record(state: dict[str, Any], session: str) -> dict[str, Any]:
     sessions = state["sessions"]
     record = sessions.get(session)
     if record is None:
-        record = sessions[session] = {"turn": [], "announced": None, "blocked": False, "quick": False}
+        record = sessions[session] = {
+            "turn": [], "announced": None, "blocked": False, "quick": False, "prompted": False, "hold": [],
+            "asked": False,
+        }
         # Keep the newest sessions only; old ones are finished.
         for stale in sorted(sessions, key=lambda s: sessions[s].get("seen", 0))[:-MAX_SESSIONS]:
             del sessions[stale]
@@ -148,11 +151,12 @@ def session_record(state: dict[str, Any], session: str) -> dict[str, Any]:
 
 def quiet_turn(state: dict[str, Any], session: str | None) -> bool:
     """True when a new prompt changes nothing: this session already knows the
-    active task, its last turn left nothing behind and no block is pending."""
+    active task and has had a prompt before, and its last turn left nothing
+    behind: no edits, no block, no ``!quick``, no edits held for an answer."""
     record = state["sessions"].get(session) if session else None
     task = active_task(state)
-    busy = record and (record["turn"] or record["blocked"] or record["quick"])
-    return bool(record and task and record["announced"] == task and not busy)
+    busy = record and (record["turn"] or record["blocked"] or record["quick"] or record["hold"] or record["asked"])
+    return bool(record and task and record["announced"] == task and record["prompted"] and not busy)
 
 
 def close_task(state: dict[str, Any], task: str) -> None:
@@ -194,6 +198,9 @@ def _normalised(raw: Any) -> dict[str, Any]:
                 "announced": record.get("announced") if isinstance(record.get("announced"), str) else None,
                 "blocked": bool(record.get("blocked", False)),
                 "quick": bool(record.get("quick", False)),
+                "prompted": bool(record.get("prompted", False)),
+                "asked": bool(record.get("asked", False)),
+                "hold": [f for f in record.get("hold") or [] if isinstance(f, str)] if isinstance(record.get("hold"), list) else [],
                 "seen": record.get("seen", 0) if isinstance(record.get("seen"), (int, float)) else 0,
             }
     accepted = raw.get("accepted")

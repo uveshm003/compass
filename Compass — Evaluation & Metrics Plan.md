@@ -22,7 +22,7 @@ The primary metric is main-model tokens per task. It also counts cache reads, be
 | Net cost-weighted tokens | Primary (cost) | Tokens × the current list price per tier, summed across main and delegated | Transcripts + price table |
 | Wall-clock time | Guard | First prompt to final Stop, excluding time spent waiting on the human | Hook timestamps |
 | Pass rate | Guard | Share of tasks whose acceptance test passes at the end | Benchmark harness |
-| Correction turns | Quality | Prompts after the first before the task passes or is accepted | Transcript |
+| Correction turns | Quality | Prompts after the first before the task passes or is accepted, other than the answer to a question the prompt gate had Claude ask; those answers are reported on their own, so the gate's one question is visible without counting as rework | Transcript, telemetry |
 | Read calls | Explanatory | Count of Read, Grep and Glob calls versus Compass query tool calls | Transcript tool calls |
 | Context pack overhead | Explanatory | Tokens injected by Compass hooks | Hook logs |
 | Review time | Quality (pilot) | Minutes from manifest open to accept or reject | Self-reported |
@@ -124,7 +124,7 @@ Developers tag each task with a category from the benchmark mix and a size (S, M
 1. How often did Compass stop you from starting with an unclear request? (never to always)
 2. How much faster or slower did reviewing AI changes feel? (−2 to +2)
 3. Which module would you keep, and which would you remove?
-4. Did any gate block work it should not have? Give an example.
+4. Did Claude ask you something it did not need to, or did Compass hold back work it should not have? Give an example.
 5. Would you want Compass on your next project? (yes, no, only some modules)
 
 ### Privacy

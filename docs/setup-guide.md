@@ -1,10 +1,10 @@
 # Compass setup guide
 
-Compass makes Claude Code cheaper to run and its changes easier to review. It adds four things:
-- a code map that Claude looks things up in instead of reading whole files
-- checks on requests before work starts
-- Haiku subagents for heavy reading
-- a review manifest for every change
+Compass makes Claude Code quicker to work with, and its changes quicker to review. You keep working as you do now; Compass adds four things around each request:
+- a code map that Claude looks things up in, instead of reading whole files
+- a quick check-in when a new request leaves something out, so Claude asks instead of guessing (your prompt always goes through)
+- Haiku subagents for test runs and heavy reading, so your conversation stays short
+- a review manifest for every change, listing what needs a human's judgment
 
 Everything runs on your own machine, on top of Claude Code and your own Claude login. There is no server, and no API key is involved.
 
@@ -50,7 +50,7 @@ Next, put uv's tool folder on your PATH (you only need to do this once), and ope
 
 ```bash
 uv tool update-shell
-compass --version        # compass 0.1.0
+compass --version        # compass 0.2.0
 ```
 
 Claude Code runs Compass's hooks by calling `compass` from the PATH, so the terminal or IDE that starts Claude Code must see it too. If you use Claude Code inside an IDE, restart the IDE after `update-shell`.
@@ -183,7 +183,8 @@ uv tool uninstall compass
 | "The code map is being built in the background" | The first index of a big repository is still running. Give it a few seconds. |
 | Answers look out of date | Run `compass index`, or `compass index --full` to rebuild everything. |
 | Plugin changes don't show up | Uninstall the plugin, install it again, and restart. |
-| A commit is refused because of AI anchor tags | Review `.compass/changes/<task>.md`, then run `/compass:accept` and commit again. |
+| git stops a commit because of review tags | Review `.compass/changes/<task>.md`, run `/compass:accept`, and commit again. |
+| Claude asked about something that was already clear | Answer it, or start the prompt with `!quick` next time. Every decision is in `.compass/logs/gate.jsonl`, so tell whoever looks after your Compass setup: the rules are tuned from that log. |
 | Anything else | See `.compass/logs/errors.log`. Compass never stops Claude Code because of its own errors. |
 
 Next: the [user guide](user-guide.md) shows how to work with Compass day to day, and includes a ten-minute demo.

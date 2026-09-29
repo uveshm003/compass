@@ -7,9 +7,11 @@ a question or a follow-up that names no code is logged and let through
 without loading config or opening the index; only a prompt that starts a task,
 or names something to look up, pays for more.
 
-Answers go back as Claude Code reads them: exit 2 with stderr blocks (the
-prompt in block mode, an edit under the spec gate); otherwise JSON on stdout,
-``additionalContext`` for Claude and ``systemMessage`` for the developer.
+The prompt hook never turns a prompt away: it answers with JSON on stdout,
+``additionalContext`` for Claude and ``systemMessage`` for the developer, and
+exits 0. Only PreToolUse holds anything back, with exit 2 and stderr for
+Claude: an edit while a large task's spec waits for approval, or, in strict
+mode, while Claude has yet to hear back on a request that left something open.
 """
 
 from __future__ import annotations
@@ -45,24 +47,28 @@ def on_prompt(repo: Repo, payload: dict[str, Any]) -> Answer:
     text = payload.get("prompt") if isinstance(payload.get("prompt"), str) else ""
     session = _session(payload)
     snapshot = state.read(repo)
+    record = snapshot["sessions"].get(session) if session else None
+    followup = bool(record and record["prompted"])  # "it" and "that" can point at earlier turns
     parsed = parse(text)
+    parsed.followup = followup
     task = state.active_task(snapshot)
     fresh = task is not None and state.is_fresh(snapshot, task)
     quiet = state.quiet_turn(snapshot, session)
     pending = state.needs_approval(snapshot)
-    idle = parsed.kind in ("reply", "question") or (parsed.kind in ("task", "command") and not fresh)
+    idle = parsed.kind in ("reply", "question", "action") or (parsed.kind in ("task", "command") and not fresh)
     if quiet and not pending and not parsed.candidates and idle:
         _log(repo, session, parsed.kind, "pass")
         return Answer()  # the common prompt: nothing to check, announce or look up
 
     from compass import review
     from compass.config import load_config
-    from compass.gate import ask_first, checklist, missing_fields
+    from compass.gate import ask_first, developer_notice, missing_fields
 
     config = load_config(repo.root)
     gate = config.data["prompt_gate"]
     if gate["bypass_prefix"] != "!quick":
         parsed = parse(text, gate["bypass_prefix"])
+        parsed.followup = followup
     context: list[str] = []
     messages: list[str] = []
     notice = review.new_turn(repo, config.review, session)
@@ -83,7 +89,7 @@ def on_prompt(repo: Repo, payload: dict[str, Any]) -> Answer:
         snapshot = state.read(repo)
         task = state.active_task(snapshot)
         fresh = task is not None and state.is_fresh(snapshot, task)
-        outcome, missing, drafted = "pass", [], False
+        outcome, missing, drafted, hold = "pass", [], False, False
         if parsed.kind == "bypass":
             outcome = "bypass"
             missing = missing_fields(parsed, config) if gate["enabled"] else []  # what it would have said, for tuning
@@ -91,21 +97,14 @@ def on_prompt(repo: Repo, payload: dict[str, Any]) -> Answer:
         elif parsed.kind == "task" and fresh:
             if gate["enabled"] and gate["strictness"] != "off":
                 missing = missing_fields(parsed, config)
-            if missing and gate["strictness"] == "block":
-                _log(repo, session, parsed.kind, "block", missing, parsed.text)
-                if notice:
-                    _unannounce(repo, session)  # the prompt never reaches Claude, so neither did the notice
-                return Answer(code=2, stderr=checklist(missing))
             instructions = _define_task(repo, config, task, parsed, messages)
             drafted = bool(instructions)
             context += instructions
-            if missing:
-                outcome = "warn"
-                context.append(ask_first(missing))
-                messages.append(
-                    f"[compass] The request does not state its {_names(missing)}, so Claude will ask."
-                    " /compass:task has every field; a prompt starting with !quick skips the check."
-                )
+            if missing:  # the prompt still goes through: Claude checks with the developer first
+                outcome, hold = "ask", gate["strictness"] == "strict"
+                context.append(ask_first(missing, hold))
+                messages.append(developer_notice(missing, hold))
+                _mark_asked(repo, session, missing if hold else [])
         waiting = state.needs_approval(state.read(repo)) if config.data["spec_gate"]["enabled"] else None
         if waiting and parsed.kind != "bypass" and not drafted:
             context.append(_waiting(waiting))
@@ -115,7 +114,7 @@ def on_prompt(repo: Repo, payload: dict[str, Any]) -> Answer:
             pack = build(store, parsed, config.data["context_pack"]["token_budget"], stack)
             if pack:
                 context.append(pack)
-        _log(repo, session, parsed.kind, outcome, missing, parsed.text if outcome != "pass" else None)
+        _log(repo, session, parsed.kind, outcome, missing, parsed.text if outcome != "pass" else None, hold)
         return Answer(stdout=_json(context, messages))
     finally:
         if store is not None:
@@ -136,8 +135,9 @@ def _define_task(repo: Repo, config, task: str, parsed: ParsedPrompt, messages: 
         return []
     spec.create(repo, task, parsed, reason)
     messages.append(
-        f"[compass] {task} looks large ({reason}), so Claude drafts a spec first. Approve it with"
-        f" /compass:approve {task}, or start a prompt with !quick to skip the spec for that turn."
+        f"[compass] {task} looks large ({reason}), so Claude writes a short plan first ({spec.spec_rel(task)}),"
+        f" with its open questions. Once you've answered them, /compass:approve {task} lets Claude implement it."
+        " (!quick skips the plan for one turn.)"
     )
     return [spec_instructions(task, reason)]
 
@@ -146,11 +146,11 @@ def spec_instructions(task: str, reason: str) -> str:
     from compass.spec import spec_rel
 
     return (
-        f"[compass] Task {task} is large ({reason}), so it needs an approved spec before any code changes."
-        f" Compass created {spec_rel(task)} from the request: fill in its Goal, Scope, Non-goals and Acceptance,"
-        " and list every open question as a checkbox under Open questions. Then stop: show the developer the"
-        f" questions, and ask them to answer and run /compass:approve {task}. Until then Compass refuses edits"
-        " to any other file."
+        f"[compass] Task {task} is large ({reason}), so it gets a short plan the developer approves before any code"
+        f" changes. Compass created {spec_rel(task)} from the request: fill in its Goal, Scope, Non-goals and"
+        " Acceptance, and list every open question as a checkbox under Open questions. Then stop: show the developer"
+        f" the questions, and ask them to answer and run /compass:approve {task}. Until then Compass holds edits to"
+        " every other file."
     )
 
 
@@ -163,7 +163,7 @@ def _waiting(task: str) -> str:
     )
 
 
-# -- PreToolUse on Write/Edit: the spec gate (SG-04) -----------------------------------
+# -- PreToolUse on Write/Edit: the spec gate (SG-04) and strict mode's hold (PG-02) ---------
 
 
 def on_pre_edit(repo: Repo, payload: dict[str, Any]) -> Answer:
@@ -173,35 +173,54 @@ def on_pre_edit(repo: Repo, payload: dict[str, Any]) -> Answer:
             return refused
     snapshot = state.read(repo)
     task = state.needs_approval(snapshot)
-    if task is None:
-        return Answer()  # the usual case, decided from state.json alone
     session = _session(payload)
     record = snapshot["sessions"].get(session or "")
+    held = record["hold"] if record else []
+    if task is None and not held:
+        return Answer()  # the usual case, decided from state.json alone
     if record and record["quick"]:
         return Answer()
-    tool_input = payload.get("tool_input") if isinstance(payload.get("tool_input"), dict) else {}
-    target = tool_input.get("file_path") or tool_input.get("notebook_path")
-    if not isinstance(target, str) or not target:
-        return Answer()
-    if not os.path.isabs(target):
-        target = os.path.join(payload.get("cwd") or str(repo.root), target)
-    rel = repo.relpath(target)
+    rel = _edit_target(repo, payload)
     from compass.spec import spec_rel
 
-    if rel is None or rel == spec_rel(task):
+    active = state.active_task(snapshot)
+    if rel is None or (active is not None and rel == spec_rel(active)):
         return Answer()  # outside the repo, or the spec being drafted
     from compass.config import load_config
 
-    if not load_config(repo.root).data["spec_gate"]["enabled"]:
+    config = load_config(repo.root)
+    gate = config.data["prompt_gate"]
+    if held and gate["enabled"] and gate["strictness"] == "strict":
+        from compass.gate import missing_phrase
+
+        return Answer(
+            code=2,
+            stderr=(
+                f"[compass] Check with the developer before changing {rel}: their request does not say {missing_phrase(held)}."
+                " Ask in one short message and offer your best guess; Compass holds file edits until they reply."
+            ),
+        )
+    if task is None or not config.data["spec_gate"]["enabled"]:
         return Answer()
     return Answer(
         code=2,
         stderr=(
-            f"[compass] {task}'s spec is not approved yet, so {rel} cannot change. Finish {spec_rel(task)}"
-            f" (answer or list its open questions), then ask the developer to run /compass:approve {task}."
-            " The developer can also start a prompt with !quick to allow edits for one turn."
+            f"[compass] {task} is a large task and its spec is not approved yet, so Compass holds the edit to {rel}."
+            f" Finish {spec_rel(task)} (answer or list its open questions), then ask the developer to run"
+            f" /compass:approve {task}. The developer can also start a prompt with !quick to allow edits for one turn."
         ),
     )
+
+
+def _edit_target(repo: Repo, payload: dict[str, Any]) -> str | None:
+    """The repo-relative file a Write or Edit call changes, or None."""
+    tool_input = payload.get("tool_input") if isinstance(payload.get("tool_input"), dict) else {}
+    target = tool_input.get("file_path") or tool_input.get("notebook_path")
+    if not isinstance(target, str) or not target:
+        return None
+    if not os.path.isabs(target):
+        target = os.path.join(payload.get("cwd") or str(repo.root), target)
+    return repo.relpath(target)
 
 
 def _scaffold_check(repo: Repo, payload: dict[str, Any]) -> Answer | None:
@@ -212,13 +231,7 @@ def _scaffold_check(repo: Repo, payload: dict[str, Any]) -> Answer | None:
     settings = load_config(repo.root).delegation
     if not settings.enabled or not settings.enforce_contracts:
         return None
-    tool_input = payload.get("tool_input") if isinstance(payload.get("tool_input"), dict) else {}
-    target = tool_input.get("file_path") or tool_input.get("notebook_path")
-    if not isinstance(target, str) or not target:
-        return None
-    if not os.path.isabs(target):
-        target = os.path.join(payload.get("cwd") or str(repo.root), target)
-    rel = repo.relpath(target)
+    rel = _edit_target(repo, payload)
     if not rel:
         return None
     reason = scaffold_denial(repo, payload, rel)
@@ -331,9 +344,12 @@ def dry_run(repo: Repo, text: str) -> str:
         parsed.stack = stack_mentions(stack, parsed)
         if parsed.kind in ("task", "bypass"):
             missing = missing_fields(parsed, config) if gate["enabled"] else []
-            action = "pass" if not missing else ("block" if gate["strictness"] == "block" else gate["strictness"])
+            action = "pass" if not missing else {
+                "ask": "Claude checks with the developer before changing code",
+                "strict": "Claude checks with the developer; edits wait for their answer",
+            }.get(gate["strictness"], "not checked")
             lines.append(f"missing: {', '.join(missing) or 'nothing'} -> {action} (strictness {gate['strictness']};"
-                         " only a prompt that starts a task is checked)")
+                         " only a prompt that starts a task is checked, and it always goes through)")
             size, reason = spec.classify(parsed, config)
             lines.append(f"size: {size}" + (f" ({reason})" if reason else ""))
         if store is not None and parsed.kind != "reply":
@@ -440,11 +456,25 @@ def _open_store(repo: Repo):
     return store
 
 
-def _unannounce(repo: Repo, session: str | None) -> None:
+def _mark_asked(repo: Repo, session: str | None, hold: list[str]) -> None:
+    """This turn, Claude was told to check with the developer: telemetry
+    counts the answer that follows as an answer, not a correction. In strict
+    mode, file edits also wait (``hold``) until the developer's next prompt."""
     if not session:
         return
     with state.transaction(repo, STATE_LOCK_WAIT_S) as st:
-        state.session_record(st, session)["announced"] = None
+        record = state.session_record(st, session)
+        record["asked"], record["hold"] = True, list(hold)
+
+
+def conversation_cleared(repo: Repo, session: str | None) -> None:
+    """SessionStart after /clear: earlier turns are gone, so "it" points nowhere."""
+    record = state.read(repo)["sessions"].get(session) if session else None
+    if record is None or not (record["prompted"] or record["hold"] or record["asked"]):
+        return
+    with state.transaction(repo, STATE_LOCK_WAIT_S) as st:
+        record = state.session_record(st, session)
+        record["prompted"], record["hold"], record["asked"] = False, [], False
 
 
 def _mark_quick(repo: Repo, session: str | None) -> None:
@@ -465,14 +495,8 @@ def _json(context: list[str], messages: list[str]) -> str:
     return json.dumps(out)
 
 
-def _names(missing: list[str]) -> str:
-    from compass.gate import FIELD_TITLES
-
-    names = [FIELD_TITLES.get(m, m).lower() for m in missing]
-    return names[0] if len(names) == 1 else ", ".join(names[:-1]) + " and " + names[-1]
-
-
-def _log(repo: Repo, session: str | None, kind: str, outcome: str, missing=(), text: str | None = None) -> None:
+def _log(repo: Repo, session: str | None, kind: str, outcome: str, missing=(), text: str | None = None,
+         hold: bool = False) -> None:
     """One line per prompt in ``logs/gate.jsonl``: the bypass log that gate
     rules are tuned from (PG-03), and the bypass rate's denominator. Prompt
     text is kept only for the prompts the gate spoke up about, and cut short;
@@ -480,6 +504,8 @@ def _log(repo: Repo, session: str | None, kind: str, outcome: str, missing=(), t
     row: dict[str, Any] = {"t": round(time.time(), 3), "session": session, "kind": kind, "outcome": outcome}
     if missing:
         row["missing"] = list(missing)
+    if hold:
+        row["hold"] = True
     if text:
         row["excerpt"] = text[:EXCERPT_CHARS]
     try:

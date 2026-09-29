@@ -41,8 +41,8 @@ created: {created}
 
 # {task}: {title}
 
-<!-- Drafted by Claude for the developer to review. Code edits stay blocked
-until the developer runs /compass:approve {task}. -->
+<!-- Drafted by Claude for the developer to review. Code edits wait until the
+developer approves it with /compass:approve {task}. -->
 
 ## Goal
 
@@ -84,11 +84,35 @@ def classify(prompt: ParsedPrompt, config: Config) -> tuple[str, str]:
     text = prompt.text.lower()
     for keyword in rules["keywords"]:
         if re.search(rf"\b{re.escape(keyword.lower())}\w*", text):  # "refactor" also finds "refactoring"
+            if rules["except_one_function"] and one_function(prompt):
+                break  # "refactor parse_config to return a dataclass" needs no plan
             return "large", f'keyword "{keyword}"'
     paths = {c.text.rstrip("/") for c in prompt.candidates if _counts_as_a_file(c, prompt)}
     if len(paths) >= rules["files_mentioned_gte"]:
         return "large", f"{len(paths)} files mentioned"
     return "small", ""
+
+
+# Words that reach past one function: other files, its callers, a new module.
+_BROADER = re.compile(
+    r"\b(?:modules?|files?|packages?|services?|layers?|classes|across|everywhere|all|every|each|callers?"
+    r"|call\s*sites?|usages?|codebase|repo(?:sitory)?|project|api)\b",
+    re.I,
+)
+_FUNCTION_KINDS = frozenset({"function", "method"})
+
+
+def one_function(prompt: ParsedPrompt) -> bool:
+    """The request is about one function or method the code map knows, and
+    names nothing broader: no other file, no callers, no new module."""
+    symbols = [c for c in prompt.candidates if c.kind == "symbol"]
+    if len(symbols) != 1 or _BROADER.search(prompt.body):
+        return False
+    hits = (prompt.resolved.get(symbols[0].text) or {}).get("symbols") or []
+    if not hits or any(h.kind not in _FUNCTION_KINDS for h in hits):
+        return False  # unknown to the map, or a class: its size is anyone's guess
+    own = {h.path for h in hits}
+    return all(c.text.removeprefix("./").rstrip("/") in own for c in prompt.candidates if c.kind == "path")
 
 
 def _counts_as_a_file(candidate, prompt: ParsedPrompt) -> bool:

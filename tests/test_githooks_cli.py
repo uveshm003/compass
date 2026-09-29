@@ -6,6 +6,7 @@ import json
 import os
 import sys
 
+import compass
 from compass.githooks import CHAIN_SUFFIX, HOOKS, MARKER
 from compass.index.store import Store
 from compass.repo import Repo
@@ -22,7 +23,7 @@ def test_help_and_version():
     assert proc.returncode == 0
     for command in ("init", "index", "update", "files", "stack", "hook"):
         assert command in proc.stdout
-    assert run_compass("--version").stdout.startswith("compass 0.1.0")
+    assert run_compass("--version").stdout.startswith(f"compass {compass.__version__}")
 
 
 def test_outside_git_is_a_clear_error(tmp_path):

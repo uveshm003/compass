@@ -4,16 +4,17 @@ A Claude Code plugin plus a local CLI that routes work to the cheapest executor
 that can do it correctly, and makes AI changes reviewable. The design lives in
 the five `Compass — *.md` specs in this directory; `CLAUDE.md` summarises them.
 
-**Status:** M1 to M5 are done: a tree-sitter code map in SQLite and Markdown
+**Status:** M1 to M6 are done: a tree-sitter code map in SQLite and Markdown
 shards, kept current by git hooks and Claude Code hooks, served by a stdio MCP
 server whose every tool also has a CLI twin; a Claude Code plugin that has
 Claude tag each change for review, writes a change manifest every turn and
-refuses commits that still carry the tags; the gates: vague requests get a
-checklist, every prompt gets the code-map lines for the names it mentions, and
+refuses commits that still carry the tags; the gates: a vague request makes
+Claude ask one short question before it changes code (the prompt is never
+rejected), every prompt gets the code-map lines for the names it mentions, and
 a large task changes no code until its spec is approved; and delegation: Haiku
 subagents run tests, digest large inputs and make spelled-out edits, each held
 to an output contract, while an optional local model summarises files and
-undocumented symbols at no token cost. M6 measures it all: every turn's
+undocumented symbols at no token cost. And M6 measures it all: every turn's
 tokens, time and tool calls from Claude Code's own transcripts, a report that
 compares tasks with Compass on and off, and a benchmark harness for the
 Evaluation Plan.

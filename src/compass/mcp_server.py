@@ -34,6 +34,11 @@ path:line ranges; a long answer ends with a cursor to continue it."""
 QUERY_OFF = "[compass] The query tools are switched off in .compass/config.yaml (query.enabled)."
 
 READ_ONLY = ToolAnnotations(readOnlyHint=True, idempotentHint=True, openWorldHint=False)
+# Claude Code 2.1 defers MCP tools behind a tool search, which costs the first
+# lookup of a session an extra model round trip. The query tools stand in for
+# Read, Grep and Glob, so they are always in the prompt (in the M2 check this
+# halved the tokens for the lookup); the local-model tools stay deferred.
+ALWAYS_LOAD = {"anthropic/alwaysLoad": True}
 
 # Models send cursors both as strings and as numbers; accept either.
 Cursor = int | str | None
@@ -102,7 +107,7 @@ def _query_enabled(session: _Session) -> bool:
 
 
 def _add_query_tools(server: MCPServer, answer) -> None:
-    @server.tool(annotations=READ_ONLY, structured_output=False)
+    @server.tool(annotations=READ_ONLY, meta=ALWAYS_LOAD, structured_output=False)
     def find_symbol(name: str, kind: str | None = None, path: str | None = None, cursor: Cursor = None) -> str:
         """Find where a class, function, method, interface, type or constant is
         defined, by name. Matching is case-insensitive and partial (`retry` finds
@@ -114,7 +119,7 @@ def _add_query_tools(server: MCPServer, answer) -> None:
         directory to search in). cursor continues a long answer."""
         return answer(lambda q: q.find_symbol(name, kind, path), cursor)
 
-    @server.tool(annotations=READ_ONLY, structured_output=False)
+    @server.tool(annotations=READ_ONLY, meta=ALWAYS_LOAD, structured_output=False)
     def read_symbol(name: str, path: str | None = None, context: int | None = None, cursor: Cursor = None) -> str:
         """Read the source of one symbol: its lines with its doc comment and a
         little context, numbered like Read's output. Use this instead of Read
@@ -124,14 +129,14 @@ def _add_query_tools(server: MCPServer, answer) -> None:
         to choose. context= sets the extra lines around it (default 3)."""
         return answer(lambda q: q.read_symbol(name, path, context), cursor)
 
-    @server.tool(annotations=READ_ONLY, structured_output=False)
+    @server.tool(annotations=READ_ONLY, meta=ALWAYS_LOAD, structured_output=False)
     def file_outline(path: str, cursor: Cursor = None) -> str:
         """List what one file defines: classes, functions and methods with line
         numbers, signatures and one-line docs, plus its imports. Use this before
         Read to find the part of a file you need."""
         return answer(lambda q: q.file_outline(path), cursor)
 
-    @server.tool(name="map", annotations=READ_ONLY, structured_output=False)
+    @server.tool(name="map", annotations=READ_ONLY, meta=ALWAYS_LOAD, structured_output=False)
     def map_(dir: str = "", cursor: Cursor = None) -> str:  # noqa: A002 - the tool's parameter name
         """Browse the code map. With no dir: the folder tree with file and symbol
         counts and each folder's purpose. With a dir: every file in it and the
@@ -139,7 +144,7 @@ def _add_query_tools(server: MCPServer, answer) -> None:
         listing or globbing directories."""
         return answer(lambda q: q.map(dir), cursor)
 
-    @server.tool(annotations=READ_ONLY, structured_output=False)
+    @server.tool(annotations=READ_ONLY, meta=ALWAYS_LOAD, structured_output=False)
     def stack_profile(cursor: Cursor = None) -> str:
         """The project's stack, read from manifests and lockfiles: languages,
         frameworks and tools with the versions actually installed, and the
@@ -147,20 +152,20 @@ def _add_query_tools(server: MCPServer, answer) -> None:
         choosing APIs, adding dependencies or running tests."""
         return answer(lambda q: q.stack_profile(), cursor)
 
-    @server.tool(annotations=READ_ONLY, structured_output=False)
+    @server.tool(annotations=READ_ONLY, meta=ALWAYS_LOAD, structured_output=False)
     def tests_for(target: str, cursor: Cursor = None) -> str:
         """Find the tests for a source file or a symbol: test files that match
         its name, import it or share its package, with the test names inside
         them, and for a symbol the test lines that call it."""
         return answer(lambda q: q.tests_for(target), cursor)
 
-    @server.tool(annotations=READ_ONLY, structured_output=False)
+    @server.tool(annotations=READ_ONLY, meta=ALWAYS_LOAD, structured_output=False)
     def importers_of(target: str, cursor: Cursor = None) -> str:
         """List the files that import a file (for Go, its package), or that
         import an external module such as `react` or `requests`."""
         return answer(lambda q: q.importers_of(target), cursor)
 
-    @server.tool(annotations=READ_ONLY, structured_output=False)
+    @server.tool(annotations=READ_ONLY, meta=ALWAYS_LOAD, structured_output=False)
     def callers_of(name: str, cursor: Cursor = None) -> str:
         """List the call sites of a function or method: file:line, the enclosing
         function and the calling line. Matching is by name, so same-named

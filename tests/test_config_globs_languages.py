@@ -13,7 +13,7 @@ def test_defaults_parse_and_match_the_template():
     assert config.index.max_file_kb == 1024
     assert config.index.shard_token_limit == 2000
     assert "**/*.lock" in config.index.exclude
-    assert DEFAULTS["prompt_gate"]["strictness"] == "warn"
+    assert DEFAULTS["prompt_gate"]["strictness"] == "ask"
 
 
 def test_delegation_and_local_llm_settings():

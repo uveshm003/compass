@@ -199,6 +199,17 @@ def test_rows_carry_the_task_and_its_tags(repo, transcript):
     assert (row["task"], row["category"], row["size"], row["large"]) == ("T1", "bug_fix", "S", False)
 
 
+def test_a_turn_in_which_claude_checked_with_the_developer_says_so(repo, transcript):
+    # "fix it" leaves the scope open, so the prompt gate has Claude ask; the
+    # developer's next prompt is an answer, which the report keeps apart from corrections.
+    assert hook("prompt", repo, prompt="fix it").returncode == 0
+    stop(repo, transcript.prompt(0, "fix it").assistant(1, output=10))
+    stop(repo, transcript.stop(2).assistant(3, output=5))  # a Stop check sent Claude on: still one question
+    hook("prompt", repo, prompt="the retry loop in src/retry.py")
+    stop(repo, transcript.prompt(10, "the retry loop in src/retry.py").assistant(11, output=10))
+    assert [row.get("asked") for row in rows(repo)] == [True, None, None]
+
+
 def test_a_subagent_is_the_parent_tasks_delegated_work(repo, transcript):
     agent = subagent(transcript.path, "a1", "compass:test-runner")
     agent.prompt(0, "Run the tests").assistant(2, output=80, model=HAIKU, tools=("Bash",)).assistant(5, output=40, model=HAIKU)
