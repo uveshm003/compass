@@ -44,8 +44,8 @@ allow it for good ("don't ask again"): the tools only read the code map.
 | Piece | File | Does |
 | --- | --- | --- |
 | SessionStart hook | `hooks/hooks.json` | Refreshes the index; tells Claude to look code up through Compass, to tag its changes for the active task, and when to delegate |
-| UserPromptSubmit hook | | Checks a new request for goal, scope and acceptance (warns by default, or blocks); adds the code map's lines for the names it mentions; starts the turn |
-| PreToolUse hook (Write, Edit) | | While a large task's spec is unapproved, refuses edits to anything but the spec; keeps the `scaffold` subagent to the files it was given |
+| UserPromptSubmit hook | | Checks a new request for goal, scope and acceptance and, when one is missing, has Claude ask you first (never rejects the prompt); adds the code map's lines for the names it mentions; starts the turn |
+| PreToolUse hook (Write, Edit) | | While a large task's spec is unapproved, holds edits to anything but the spec (and, in strict mode, until you answer Claude's question); keeps the `scaffold` subagent to the files it was given |
 | PreToolUse hook (Agent) | | Notes which files a `scaffold` delegation names |
 | PostToolUse hook (Write, Edit) | | Re-indexes the edited file; records it for the task's manifest |
 | Stop hook | | Writes `.compass/changes/<task>.md`; asks Claude once to tag changed files it left untagged; records the turn's telemetry |
@@ -75,16 +75,21 @@ manifest with links into GitHub or Azure DevOps, ready for a pull request.
 
 ## Gates
 
-A request that starts a task is checked for a goal, a scope and how to tell it
-is done. By default Compass warns: Claude is told to ask before assuming, and
-you see a one-line notice. With `prompt_gate.strictness: block` the prompt is
-refused with a checklist instead. Questions, short replies and follow-ups are
+Your prompt always goes through. When a request that starts a task leaves out
+what should change, which code, or what done looks like, Claude checks with
+you before it changes code: one short question with its best guess, so "yes"
+is often the whole answer, and you see a one-line notice saying why. Anything
+Claude can find on its own counts as stated (failing tests, lint errors, the
+README, "it" in a conversation under way). Questions, replies, requests that
+change no code ("run the tests and tell me what fails") and follow-ups are
 never checked, and a prompt starting with `!quick` skips the check (and the
-spec gate) for that turn.
+spec gate) for that turn. With `prompt_gate.strictness: strict`, file edits
+also wait for your answer.
 
-A large task (a refactor or migration, or several files named) gets a spec at
-`.compass/specs/<task>.md`. Claude fills it in with its open questions and
-stops; until you run `/compass:approve`, it can change nothing else.
+A large task (a refactor or migration, or several files named) starts with a
+short plan at `.compass/specs/<task>.md`: Claude fills it in with its open
+questions and stops. Once you've answered them, `/compass:approve` lets it
+implement the plan; until then Compass holds edits to everything else.
 
 ## Delegation
 

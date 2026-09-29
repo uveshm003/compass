@@ -46,9 +46,9 @@ Each step is enforced by Claude Code's own hooks, so developers keep their norma
 
 | Capability | What it does |
 | --- | --- |
-| Prompt gate | Asks for goal, scope, acceptance criteria and constraints before work starts |
+| Prompt gate | When a request leaves out its goal, scope or acceptance criteria, has Claude ask about them (with its best guess) before work starts; it never rejects a prompt |
 | Code map | Script-built index of every file, class and function with its comment, kept current on each edit and commit |
-| Spec gate | Blocks edits on larger tasks until open questions are answered and the spec is approved |
+| Spec gate | For larger tasks, has Claude write a short plan with its open questions first, and holds edits until the developer approves it |
 | Delegation | Sends log digestion, bulk reads and boilerplate to a cheaper model or a local model |
 | Review manifest | Tags each change as mechanical, assumption or needs-review, with clickable file:line links |
 | Standards pack | Injects our team rules and the dependency versions actually in the lockfile |
@@ -112,7 +112,7 @@ The biggest risk is adoption, not technology. If the gates feel slow or preachy,
 
 | Risk | Likelihood | Impact | Mitigation |
 | --- | --- | --- | --- |
-| Developers find gates annoying and bypass them | High | High | Default to warn mode; `!quick` bypass; tune rules from the bypass log |
+| Developers find gates annoying and bypass them | High | High | The gate never rejects a prompt, only has Claude ask; `!quick` bypass; tune rules from the bypass log |
 | Claude Code update breaks a hook or plugin feature | Medium | Medium | Only documented extension points; weekly CI against the latest release; every hook fails open |
 | Token savings smaller than projected | Medium | Medium | Measure early (week 4 checkpoint); stop or narrow scope if below 15% |
 | Cheaper-model output has errors | Medium | Medium | Delegate only reading and mechanical work; verify with linters and tests |

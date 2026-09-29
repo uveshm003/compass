@@ -339,7 +339,15 @@ def on_stop(repo: Repo, config, payload: dict[str, Any]) -> None:
     session, transcript = _ids(payload, "session_id", "transcript_path")
     if session is None or transcript is None or not transcript.is_file():
         return
-    _record(repo, config, "sessions", session, transcript, lambda s: _row(repo, config, "turn", session, s, {}))
+    from compass import state
+
+    record = state.read(repo)["sessions"].get(session) or {}
+    asked = bool(record.get("asked"))  # Claude checked with the developer: the next prompt is an answer
+    _record(repo, config, "sessions", session, transcript,
+            lambda s: _row(repo, config, "turn", session, s, {"asked": True if asked else None}))
+    if asked:  # once per question, even when a Stop check sends Claude on and the turn stops twice
+        with state.transaction(repo, 1.0) as st:
+            state.session_record(st, session)["asked"] = False
 
 
 def on_subagent_stop(repo: Repo, config, payload: dict[str, Any]) -> None:

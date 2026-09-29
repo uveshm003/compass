@@ -2,7 +2,7 @@
   "$schema": "https://json.schemastore.org/claude-code-plugin-manifest.json",
   "name": "compass",
   "displayName": "Compass",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "A code map with query tools, checks on requests and large tasks, Haiku subagents held to output contracts, a review manifest for every AI change, and local telemetry. Needs the compass CLI on PATH (uv tool install).",
   "author": {
     "name": "Compass contributors"

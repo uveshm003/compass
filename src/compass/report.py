@@ -44,6 +44,7 @@ class Task:
     delegated: Counter = field(default_factory=Counter)  # tier -> tokens
     tools: Counter = field(default_factory=Counter)
     prompts: int = 0
+    asked: int = 0  # turns in which the prompt gate had Claude check with the developer
     active_s: float = 0.0
     injected_chars: int = 0
     first: str = ""
@@ -60,8 +61,14 @@ class Task:
         return sum(self.delegated.values())
 
     @property
+    def answers(self) -> int:
+        """Follow-up prompts that answered a question the prompt gate had Claude ask."""
+        return min(self.asked, max(0, self.prompts - 1))
+
+    @property
     def corrections(self) -> int:
-        return max(0, self.prompts - 1)
+        """Prompts after the first, other than those answers."""
+        return max(0, self.prompts - 1 - self.answers)
 
     @property
     def reads(self) -> int:
@@ -78,7 +85,8 @@ class Task:
     def metric(self, name: str) -> float:
         return {
             "tokens": self.tokens, "cache_read": self.main["cache_read"], "active_s": self.active_s,
-            "corrections": self.corrections, "reads": self.reads, "compass_calls": self.compass_calls,
+            "corrections": self.corrections, "answers": self.answers, "reads": self.reads,
+            "compass_calls": self.compass_calls,
             "delegated": self.delegated_tokens, "injected": self.injected_chars / 4,
             "cost_usd": (self.bench or {}).get("cost_usd") or 0.0,
         }[name]
@@ -118,6 +126,7 @@ def tasks_from_rows(rows: list[dict[str, Any]], since: str | None = None) -> lis
             t.delegated[tier(model)] += sum(_int(usage.get(name)) for name, _ in USAGE_FIELDS)
         t.tools.update({k: _int(v) for k, v in (row.get("tools") or {}).items()})
         t.prompts += _int(row.get("prompts"))
+        t.asked += 1 if row.get("kind") == "turn" and row.get("asked") is True else 0
         if row.get("kind") == "turn":  # a subagent works inside a turn: its time is already counted
             t.active_s += float(row.get("active_s") or 0)
         t.injected_chars += _int(row.get("injected_chars"))
@@ -156,7 +165,8 @@ def load(paths: list[Path]) -> list[dict[str, Any]]:
 def pilot(tasks: list[Task]) -> dict[str, Any]:
     off = [t for t in tasks if t.on is False]
     on = [t for t in tasks if t.on is True]
-    metrics = ("tokens", "cache_read", "active_s", "corrections", "reads", "compass_calls", "delegated", "injected")
+    metrics = ("tokens", "cache_read", "active_s", "corrections", "answers", "reads", "compass_calls", "delegated",
+               "injected")
     summary = {
         "tasks": len(tasks), "off": len(off), "on": len(on), "mixed": len(tasks) - len(off) - len(on),
         "from": min((t.first for t in tasks if t.first), default=None), "to": max((t.last for t in tasks), default=None),
@@ -197,8 +207,8 @@ def gate_summary(path: Path, since: str | None = None) -> dict[str, Any] | None:
     total = sum(outcomes.values())
     if not total:
         return None
-    return {"prompts": total, "bypass": outcomes["bypass"], "warn": outcomes["warn"], "block": outcomes["block"],
-            "rate": outcomes["bypass"] / total}
+    asked = outcomes["ask"] + outcomes["warn"] + outcomes["block"]  # earlier versions' names for it
+    return {"prompts": total, "bypass": outcomes["bypass"], "asked": asked, "rate": outcomes["bypass"] / total}
 
 
 def pilot_text(tasks: list[Task], sources: list[str], gate: dict[str, Any] | None = None) -> str:
@@ -219,6 +229,7 @@ def pilot_text(tasks: list[Task], sources: list[str], gate: dict[str, Any] | Non
     rows = [
         ("Main-model tokens", "tokens", _count), ("  cache reads", "cache_read", _count),
         ("Active time", "active_s", _duration), ("Correction prompts", "corrections", _decimal),
+        ("Answers to Claude's questions", "answers", _decimal),
         ("Read, Grep, Glob calls", "reads", _decimal), ("Compass tool calls", "compass_calls", _decimal),
         ("Delegated tokens", "delegated", _count), ("Injected by Compass (tokens)", "injected", _count),
     ]
@@ -237,7 +248,8 @@ def pilot_text(tasks: list[Task], sources: list[str], gate: dict[str, Any] | Non
             )
     if gate:
         lines += ["", f"Prompt gate: {_plural(gate['prompts'], 'prompt')}, {gate['bypass']} with !quick"
-                      f" ({gate['rate'] * 100:.1f}%; the target is under 20%), {gate['warn']} warned, {gate['block']} blocked"]
+                      f" ({gate['rate'] * 100:.1f}%; the target is under 20%), {gate['asked']} where Claude checked"
+                      " with the developer first"]
     if not s["off"]:
         lines += ["", "No tasks with Compass off yet: the baseline comes from a run with every module off"
                       " but telemetry (see the Evaluation Plan's pilot weeks 1-2)."]

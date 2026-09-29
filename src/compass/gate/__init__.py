@@ -2,11 +2,15 @@
 with no model call, so they fit NF-01's 100 ms on every prompt.
 
 A prompt is parsed once (``parse``), sorted into a kind, and only a prompt
-that starts a task is checked. Questions, short replies, slash commands and
-follow-ups inside a task that is already under way are never nagged: the top
-project risk is developers switching the plugin off, so the rules err towards
-letting prompts through. They are tuned from ``.compass/logs/gate.jsonl``,
-which records every decision, not from guesses.
+that starts a task is checked. Questions, replies to Claude, requests that
+change no code (run the tests, commit), slash commands and follow-ups inside a
+task that is already under way are never checked. The gate never turns a
+prompt away: when a field is missing, Claude is told to check with the
+developer before it changes code. The top project risk is developers
+switching the plugin off, so the rules err towards letting prompts through:
+anything Claude can find on its own (failing tests, lint errors, the README,
+"it" in a conversation under way) counts. They are tuned from
+``.compass/logs/gate.jsonl``, which records every decision, not from guesses.
 
 Each checked field is a rule module in ``gate/rules/`` (``FIELD`` plus
 ``check(prompt, config) -> list[missing_field]``); ``prompt_gate.required_fields``
@@ -27,12 +31,13 @@ if TYPE_CHECKING:
 FIELD_TITLES = {
     "goal": "Goal", "scope": "Scope", "non_goals": "Non-goals", "acceptance": "Accept when", "constraints": "Constraints",
 }
-FIELD_HINTS = {
-    "goal": "what should change, starting with a verb",
-    "scope": "the files, modules or symbols involved",
-    "non_goals": "what this task will not do",
-    "acceptance": "how you will know it is done: behaviour, tests",
-    "constraints": "limits to respect: APIs, dependencies, compatibility",
+# What a missing field leaves open, as a question to the developer would put it.
+FIELD_ASKS = {
+    "goal": "what should change",
+    "scope": "which code this is about",
+    "non_goals": "what is out of scope",
+    "acceptance": "what done looks like",
+    "constraints": "which limits to respect (APIs, dependencies, compatibility)",
 }
 TASK_TEMPLATE = "/compass:task Goal: … Scope: … Non-goals: … Accept when: … Constraints: …"
 
@@ -65,9 +70,46 @@ TASK_VERBS = frozenset(
     " annotate translate localize localise secure encrypt sanitize sanitise escape guard debug investigate resolve"
     " address finish complete apply use switch turn put append insert wrap inline reorder reorganize reorganise"
     " restructure standardize standardise normalize normalise unify dedupe deduplicate harden patch install"
-    " uninstall rework redesign rebuild tidy expand shrink trim reject accept emit publish deploy release".split()
+    " uninstall rework redesign rebuild tidy expand shrink trim reject accept emit publish release".split()
 )
 MIN_TASK_WORDS = 4  # below this, and not opening with a task verb, a prompt is a reply ("yes", "go ahead")
+# A prompt opening with one of these answers Claude ("yes, and keep the old name"), whatever follows.
+REPLY_WORDS = frozenset(
+    "yes yeah yep yup sure no nope nah correct exactly right great perfect thanks thank cool lgtm agreed sounds"
+    " looks".split()
+)
+# Requests that change no code: run something and report, look into something, a git operation.
+ACTION_VERBS = frozenset(
+    "run rerun re-run try look see go search grep trace inspect read print count measure profile benchmark analyze"
+    " analyse audit scan diagnose figure reproduce verify commit push pull stash rebase squash amend cherry-pick"
+    " open deploy".split()
+)
+_OPERATION = re.compile(
+    r"^(?:start|stop|restart|launch|kill|serve|boot)\s+(?:up\s+)?(?:the\s+|a\s+|my\s+)?"
+    r"(?:(?:dev|local|development|test|web|api|backend|frontend)\s+)?(?:server|app|application|service|containers?"
+    r"|database|db|daemon|process|workers?|watcher|emulator|simulator|stack)\b",
+    re.I,
+)
+# The first word of each clause: at the start, after a comma or full stop, or after "and", "then".
+_CLAUSE = re.compile(
+    r"(?:^|[,;:.!?]\s+|\b(?:and|then|so|but|also|plus)\s+)(?:(?:please|pls|also|then|just|now)\s+)*([a-z][\w'-]*)",
+    re.I,
+)
+# A symptom: the request reports something going wrong, so fixing it is the goal and the
+# failure itself says where to look ("the login page breaks when the session expires").
+SYMPTOM = re.compile(
+    r"\b(?:breaks?|broke|broken|fails?|failed|failing|crash(?:es|ed|ing)?|throws?|threw|hangs?|hung|freezes?"
+    r"|froze|times?\s+out|timed\s+out|leaks?|leaking|panic(?:s|ked)?|segfaults?|errors?\s+out|doesn'?t\s+work"
+    r"|does\s+not\s+work|isn'?t\s+working|is\s+not\s+working|stopped\s+working|no\s+longer\s+works?"
+    r"|regress(?:ed|es|ion)?|traceback|stack\s*trace)\b|\b\w*(?:error|exception):",  # a pasted error, too
+    re.I,
+)
+# In a conversation already under way, these point at what was just discussed.
+REFERS_BACK = re.compile(
+    r"\b(?:it|its|this|that|these|those|them|they|same|above|previous(?:ly)?|earlier|again|there|here"
+    r"|the\s+(?:bug|issue|problem|error|crash|failure|change|fix|one|other\s+one))\b",
+    re.I,
+)
 
 _PATH_EXTENSIONS = frozenset(
     ".py .pyi .ts .tsx .js .jsx .mjs .cjs .go .rs .java .kt .kts .swift .dart .cs .c .h .cc .cpp .hpp .rb .php"
@@ -100,7 +142,9 @@ class ParsedPrompt:
     words: list[str]
     labels: dict[str, str]
     candidates: list[Candidate]
-    kind: str = "task"  # empty | command | bypass | question | reply | task
+    verbs: list[str] = field(default_factory=list)  # task verbs opening a clause: "run the tests and fix …" -> [fix]
+    kind: str = "task"  # empty | command | bypass | question | reply | action | task
+    followup: bool = False  # the session has had earlier prompts, so "it" and "that" point somewhere
     resolved: dict[str, Any] = field(default_factory=dict)  # candidate text -> what the index knows
     stack: list[str] = field(default_factory=list)  # the project's frameworks and tools it names ("react 18.3.1")
 
@@ -111,7 +155,8 @@ def parse(text: str, bypass_prefix: str = "!quick") -> ParsedPrompt:
     after = raw[len(bypass_prefix):].strip() if bypass else raw
     body = _POLITE.sub("", after, count=1).strip()
     words = re.findall(r"[a-z][\w'-]*", body.lower())
-    parsed = ParsedPrompt(raw, body, words, _labels(raw), _candidates(raw))
+    verbs = [m.group(1).lower() for m in _CLAUSE.finditer(body) if m.group(1).lower() in TASK_VERBS]
+    parsed = ParsedPrompt(raw, body, words, _labels(raw), _candidates(raw), verbs)
     parsed.kind = _kind(parsed, bypass)
     return parsed
 
@@ -123,15 +168,21 @@ def _kind(p: ParsedPrompt, bypass: bool) -> str:
         return "command"
     if bypass:
         return "bypass"
-    first = p.words[0] if p.words else ""
     if p.labels.get("goal"):
         return "task"
-    if first in QUESTION_WORDS and first not in TASK_VERBS:
+    first = p.words[0] if p.words else ""
+    if first in REPLY_WORDS:
+        return "reply"  # an answer to Claude, even when it goes on to say more
+    if _OPERATION.match(p.body):
+        return "action"  # "start the dev server"
+    if p.verbs:
+        return "task"  # a change is asked for, even after a question or a run: "run the tests and fix …"
+    if first in QUESTION_WORDS or p.body.rstrip().endswith("?"):
         return "question"
-    if p.body.rstrip().endswith("?") and first not in TASK_VERBS:
-        return "question"
-    if len(p.words) < MIN_TASK_WORDS and first not in TASK_VERBS:
-        return "reply"
+    if len(p.words) < MIN_TASK_WORDS:
+        return "reply"  # "go ahead", "try again"
+    if first in ACTION_VERBS:
+        return "action"
     return "task"
 
 
@@ -219,24 +270,25 @@ def missing_fields(prompt: ParsedPrompt, config: Config) -> list[str]:
     return missing
 
 
-def checklist(missing: list[str]) -> str:
-    """What block mode prints for the developer (PG-02)."""
-    lines = [f"[compass] This prompt does not state its {_join(missing)}. Add them and send it again:"]
-    lines += [f"  {FIELD_TITLES.get(m, m):<12} {FIELD_HINTS.get(m, '')}" for m in missing]
-    lines.append(f"The task template has every field: {TASK_TEMPLATE}")
-    lines.append("To send it as it is, start the prompt with !quick.")
-    return "\n".join(lines)
-
-
-def ask_first(missing: list[str]) -> str:
-    """What warn mode tells Claude (PG-02)."""
-    asks = "; ".join(f"{FIELD_TITLES.get(m, m).lower()} ({FIELD_HINTS.get(m, '')})" for m in missing)
-    return (
-        f"[compass] The developer's request does not state its {_join(missing)}. Unless the conversation already"
-        f" answers it, ask one short question about each before changing any code: {asks}."
+def ask_first(missing: list[str], hold: bool = False) -> str:
+    """What Claude is told when a new request leaves a field open (PG-02).
+    The prompt itself always goes through; Claude checks with the developer."""
+    text = (
+        f"[compass] Before you change any code, check with the developer: the request does not say"
+        f" {missing_phrase(missing)}. Ask in one short message and offer your best guess (a quick look in the code map is"
+        " fine), so they can simply confirm it."
     )
+    if hold:
+        return text + " Compass holds file edits until they reply."
+    return text + " Skip the question if the conversation already answers it."
 
 
-def _join(missing: list[str]) -> str:
-    names = [FIELD_TITLES.get(m, m).lower() for m in missing]
+def developer_notice(missing: list[str], hold: bool = False) -> str:
+    """The one line the developer sees next to their prompt."""
+    held = "; edits wait for your answer" if hold else ""
+    return f"[compass] Before changing code, Claude will check with you {missing_phrase(missing)}{held}. (!quick skips this check.)"
+
+
+def missing_phrase(missing: list[str]) -> str:
+    names = [FIELD_ASKS.get(m, m.replace("_", " ")) for m in missing]
     return names[0] if len(names) == 1 else ", ".join(names[:-1]) + " and " + names[-1]

@@ -5,7 +5,10 @@ version: 1
 
 prompt_gate:
   enabled: true
-  strictness: warn          # off | warn | block
+  # When a new request leaves out what should change, which code or what done
+  # looks like, Claude checks with you before changing code. Your prompt always
+  # goes through. strict: file edits also wait for your answer.
+  strictness: ask           # ask | strict | off
   bypass_prefix: "!quick"
   required_fields: [goal, scope, acceptance]
 

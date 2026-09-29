@@ -1,13 +1,16 @@
-"""M4 done-when, checked for real: "vague prompts get a checklist; large
-tasks need an approved spec", in headless Claude Code sessions with the
-Compass plugin loaded from this checkout.
+"""M4 done-when, checked for real: "a vague request makes Claude check with
+the developer before changing code; large tasks need an approved spec", in
+headless Claude Code sessions with the Compass plugin loaded from this checkout.
 
-1. Block mode: a vague prompt is refused with the checklist, before the model runs.
-2. Warn mode: a vague request makes Claude ask instead of changing code.
+1. Ask mode (the default): a vague request reaches Claude, which asks one
+   question instead of changing code. A short answer, in the same
+   conversation, is enough for it to make the change, tagged for review.
+2. Strict mode: the same request still reaches Claude, which asks and changes
+   nothing; Compass holds edits until the answer.
 3. A large task: Claude drafts the spec and edits nothing else; after
    ``compass approve`` and a resumed session, it changes the code.
 
-It spends a little Claude usage (three short sessions), so pytest does not run it:
+It spends a little Claude usage (five short sessions), so pytest does not run it:
 
     uv run python tests/e2e/check_gates.py [--model sonnet] [--keep]
 """
@@ -27,6 +30,7 @@ ROOT = Path(__file__).resolve().parents[2]
 FIXTURES = ROOT / "tests" / "fixtures"
 GIT = ["git", "-c", "user.name=Compass e2e", "-c", "user.email=e2e@example.invalid", "-c", "commit.gpgsign=false"]
 VAGUE = "improve the error handling"
+ANSWER = "Yes, go with your suggestion."  # the answer Claude's best guess makes possible
 LARGE = (
     "Refactor src/inventory/models.py: move Reading and Unit into their own module, "
     "keeping every existing import working."
@@ -105,19 +109,30 @@ def main() -> int:
     checks: list[tuple[str, bool]] = []
     tokens = 0
 
-    # 1. Block mode: the vague prompt never reaches the model.
-    repo = fresh_repo(work, "block", env, "prompt_gate:\n  strictness: block\n")
-    blocked = Session(repo, work, env, args.model).run(VAGUE)
-    said = blocked["stderr"] + blocked["raw"] + blocked["result"]
-    checks.append(("block mode refuses a vague prompt with the checklist", "does not state its" in said))
-    checks.append(("  ... before the model says anything", blocked["assistant"] == 0))
-
-    # 2. Warn mode: Claude asks instead of guessing.
-    repo = fresh_repo(work, "warn", env)
-    warned = Session(repo, work, env, args.model).run(VAGUE)
-    tokens += warned["usage"].get("output_tokens", 0)
-    checks.append(("warn mode: Claude asks before changing code", "?" in warned["result"]))
+    # 1. Ask mode, the default: the prompt reaches Claude, which checks with the developer first.
+    repo = fresh_repo(work, "ask", env)
+    session = Session(repo, work, env, args.model)
+    asked = session.run(VAGUE)
+    tokens += asked["usage"].get("output_tokens", 0)
+    checks.append(("ask mode: the vague request reaches Claude", asked["assistant"] > 0 and asked["code"] == 0))
+    checks.append(("  ... which asks before changing code", "?" in asked["result"]))
     checks.append(("  ... and changes nothing yet", changed_sources(repo) == []))
+    answered = session.run(ANSWER, resume=asked["session"])
+    tokens += answered["usage"].get("output_tokens", 0)
+    after_answer = changed_sources(repo)
+    checks.append(("  a short answer is enough for Claude to make the change", any(p.startswith("src/") for p in after_answer)))
+    listed = subprocess.run(["compass", "check-anchors"], cwd=repo, capture_output=True, text=True, env=env).stdout
+    checks.append(("  ... tagged for review", bool(listed.strip())))
+
+    # 2. Strict mode: the prompt still reaches Claude; edits wait for the answer.
+    repo = fresh_repo(work, "strict", env, "prompt_gate:\n  strictness: strict\n")
+    strict = Session(repo, work, env, args.model).run(VAGUE)
+    tokens += strict["usage"].get("output_tokens", 0)
+    gate_log = repo / ".compass" / "logs" / "gate.jsonl"
+    log = [json.loads(line) for line in gate_log.read_text().splitlines()] if gate_log.exists() else []
+    checks.append(("strict mode: the vague request reaches Claude too", strict["assistant"] > 0 and strict["code"] == 0))
+    checks.append(("  ... with edits held until the developer answers", any(row.get("hold") for row in log)))
+    checks.append(("  ... and Claude asks, changing nothing", "?" in strict["result"] and changed_sources(repo) == []))
 
     # 3. A large task: the spec first, the code only after approval.
     repo = fresh_repo(work, "large", env)
@@ -143,8 +158,9 @@ def main() -> int:
     listed = subprocess.run(["compass", "check-anchors", "T1"], cwd=repo, capture_output=True, text=True, env=env).stdout
     checks.append(("  ... with anchor tags for review", bool(listed.strip())))
 
-    print(f"1. Block mode, {VAGUE!r}:\n{(blocked['stderr'] or blocked['result']).strip()[:600]}\n")
-    print(f"2. Warn mode, {VAGUE!r}:\n{warned['result'].strip()[:900]}\n")
+    print(f"1. Ask mode, {VAGUE!r}:\n{asked['result'].strip()[:1200]}\n")
+    print(f"   After {ANSWER!r}:\n{answered['result'].strip()[:900]}\n   Changed: {', '.join(after_answer) or 'nothing'}\n")
+    print(f"2. Strict mode, {VAGUE!r}:\n{strict['result'].strip()[:900]}\n")
     print(f"3. Large task, spec draft reply:\n{drafted['result'].strip()[:900]}\n")
     print(f"   Spec ({spec.relative_to(repo) if spec.exists() else 'missing'}):\n{text[:1500]}\n")
     print(f"   After approval:\n{built['result'].strip()[:700]}\n   Changed: {', '.join(touched) or 'nothing'}\n")

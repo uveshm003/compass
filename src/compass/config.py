@@ -30,7 +30,10 @@ version: 1
 
 prompt_gate:
   enabled: true
-  strictness: warn          # off | warn | block
+  # When a new request leaves out what should change, which code or what done
+  # looks like, Claude checks with you before changing code. Your prompt always
+  # goes through. strict: file edits also wait for your answer.
+  strictness: ask           # ask | strict | off
   bypass_prefix: "!quick"
   required_fields: [goal, scope, acceptance]
 
@@ -43,6 +46,9 @@ spec_gate:
   large_task_when:
     files_mentioned_gte: 3
     keywords: [refactor, migrate, redesign, "new module"]
+    # A keyword alone doesn't make a task large when the request is about one
+    # function or method the code map knows, and names nothing broader.
+    except_one_function: true
 
 index:
   # gitignore-style globs, matched against repo-relative paths. A pattern
@@ -290,7 +296,9 @@ def parse_config(text: str) -> Config:
     return Config(merged, warnings)
 
 
-_CHOICES = {"prompt_gate.strictness": ("off", "warn", "block")}
+_CHOICES = {"prompt_gate.strictness": ("ask", "strict", "off")}
+# Earlier names, still read: warn became ask; block, which turned the prompt away, became strict.
+_RENAMED = {"prompt_gate.strictness": {"warn": "ask", "block": "strict"}}
 _PATH_OR_OFF = {"telemetry.export"}  # false (or empty) for off, else a file path
 
 
@@ -304,7 +312,8 @@ def _merge(default: Any, user: Any, path: str, warnings: list[str]) -> Any:
         return default
     if path in _CHOICES:
         if isinstance(user, bool):  # YAML reads a bare `off` as false (and `on` as true)
-            user = "off" if user is False else "warn"
+            user = "off" if user is False else "ask"
+        user = _RENAMED.get(path, {}).get(user, user)
         if user not in _CHOICES[path]:
             warnings.append(f"{path} should be one of {', '.join(_CHOICES[path])}; using the default {default!r}")
             return default

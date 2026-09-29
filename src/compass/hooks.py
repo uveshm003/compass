@@ -128,8 +128,10 @@ def on_session_start(repo: Repo, payload: dict[str, Any]) -> int:
         task = None
     extra: list[str] = []
     try:
-        from compass.gate.hook import session_lines
+        from compass.gate.hook import conversation_cleared, session_lines
 
+        if payload.get("source") == "clear":
+            conversation_cleared(repo, _session(payload))
         extra = session_lines(repo, config)
     except Exception as exc:
         log_error(repo.root, "hook session-start stack", exc)

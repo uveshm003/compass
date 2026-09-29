@@ -11,7 +11,7 @@ import pytest
 
 from compass import spec, state
 from compass.config import default_config, parse_config
-from compass.gate import checklist, missing_fields, parse
+from compass.gate import ask_first, developer_notice, missing_fields, parse
 from compass.gate.pack import build, resolve, stack_mentions
 from compass.index.indexer import Indexer
 from compass.index.store import Store
@@ -63,12 +63,20 @@ def repo(make_repo):
         ("please rename parse_config to load_config", "task"),
         ("Goal: cache lookups", "task"),
         ("The login page breaks when the session expires", "task"),
+        ("Run the tests and fix what fails", "task"),  # a change, even after a run
+        ("Why does test_alarm fail? Fix it.", "task"),
         ("Where is retry handled and what calls it?", "question"),
         ("explain how `ReconnectPolicy.next` computes jitter", "question"),
         ("does this still pass on Windows", "question"),
+        ("Run the tests and tell me what fails.", "action"),  # changes no code
+        ("look at the logs and tell me why the deploy failed", "action"),
+        ("commit the changes with a good message", "action"),
+        ("start the dev server", "action"),
         ("yes", "reply"),
         ("go ahead", "reply"),
         ("looks good, thanks", "reply"),
+        ("yes, and keep the old name as an alias", "reply"),  # an answer to Claude
+        ("no, use the other one", "reply"),
         ("/compass:task Goal: x", "command"),
         ("!quick bump the version", "bypass"),
         ("   ", "empty"),
@@ -106,8 +114,8 @@ def test_labels_inline_and_on_their_own_lines():
     [
         ("fix it", ["scope", "acceptance"]),
         ("improve performance", ["scope", "acceptance"]),
-        ("clean up the code", ["scope", "acceptance"]),
-        ("The login page breaks when the session expires", ["goal", "scope"]),
+        ("clean up the code", ["acceptance"]),  # all of it, but what done looks like is still open
+        ("The login page breaks when the session expires", []),  # a symptom: fix it, and it says where
         ("Add remove() to StockItem so that negative amounts raise ValueError", []),
         ("Make withRetry give up after 5 attempts and rethrow the last error", []),
         ("rename parse_config to load_config everywhere", []),  # the end state is in the request
@@ -137,10 +145,58 @@ def test_a_new_rule_is_a_module_in_gate_rules(tmp_path, monkeypatch):
     assert missing_fields(parse("fix the crash in JIRA-12"), config) == []
 
 
-def test_checklist_names_the_fields_and_the_template():
-    text = checklist(["scope", "acceptance"])
-    assert text.startswith("[compass] This prompt does not state its scope and accept when.")
-    assert "/compass:task Goal:" in text and "!quick" in text
+# Realistic first prompts. The gate only speaks up when Claude would otherwise
+# have to guess; anything Claude can find on its own counts as stated.
+VAGUE = [
+    "improve the error handling", "make it faster", "fix it", "clean up the code", "refactor this", "add some tests",
+    "fix the bug", "improve performance", "optimize this", "update the docs", "add error handling",
+    "support Windows", "handle the edge cases", "improve the exception handling", "make it more robust",
+    "Add logging to the API", "add a feature to export readings as CSV",
+]
+CLEAR = [
+    "Run the tests and fix what fails", "run the linter and fix the warnings", "Fix the failing tests",
+    "fix the type errors", "the build is broken, fix it", "debug why the login test fails",
+    "Add a --json flag to compass report", "add input validation to POST /readings so negative values get a 422",
+    "Update the README to mention Windows support", "bump fastapi to 0.115", "Change the default port to 8080",
+    "add a docstring to StockItem.restock", "implement the TODO in src/inventory/api.py", "Fix the typo in the README",
+    "remove the unused imports", "upgrade all dependencies", "install the dependencies", "format the code",
+    "write a commit message for these changes", "set up the project so I can run it locally",
+    "Make the CLI print the version with --version", "generate a .gitignore",
+    "improve the error handling so the app doesn't crash on bad input",
+    'Traceback (most recent call last):\n  File "src/inventory/api.py", line 20\nValueError: negative value',
+]
+
+
+@pytest.mark.parametrize("text", VAGUE)
+def test_vague_requests_get_a_question(text):
+    parsed = parse(text)
+    assert parsed.kind == "task" and missing_fields(parsed, default_config()), text
+
+
+@pytest.mark.parametrize("text", CLEAR)
+def test_clear_requests_go_straight_through(text):
+    parsed = parse(text)
+    assert parsed.kind != "task" or missing_fields(parsed, default_config()) == [], text
+
+
+@pytest.mark.parametrize("text", ["fix it", "now add a test for it", "fix the bug", "do that for the other endpoint too"])
+def test_a_conversation_under_way_supplies_it_and_that(text):
+    parsed = parse(text)
+    parsed.followup = True  # the session has had earlier prompts
+    assert parsed.kind != "task" or missing_fields(parsed, default_config()) == [], text
+    assert missing_fields(parse("make it faster"), default_config())  # a new session: which code, how fast?
+
+
+def test_what_claude_and_the_developer_are_told():
+    text = ask_first(["scope", "acceptance"])
+    assert text.startswith("[compass] Before you change any code, check with the developer: the request does not say"
+                           " which code this is about and what done looks like.")
+    assert "offer your best guess" in text and "Skip the question if the conversation already answers it" in text
+    assert ask_first(["scope"], hold=True).endswith("Compass holds file edits until they reply.")
+    assert developer_notice(["scope"]) == (
+        "[compass] Before changing code, Claude will check with you which code this is about. (!quick skips this check.)"
+    )
+    assert "; edits wait for your answer." in developer_notice(["scope"], hold=True)
 
 
 # -- sizing (SG-01) ----------------------------------------------------------------------
@@ -157,6 +213,35 @@ def test_checklist_names_the_fields_and_the_template():
 )
 def test_size_classification(text, size, reason):
     assert spec.classify(parse(text), default_config()) == (size, reason)
+
+
+@pytest.mark.parametrize(
+    ("text", "size"),
+    [
+        ("Refactor `withRetry` to take an options object", "small"),  # one function the map knows
+        ("refactor ReconnectPolicy.next so jitter never exceeds the cap", "small"),  # one method
+        ("Refactor withRetry in src/transport/reconnect.ts to return a promise", "small"),  # its own file is fine
+        ("Refactor `withRetry` so every caller passes an options object", "large"),  # its callers change too
+        ("Refactor `withRetry` into its own module", "large"),
+        ("Refactor ReconnectPolicy to use a strategy object", "large"),  # a class
+        ("Refactor `retryForever` to stop sooner", "large"),  # not in the map
+        ("Refactor withRetry and ReconnectPolicy.next together", "large"),  # two names
+    ],
+)
+def test_a_refactor_of_one_function_needs_no_plan(repo, text, size):
+    parsed = parse(text)
+    with Store.open(repo.db_path) as store:
+        resolve(store, parsed)
+    assert spec.classify(parsed, default_config())[0] == size, text
+    assert missing_fields(parsed, default_config()) == [] or size == "large"  # "to take …" says what done is
+
+
+def test_the_one_function_exception_can_be_switched_off(repo):
+    parsed = parse("Refactor `withRetry` to take an options object")
+    with Store.open(repo.db_path) as store:
+        resolve(store, parsed)
+    config = parse_config("spec_gate:\n  large_task_when:\n    except_one_function: false\n")
+    assert spec.classify(parsed, config) == ("large", 'keyword "refactor"')
 
 
 def test_only_files_a_task_touches_count_towards_its_size(repo):
@@ -233,39 +318,50 @@ def test_approve_records_who_and_when(repo):
 # -- the prompt hook (PG-02 to PG-04, CP-02) -------------------------------------------------
 
 
-def test_warn_mode_asks_before_assuming(repo):
+def test_ask_mode_has_claude_check_before_assuming(repo):
     hook("session-start", repo.root, source="startup")
-    context, message = answer(hook("prompt", repo.root, prompt="fix it"))
-    assert "does not state its scope and accept when" in context and "ask one short question" in context
-    assert message.startswith("[compass] The request does not state its scope and accept when, so Claude will ask.")
+    context, message = answer(hook("prompt", repo.root, prompt="fix it"))  # answer() also asserts exit 0
+    assert "the request does not say which code this is about and what done looks like" in context
+    assert "Ask in one short message and offer your best guess" in context
+    assert message == developer_notice(["scope", "acceptance"])
     assert state.read(repo)["tasks"]["T1"]["brief"] == "fix it"
+    assert pre_edit(repo.root, repo.root / "src/transport/socket.ts").returncode == 0  # nothing is held back
     # The answer to Claude's question is a follow-up, not a new request: no nagging.
     context, message = answer(hook("prompt", repo.root, prompt="the crash is in the reconnect loop on Windows"))
     assert (context, message) == ("", "")
-    assert [row["outcome"] for row in gate_log(repo)] == ["warn", "pass"]
+    assert [row["outcome"] for row in gate_log(repo)] == ["ask", "pass"]
     assert gate_log(repo)[0]["excerpt"] == "fix it" and "excerpt" not in gate_log(repo)[1]
 
 
-def test_block_mode_refuses_the_prompt_with_the_checklist(repo):
-    write(repo.root, ".compass/config.yaml", "prompt_gate:\n  strictness: block\n")
-    proc = hook("prompt", repo.root, prompt="improve performance")
-    assert proc.returncode == 2 and proc.stdout == ""
-    assert proc.stderr.startswith("[compass] This prompt does not state its scope and accept when.")
-    assert state.is_fresh(state.read(repo), state.active_task(state.read(repo)))  # still waiting for a real request
-    ok = hook("prompt", repo.root, prompt="Make withRetry in src/transport/reconnect.ts give up after 5 attempts")
-    assert ok.returncode == 0 and "withRetry" in answer(ok)[0]
+def test_strict_mode_holds_edits_until_the_developer_answers(repo):
+    write(repo.root, ".compass/config.yaml", "prompt_gate:\n  strictness: strict\n")
+    context, message = answer(hook("prompt", repo.root, prompt="improve performance"))  # the prompt goes through
+    assert context.count("Compass holds file edits until they reply.") == 1 and "edits wait for your answer" in message
+    assert gate_log(repo)[0]["outcome"] == "ask" and gate_log(repo)[0]["hold"] is True
+    source = repo.root / "src/transport/socket.ts"
+    held = pre_edit(repo.root, source)
+    assert held.returncode == 2 and held.stderr.startswith(
+        "[compass] Check with the developer before changing src/transport/socket.ts: their request does not say"
+        " which code this is about and what done looks like."
+    )
+    assert pre_edit(repo.root, repo.root.parent / "elsewhere.txt").returncode == 0  # outside the repo
+    assert pre_edit(repo.root, source, session="s2").returncode == 0  # another session was not asked anything
+    answer(hook("prompt", repo.root, prompt="the reconnect loop in src/transport; it should stop spinning the CPU"))
+    assert pre_edit(repo.root, source).returncode == 0  # answered: edits go ahead
 
 
 def test_off_mode_and_non_tasks_are_never_checked(repo):
     write(repo.root, ".compass/config.yaml", "prompt_gate:\n  strictness: off\n")
     assert answer(hook("prompt", repo.root, prompt="fix it"))[1] == ""
-    write(repo.root, ".compass/config.yaml", "prompt_gate:\n  strictness: block\n")
-    for text in ("where does this break?", "yes", "go ahead", "/compass:accept"):
-        assert hook("prompt", repo.root, session="s2", prompt=text).returncode == 0, text
+    write(repo.root, ".compass/config.yaml", "prompt_gate:\n  strictness: strict\n")
+    source = repo.root / "src/transport/socket.ts"
+    for text in ("where does this break?", "yes", "go ahead", "/compass:accept", "run the tests and tell me what fails"):
+        assert answer(hook("prompt", repo.root, session="s2", prompt=text))[1] == "", text
+        assert pre_edit(repo.root, source, session="s2").returncode == 0, text
 
 
 def test_quick_skips_the_check_and_is_logged_for_tuning(repo):
-    write(repo.root, ".compass/config.yaml", "prompt_gate:\n  strictness: block\n")
+    write(repo.root, ".compass/config.yaml", "prompt_gate:\n  strictness: strict\n")
     proc = hook("prompt", repo.root, prompt="!quick fix it")
     assert (proc.returncode, proc.stderr) == (0, "")
     [row] = gate_log(repo)
@@ -291,7 +387,9 @@ def test_a_large_task_edits_nothing_but_its_spec_until_approved(repo):
 
     source = repo.root / "src/transport/reconnect.ts"
     refused = pre_edit(repo.root, source)
-    assert refused.returncode == 2 and "T1's spec is not approved yet, so src/transport/reconnect.ts cannot change" in refused.stderr
+    assert refused.returncode == 2 and (
+        "T1 is a large task and its spec is not approved yet, so Compass holds the edit to src/transport/reconnect.ts"
+    ) in refused.stderr
     assert pre_edit(repo.root, spec.spec_path(repo, "T1")).returncode == 0  # drafting the spec is the point
     assert pre_edit(repo.root, repo.root.parent / "elsewhere.txt").returncode == 0  # outside the repo
     assert pre_edit(repo.root, repo.compass_dir / "state.json").returncode == 2  # nor the approval record
@@ -340,11 +438,11 @@ def test_task_briefs_start_small_and_large_tasks(repo):
     small = brief(repo, "Goal: cap jitter. Scope: `ReconnectPolicy.next`. Accept when: never above maxDelayMs")
     assert small.stdout.startswith("[compass] Task T1 started from the brief (small).")
     assert "Small task: go ahead" in small.stdout
-    big = brief(repo, 'Goal: migrate the transport to WebSockets $(rm -rf ~) "quoted"')
+    big = brief(repo, 'Goal: migrate the transport onto WebSockets $(rm -rf ~) "quoted"')
     assert big.stdout.startswith('[compass] Task T2 started from the brief (large: keyword "migrate").')
     assert "The previous task, T1, stays open" in big.stdout
     assert '$(rm -rf ~) "quoted"' in spec.spec_path(repo, "T2").read_text(encoding="utf-8")  # taken literally
-    assert "does not state its accept when" in big.stdout  # WebSockets names the scope
+    assert "does not say what done looks like" in big.stdout  # WebSockets names the scope
     assert brief(repo, "").stdout.startswith("[compass] No brief given.")
 
 
@@ -365,7 +463,8 @@ def test_approve_warns_about_unticked_questions(repo):
 
 def test_check_prompt_is_a_dry_run(repo):
     before = repo.state_path.read_text(encoding="utf-8") if repo.state_path.exists() else None
-    out = run_compass("-C", str(repo.root), "check-prompt", "refactor withRetry in src/transport/reconnect.ts").stdout
+    text = "refactor withRetry and every caller in src/transport/reconnect.ts"
+    out = run_compass("-C", str(repo.root), "check-prompt", text).stdout
     assert out.startswith("kind: task\nnames: withRetry (symbol), src/transport/reconnect.ts (path)\n")
     assert 'size: large (keyword "refactor")' in out and "context pack:" in out
     after = repo.state_path.read_text(encoding="utf-8") if repo.state_path.exists() else None
@@ -391,10 +490,14 @@ def test_the_gates_fail_open(repo):
     write(repo.root, ".compass/config.yaml", "")
     run_compass("-C", str(repo.root), "task", "new")  # the prompt above defined T1; start afresh
     context, message = answer(hook("prompt", repo.root, session="s3", prompt="fix it"))
-    assert "does not state" in message
+    assert "Claude will check with you" in message
 
 
-@pytest.mark.parametrize(("value", "strictness"), [("off", "off"), ('"off"', "off"), ("block", "block"), ("loud", "warn")])
+@pytest.mark.parametrize(
+    ("value", "strictness"),
+    [("off", "off"), ('"off"', "off"), ("strict", "strict"), ("ask", "ask"), ("loud", "ask"),
+     ("warn", "ask"), ("block", "strict")],  # the earlier names still read, and block no longer turns prompts away
+)
 def test_strictness_values(value, strictness):
     # A bare `off` is YAML for false; it still means off.
     assert parse_config(f"prompt_gate:\n  strictness: {value}\n").data["prompt_gate"]["strictness"] == strictness
@@ -412,11 +515,15 @@ def test_the_gates_work_with_review_switched_off(repo):
     assert pre_edit(repo.root, source).returncode == 2  # !quick lasted one turn
 
 
-def test_a_blocked_prompt_keeps_the_task_notice_for_the_next_one(repo):
-    write(repo.root, ".compass/config.yaml", "prompt_gate:\n  strictness: block\n")
-    assert hook("prompt", repo.root, prompt="fix it").returncode == 2
-    context, _ = answer(hook("prompt", repo.root, prompt="Make withRetry in src/transport/reconnect.ts stop after 5 tries"))
-    assert "Task T1 is now active" in context
+def test_follow_ups_in_a_session_lean_on_earlier_turns(repo):
+    hook("session-start", repo.root, source="startup")
+    answer(hook("prompt", repo.root, prompt="where is the reconnect backoff computed?"))
+    run_compass("-C", str(repo.root), "task", "new")  # a fresh task, in the same conversation
+    context, message = answer(hook("prompt", repo.root, prompt="fix it"))
+    assert message == "" and "check with the developer" not in context  # "it" is what was just discussed
+    run_compass("-C", str(repo.root), "task", "new")
+    hook("session-start", repo.root, source="clear")  # /clear: the earlier turns are gone
+    assert "Claude will check with you" in answer(hook("prompt", repo.root, prompt="fix it"))[1]
 
 
 def test_approving_a_large_task_whose_spec_went_missing(repo):
