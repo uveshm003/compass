@@ -67,7 +67,7 @@ acceptance: "pytest tests/hidden/test_b07.py"
 timeout_min: 20
 ```
 
-Every prompt is written in the structured `/task` format for both conditions. That isolates Compass's machinery from the separate question of whether developers write better prompts, which the pilot measures instead.
+Every prompt is written in the structured `/compass:task` format (Goal, Scope, Accept when…) for both conditions. That isolates Compass's machinery from the separate question of whether developers write better prompts, which the pilot measures instead.
 
 ## Benchmark run protocol
 
@@ -83,7 +83,7 @@ The full benchmark is 120 runs: 20 tasks × 2 conditions × 3 repeats. All runs 
 1. Fresh clone of the repo at the task's pinned commit, in a clean temp directory.
 2. For ON only: run `compass init` and `compass index`, and record the index time separately.
 3. Start the timer and run Claude Code headless (`claude -p`) with the task prompt and a JSON output format.
-4. When the spec gate asks for approval, the harness answers open questions with "proceed with stated assumptions" and runs `/approve`. Wait time is excluded from wall-clock time.
+4. When the spec gate asks for approval, the harness answers open questions with "proceed with stated assumptions" and runs `compass approve` (what `/compass:approve` runs), then resumes the session. Wait time is excluded from wall-clock time.
 5. Stop at completion, at the task's timeout, or at 40 turns.
 6. Run the hidden acceptance test and record pass or fail.
 7. Save the transcript, subagent transcripts, hook logs and `git diff` to `bench/results/<run-id>/`.
@@ -102,6 +102,7 @@ The full benchmark is 120 runs: 20 tasks × 2 conditions × 3 repeats. All runs 
 - Pin the Claude Code version and the model for the whole benchmark; record both in the report.
 - Randomise run order across tasks and conditions, so time-of-day API latency doesn't favour one side.
 - Use the same machine class for all runs.
+- Load Compass the same way in every ON run: the harness uses plugin mode through `--plugin-dir`. Pilot rows record their install mode (`plugin` or `files`, IN-14), and the report never pools the two modes.
 - Rerun the full suite after any change to Compass that could affect results. Never compare numbers across versions.
 
 ## Pilot field measurement
@@ -110,14 +111,14 @@ The benchmark shows what Compass can do; the pilot shows what it does in real wo
 
 | Weeks | Mode | What is collected |
 | --- | --- | --- |
-| 1–2 | Baseline: telemetry-only build, every other module off | Tokens, time, tool calls, correction turns per task |
-| 3–4 | Compass on, modules rolled out as built | Same, plus bypass log and context-pack overhead |
+| 1–2 | Baseline: telemetry only, every other module off (`compass install --modules baseline`) | Tokens, time, tool calls, correction turns per task |
+| 3–4 | Compass on, modules rolled out | Same, plus bypass log and context-pack overhead |
 | 5–7 | Compass fully on, rules tuned weekly | Same, plus review time on each accepted manifest |
 | 8 | Evaluation | Survey, benchmark rerun, report |
 
 ### Task tagging
 
-Developers tag each task with a category from the benchmark mix and a size (S, M or L) when they start it with `/task`. Comparisons are made within the same category and size, because a week of refactors cannot be compared with a week of bug fixes.
+Developers tag each task with a category from the benchmark mix and a size (S, M or L) when they start it with `/compass:task`. Comparisons are made within the same category and size, because a week of refactors cannot be compared with a week of bug fixes.
 
 ### Survey (week 8, 5 minutes)
 

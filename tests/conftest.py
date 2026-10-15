@@ -47,6 +47,13 @@ def isolated_env(tmp_path_factory):
     patch.setenv("GIT_COMMITTER_EMAIL", "tests@example.com")
     patch.setenv("COMPASS_CTAGS", "off")
     patch.delenv("CLAUDE_PROJECT_DIR", raising=False)
+    # The install mode (IN-11) looks at CLAUDE_PLUGIN_ROOT and ~/.claude/agents;
+    # a developer's own Compass install must not change what hooks print.
+    patch.delenv("CLAUDE_PLUGIN_ROOT", raising=False)
+    home = tmp_path_factory.getbasetemp() / "home"
+    home.mkdir(exist_ok=True)
+    patch.setenv("HOME", str(home))
+    patch.setenv("USERPROFILE", str(home))
     yield
     patch.undo()
 

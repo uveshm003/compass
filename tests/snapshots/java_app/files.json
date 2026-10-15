@@ -1,0 +1,62 @@
+[
+ {
+  "path": "README.md",
+  "lang": null,
+  "size": 96,
+  "hash": "aefcc2574a47abe6cb000f2678fa8f48"
+ },
+ {
+  "path": "pom.xml",
+  "lang": null,
+  "size": 1634,
+  "hash": "5ab28a889551f1592439796b14ec1c96"
+ },
+ {
+  "path": "src/main/java/com/example/sensors/AlarmLevel.java",
+  "lang": "java",
+  "size": 365,
+  "hash": "02c2e12e2861a900068c54498139286c"
+ },
+ {
+  "path": "src/main/java/com/example/sensors/AlarmListener.java",
+  "lang": "java",
+  "size": 252,
+  "hash": "b49ca8af717e9ac134e17f117f8994a7"
+ },
+ {
+  "path": "src/main/java/com/example/sensors/App.java",
+  "lang": "java",
+  "size": 806,
+  "hash": "5d1dc25c9d5c561067478d531068a867"
+ },
+ {
+  "path": "src/main/java/com/example/sensors/Reading.java",
+  "lang": "java",
+  "size": 911,
+  "hash": "7c79dee26a69c3d852487274a0ac22f5"
+ },
+ {
+  "path": "src/main/java/com/example/sensors/package-info.java",
+  "lang": "java",
+  "size": 83,
+  "hash": "b4dc3e6150bba9720d61cb9830f71642"
+ },
+ {
+  "path": "src/main/java/com/example/sensors/transport/RetryPolicy.java",
+  "lang": "java",
+  "size": 699,
+  "hash": "bc3f54afa1b3e2f357ceb2f0d8a7cd99"
+ },
+ {
+  "path": "src/test/java/com/example/sensors/ReadingTest.java",
+  "lang": "java",
+  "size": 519,
+  "hash": "35684b59964f56a7f6d5a63a8fafe156"
+ },
+ {
+  "path": "src/test/java/com/example/sensors/transport/RetryPolicyTest.java",
+  "lang": "java",
+  "size": 339,
+  "hash": "5e4055907ecfd79ee5127d3d8a1f1d90"
+ }
+]

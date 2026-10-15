@@ -306,7 +306,11 @@ def _agent_type(path: Path) -> str | None:
         meta = json.loads(path.with_suffix(".meta.json").read_text(encoding="utf-8"))
     except (OSError, ValueError):
         return None
-    return meta.get("agentType") if isinstance(meta, dict) and isinstance(meta.get("agentType"), str) else None
+    if not isinstance(meta, dict) or not isinstance(meta.get("agentType"), str):
+        return None
+    from compass.delegation import canonical_agent
+
+    return canonical_agent(meta["agentType"])
 
 
 def _add_usage(total: dict[str, dict[str, int]], part: dict[str, dict[str, int]]) -> None:
@@ -359,7 +363,9 @@ def on_subagent_stop(repo: Repo, config, payload: dict[str, Any]) -> None:
     session = payload.get("session_id") if isinstance(payload.get("session_id"), str) else None
     if agent is None or transcript is None or not transcript.is_file():
         return
-    kind = payload.get("agent_type") if isinstance(payload.get("agent_type"), str) else None
+    from compass.delegation import canonical_agent
+
+    kind = canonical_agent(payload.get("agent_type"))  # one name in both install modes (IN-11)
 
     def row(summary: Summary) -> dict[str, Any]:
         delegated: dict[str, dict[str, int]] = {}
@@ -429,6 +435,7 @@ class _offsets:
 
 def _row(repo: Repo, config, kind: str, session: str | None, summary: Summary, extra: dict[str, Any]) -> dict[str, Any]:
     from compass import __version__, state
+    from compass.install import install_mode
 
     current = state.read(repo)
     task = state.active_task(current)
@@ -442,6 +449,7 @@ def _row(repo: Repo, config, kind: str, session: str | None, summary: Summary, e
         "main": summary.main, "delegated": summary.delegated, "tools": dict(sorted(summary.tools.items())),
         "prompts": summary.prompts, "active_s": summary.active_s, "injected_chars": summary.injected_chars,
         "claude_code": summary.claude_code, "compass_version": __version__,
+        "install_mode": install_mode(repo.root),  # plugin | files | None, so comparisons never mix modes (IN-14)
     }
     row.update({k: v for k, v in extra.items() if v is not None})
     return row

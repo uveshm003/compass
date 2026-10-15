@@ -558,3 +558,300 @@ def test_editing_an_extended_tsconfig_re_resolves_imports(make_repo):
     bump_mtime(repo.root / "tsconfig.base.json")
     Indexer(repo).update(["tsconfig.base.json"])
     assert queries.importers_of("src/lib/log.ts").data == []
+
+
+# -- Swift (NF-09) ------------------------------------------------------------------
+
+
+def test_swift_tests_for_callers_and_outline(q):
+    swift = q("swift_app")
+    assert swift.tests_for("Sources/Inventory/Reading.swift").lines == [
+        "Tests for Sources/Inventory/Reading.swift:",
+        "Tests/InventoryTests/ReadingTests.swift  (name) — testAlarm, testSeverity, testStoreKeepsReadings",
+    ]
+    callers = swift.callers_of("isAlarm")
+    assert callers.lines[:3] == [
+        "4 call sites of isAlarm:",
+        "Sources/Inventory/Reading.swift:42  in Reading.severity — isAlarm() ? Severity.of(ppm: ppm) : nil",
+        "Sources/Inventory/ReadingStore.swift:22  in MemoryStore.save — if reading.isAlarm() {",
+    ]
+    assert callers.data[-1]["caller"] == "ReadingTests.testAlarm" and callers.data[-1]["is_test"]
+    outline = swift.file_outline("Sources/Inventory/Reading.swift")
+    assert outline.lines[0] == ("Sources/Inventory/Reading.swift  (swift, 11 symbols)"
+                                " — Readings from gas sensors and the rule that turns one into an alarm")
+    assert "- L13    const criticalLevel: Double = 200.0 — Readings above this many ppm are critical" in outline.lines
+    assert "- L50  impl Reading: CustomStringConvertible" in outline.lines  # an extension groups its methods
+    assert "- L54    method isStale(after seconds: TimeInterval, now: Date = Date()) -> Bool" \
+        " — Whether the reading is older than `seconds`" in outline.lines
+
+
+def test_swift_visibility_and_module_imports(q):
+    swift = q("swift_app")
+    visibility = {(d["kind"], d["name"]): d["visibility"] for d in swift.find_symbol("Reading", limit=50).data}
+    assert visibility[("struct", "Reading")] == "public" and visibility[("impl", "Reading")] is None
+    # `public private(set) var ppm` is not a symbol, but `private func age` is, and private.
+    assert {d["name"]: d["visibility"] for d in swift.find_symbol("age", kind="method").data}["age"] == "private"
+    assert {d["name"]: d["visibility"] for d in swift.find_symbol("Backoff").data}["Backoff"] == "internal"
+    # Swift imports name modules (SwiftPM targets): matched by name, not resolved to a path.
+    assert swift.importers_of("Inventory").data == [
+        {"path": "Sources/Gateway/Uploader.swift", "targets": ["Inventory"]},
+        {"path": "Sources/Gateway/main.swift", "targets": ["Inventory"]},
+        {"path": "Tests/InventoryTests/ReadingTests.swift", "targets": ["Inventory"]},
+    ]
+
+
+# -- Dart (NF-09) ------------------------------------------------------------------
+
+
+def test_dart_tests_callers_and_outline(q):
+    dart = q("dart_app")
+    assert dart.tests_for("lib/src/models.dart").lines == [
+        "Tests for lib/src/models.dart:", "test/models_test.dart  (name) — main",
+    ]
+    assert dart.tests_for("lib/src/transport/retry.dart").lines[1] == "test/transport/retry_test.dart  (name) — main"
+    assert dart.callers_of("isAlarm").lines == [
+        "3 call sites of isAlarm:",
+        "lib/src/alarm.dart:48  in classify — if (reading.isAlarm(threshold * 2)) return AlarmLevel.critical;",
+        "lib/src/alarm.dart:49  in classify — if (reading.isAlarm(threshold)) return AlarmLevel.warning;",
+        "test/models_test.dart:6  in main — expect(Reading('s1', 75).isAlarm(), isTrue);  [test]",
+    ]
+    assert dart.callers_of("shouldRetry").data[0]["caller"] == "Poller.run"
+    outline = dart.file_outline("lib/src/models.dart")
+    assert outline.lines[0] == "lib/src/models.dart  (dart, 13 symbols) — Sensor readings and the sources that produce them"
+    assert "- L16    method zero(this.sensorId) — A reading of zero, used before a sensor reports" in outline.lines
+    assert "- L39  interface ReadingSource — Anything that produces readings: a device, a recording, a test double" \
+        in outline.lines
+    assert "- L48  impl ReadingFormat on Reading — Formatting for dashboards" in outline.lines  # an extension
+    assert "- L32    method bool isAlarm([double threshold = defaultThreshold]) — True when the reading crosses threshold" \
+        in outline.lines
+    assert "- L44    method String get name — A name for logs" in outline.lines  # a getter
+    assert "- L5  const double defaultThreshold = 50.0 — Alarm threshold, in ppm, for a sensor that has none of its own" \
+        in outline.lines
+
+
+def test_dart_ranges_visibility_and_imports(q):
+    dart = q("dart_app")
+    # The body is a sibling of the signature in Dart's grammar; the range still runs
+    # from the doc comment over the signature to the closing brace.
+    assert dart.read_symbol("Poller.run", context=0).lines[0] == "lib/src/transport/poller.dart:14-32  method Poller.run"
+    assert dart.find_symbol("_reset").data[0]["visibility"] == "private"
+    assert {d["name"]: d["kind"] for d in dart.find_symbol("RetryLog").data}["RetryLog"] == "trait"  # a mixin
+    # './' and '../' imports resolve; bare 'x.dart' and package: imports stay as written.
+    assert dart.importers_of("lib/src/alarm.dart").data == [
+        {"path": "lib/src/transport/poller.dart", "targets": ["../alarm.dart"]},
+    ]
+    assert [d["path"] for d in dart.importers_of("package:sensor_kit").data] == [
+        "test/models_test.dart", "test/transport/retry_test.dart",
+    ]
+
+
+# -- C# (NF-09) -------------------------------------------------------------------
+
+
+def test_csharp_outline_tests_and_callers(q):
+    cs = q("csharp_app")
+    outline = cs.file_outline("src/Sensors.Core/Transport/Backoff.cs")
+    assert outline.lines[0] == "src/Sensors.Core/Transport/Backoff.cs  (csharp, 8 symbols)"
+    # The signature starts at the return type; auto-properties and plain fields are not symbols.
+    assert "- L13    const TimeSpan BaseDelay = TimeSpan.FromMilliseconds(100)" in outline.lines
+    assert "- L17    method Backoff(TimeSpan cap)" in outline.lines
+    assert "- L28    method TimeSpan NextDelay(int attempt)" in outline.lines
+    assert cs.tests_for("src/Sensors.Core/Transport/Backoff.cs").lines == [
+        "Tests for src/Sensors.Core/Transport/Backoff.cs:",
+        "tests/Sensors.Core.Tests/BackoffTests.cs  (name) — NextDelay_GrowsUntilTheCap, ShouldRetry_StopsAtMaxAttempts",
+    ]
+    callers = cs.callers_of("NextDelay")
+    assert callers.lines[:2] == [
+        "3 call sites of NextDelay:",
+        "src/Sensors.Core/Transport/Retry.cs:24  in Retry.RunAsync — await Task.Delay(policy.NextDelay(attempt), token);",
+    ]
+    assert [d["caller"] for d in cs.callers_of("Classify").data][0] == "Sensors.Core.Alarms.AlarmEvaluator.ClassifyAll"
+
+
+def test_csharp_visibility_namespaces_and_usings(q):
+    cs = q("csharp_app")
+    found = {(d["kind"], d["parent"], d["name"]): d["visibility"] for d in cs.find_symbol("e", limit=80).data}
+    assert found[("class", None, "RetryDefaults")] == "internal"  # top-level type without a modifier
+    assert found[("method", "IRetryPolicy", "NextDelay")] == "public"  # interface members take the interface's
+    assert found[("constant", "Backoff", "BaseDelay")] == "private"  # static readonly counts as a constant
+    # A block-scoped namespace is its types' parent; a file-scoped one is not.
+    assert found[("method", "Sensors.Core.Alarms.AlarmEvaluator", "Classify")] == "public"
+    assert found[("method", "Backoff", "NextDelay")] == "public"
+    # `using` names a namespace, not a file: matched by name, with nested namespaces included.
+    assert cs.importers_of("Sensors.Core").lines == [
+        "3 files import Sensors.Core:",
+        "src/Sensors.Core/Alarms/AlarmEvaluator.cs  (Sensors.Core.Models)",
+        "tests/Sensors.Core.Tests/AlarmEvaluatorTests.cs  (Sensors.Core.Alarms, Sensors.Core.Models)",
+        "tests/Sensors.Core.Tests/BackoffTests.cs  (Sensors.Core.Transport)",
+    ]
+    assert cs.importers_of("src/Sensors.Core/Models/Reading.cs").lines == [
+        "[compass] Nothing imports src/Sensors.Core/Models/Reading.cs."
+    ]
+
+
+# -- C and C++ (NF-09): .c files are C, headers and the rest C++ ---------------------
+
+
+def test_cpp_members_definitions_and_visibility(q):
+    cpp = q("cpp_app")
+    found = {(d["kind"], d["parent"], d["name"], d["path"]): d["visibility"] for d in cpp.find_symbol("e", limit=80).data}
+    hpp = "include/sensors/alarm.hpp"
+    # A member takes its access section; a definition outside the class keeps the class as parent.
+    assert found[("method", "AlarmMonitor", "record", hpp)] == "private"
+    assert ("method", "AlarmMonitor", "record", "src/alarm.cpp") in found
+    assert found[("method", "Reading", "is_alarm", hpp)] == "public"  # a struct's members default to public
+    assert {d["path"]: d["visibility"] for d in cpp.find_symbol("on_alarm").data}[hpp] == "protected"
+    # `static` and an anonymous namespace keep code private to its file.
+    assert found[("function", None, "clamp_delay", "src/retry.c")] == "private"
+    assert found[("function", None, "label", "src/alarm.cpp")] == "private"
+    # A typedef'd struct is one symbol under the typedef's name; a GoogleTest case is named by its test.
+    assert ("struct", None, "backoff_t", "include/retry.h") in found
+    assert ("function", "AlarmMonitor", "ClassifiesAlarm", "tests/alarm_test.cpp") in found
+    outline = cpp.file_outline("include/retry.h")
+    assert outline.lines[0] == "include/retry.h  (cpp, 8 symbols) — Retry with exponential backoff, shared by the C and C++ code"
+    assert "- L13  macro RETRY_CLAMP(x, lo, hi) — Clamp x between lo and hi" in outline.lines
+    # The header's declaration and the source's definition are both in the map, so a
+    # read without a path asks which one.
+    assert cpp.read_symbol("AlarmMonitor.classify").lines[0] == (
+        '"AlarmMonitor.classify" is defined in 2 files; pass path= to pick one:'
+    )
+
+
+def test_cpp_tests_includes_and_callers(q):
+    cpp = q("cpp_app")
+    assert cpp.tests_for("src/retry.c").lines == [
+        "Tests for src/retry.c:", "tests/test_retry.c  (name) — test_delay_grows, test_gives_up, main",
+    ]
+    assert cpp.tests_for("include/sensors/alarm.hpp").lines == [
+        "Tests for include/sensors/alarm.hpp:", "tests/alarm_test.cpp  (name) — ClassifiesAlarm, IsAlarm",
+    ]
+    # `#include "retry.h"` is matched by name. Resolving it to include/retry.h needs the
+    # build's include directories, which no resolver reads yet; <...> stays as written.
+    assert cpp.importers_of("retry.h").lines[0] == "4 files import retry.h:"
+    assert cpp.importers_of("include/retry.h").lines == ["[compass] Nothing imports include/retry.h."]
+    assert cpp.importers_of("<fmt/core.h>").data == [{"path": "src/alarm.cpp", "targets": ["<fmt/core.h>"]}]
+    assert [(d["path"], d["caller"]) for d in cpp.callers_of("classify").data] == [
+        ("src/main.cpp", "main"), ("tests/alarm_test.cpp", "AlarmMonitor.ClassifiesAlarm"),
+    ]
+    assert len(cpp.callers_of("backoff_next_delay").data) == 3
+
+
+def test_c_and_cpp_declarator_shapes():
+    from compass.index.parser import parse_source
+    from compass.languages import load_registry
+
+    registry = load_registry()
+
+    def symbols(path: str, text: str) -> dict:
+        spec = registry.get(registry.detect_by_name(path))
+        return {(s.kind, s.parent, s.name): s.visibility for s in parse_source(spec, path, text.encode()).symbols}
+
+    c = symbols("lib/table.c", (
+        'static const char *const names[] = {"a"};\nstatic inline int twice(int x) { return 2 * x; }\n'
+        "char *name_of(int i) { return 0; }\nint later(void);\nstruct cfg { int a; };\n#define FLAG\n#define LIMIT 4\n"
+    ))
+    assert c == {
+        ("constant", None, "names"): "private", ("function", None, "twice"): "private",
+        ("function", None, "name_of"): "public", ("struct", None, "cfg"): "public", ("macro", None, "LIMIT"): "public",
+    }  # a prototype in a .c file and a bare flag are left out
+    hpp = symbols("lib/box.hpp", (
+        "class Box {\n  void hidden();\npublic:\n  Box() = default;\n  template <typename U> U get() const;\n"
+        "  bool operator==(const Box&) const;\nprivate:\n  struct Slot { int v; };\n};\n"
+        "template <typename T> struct Wrap { T v; };\nusing Millis = long;\nnamespace a::b { int f(); }\n"
+    ))
+    assert hpp == {
+        ("class", None, "Box"): "public", ("method", "Box", "hidden"): "private", ("method", "Box", "Box"): "public",
+        ("method", "Box", "get"): "public", ("method", "Box", "operator=="): "public",
+        ("struct", "Box", "Slot"): "private", ("struct", None, "Wrap"): "public", ("type", None, "Millis"): "public",
+        ("namespace", None, "a::b"): "public", ("function", None, "f"): "public",
+    }
+    cpp = symbols("lib/box.cpp", "Box::~Box() {}\nint* Box::ptr() { return nullptr; }\ntemplate <> void Wrap<int>::set(int) {}\n")
+    assert set(cpp) == {("method", "Box", "~Box"), ("method", "Box", "ptr"), ("method", "Wrap", "set")}
+
+
+def test_c_and_cpp_signatures_start_at_the_return_type(q):
+    from compass.index.parser import parse_source
+    from compass.languages import load_registry
+
+    registry = load_registry()
+
+    def signatures(path: str, text: str) -> dict:
+        spec = registry.get(registry.detect_by_name(path))
+        return {s.name: s.signature for s in parse_source(spec, path, text.encode()).symbols}
+
+    # After static, inline, virtual, constexpr and attributes, with a const right before the type.
+    assert signatures("lib/sig.cpp", (
+        "static constexpr const char* name() { return 0; }\nint const* east() { return 0; }\n"
+        "[[nodiscard]] std::vector<int> all();\nauto later() -> int;\n"
+        "const std::string& Box::label() const { return l_; }\n"
+        "class Box {\npublic:\n  virtual ~Box();\n  virtual bool ok() const = 0;\n};\nstatic constexpr double kLimit = 1.5;\n"
+    )) == {
+        "name": "const char* name()", "east": "int const* east()", "all": "std::vector<int> all()",
+        "later": "auto later() -> int", "Box": "Box", "~Box": "~Box()", "label": "const std::string& Box::label() const",
+        "ok": "bool ok() const = 0", "kLimit": "double kLimit = 1.5",
+    }
+    assert signatures("lib/t.c", "static const struct cfg *find(const char *k) { return 0; }\nunsigned long big(void) { return 0; }\n") == {
+        "find": "const struct cfg *find(const char *k)", "big": "unsigned long big(void)",
+    }
+    # An out-of-class definition keeps the Owner:: it was written with; a constructor starts at its name.
+    assert q("cpp_app").file_outline("src/alarm.cpp").lines[2:5] == [
+        "- L9  fn const char* label(Level level) — Label used in log lines",
+        "- L23  method bool Reading::is_alarm(double threshold) const",
+        "- L28  method AlarmMonitor.AlarmMonitor(double threshold) : threshold_(threshold)",
+    ]
+
+
+# -- Java and Kotlin (NF-09) ----------------------------------------------------------
+
+
+def test_java_tests_imports_callers_and_outline(q):
+    java = q("java_app")
+    reading = "src/main/java/com/example/sensors/Reading.java"
+    # A test in the same package needs no import: it is found by name.
+    assert java.tests_for(reading).lines == [
+        f"Tests for {reading}:",
+        "src/test/java/com/example/sensors/ReadingTest.java  (name) — alarmAtThreshold, criticalAboveHundred",
+    ]
+    # Imports resolve by package path, a static import to the class that holds the member.
+    assert java.importers_of("src/main/java/com/example/sensors/transport/RetryPolicy.java").data == [
+        {"path": "src/main/java/com/example/sensors/App.java", "targets": [
+            "com.example.sensors.transport.RetryPolicy", "com.example.sensors.transport.RetryPolicy.MAX_ATTEMPTS",
+        ]},
+    ]
+    assert [(d["path"], d["caller"]) for d in java.callers_of("isAlarm").data] == [
+        ("src/main/java/com/example/sensors/App.java", "App.main"),
+        ("src/test/java/com/example/sensors/ReadingTest.java", "ReadingTest.alarmAtThreshold"),
+    ]
+    assert [d["caller"] for d in java.callers_of("RetryPolicy").data] == ["App.main", "RetryPolicyTest.stopsAfterMaxAttempts"]
+    outline = java.file_outline(reading)
+    # The signature starts at the return type; a constructor is a method named after its class.
+    assert "- L23    method boolean isAlarm(double threshold) — True when the reading crosses the alarm threshold" in outline.lines
+    assert "- L16    method Reading(String sensorId, double ppm, Instant takenAt)" in outline.lines
+    assert "- L10    const double DEFAULT_THRESHOLD = 40.0 — Readings above this many ppm raise an alarm" in outline.lines
+    visibility = {d["name"]: d["visibility"] for d in java.find_symbol("ppm").data}
+    assert visibility["ppm"] == "internal" and visibility["forPpm"] == "public"  # no modifier: package-private
+
+
+def test_kotlin_tests_imports_and_signatures(q):
+    kotlin = q("kotlin_app")
+    backoff = "src/main/kotlin/com/example/alarms/transport/Backoff.kt"
+    assert kotlin.tests_for(backoff).lines == [
+        f"Tests for {backoff}:", "src/test/kotlin/com/example/alarms/transport/BackoffTest.kt  (name) — delayGrows",
+    ]
+    # A class import resolves to the file named after the class; a top-level function's does not.
+    assert kotlin.importers_of(backoff).data == [
+        {"path": "src/main/kotlin/com/example/alarms/Main.kt", "targets": ["com.example.alarms.transport.Backoff"]},
+    ]
+    outline = kotlin.file_outline("src/main/kotlin/com/example/alarms/Reading.kt")
+    # Companion-object members belong to their class; an extension's signature starts at its receiver.
+    assert "- L22    method parse(line: String): Reading — A reading parsed from \"sensor,ppm\"" in outline.lines
+    assert "- L30  fn List<Reading>.alarms(threshold: Double = DEFAULT_THRESHOLD): List<Reading>" \
+        " — The readings in this list that raise an alarm" in outline.lines
+    assert [d["caller"] for d in kotlin.callers_of("nextDelay").data] == ["retry", "BackoffTest.delayGrows"]
+    found = {(d["kind"], d["name"]): d["visibility"] for d in kotlin.find_symbol("o", limit=50).data}
+    assert found[("class", "ConsoleNotifier")] == "internal" and found[("method", "rounded")] == "private"
+
+
+def test_kotlin_doc_of_the_first_declaration_after_the_package_header(q):
+    outline = q("kotlin_app").file_outline("src/main/kotlin/com/example/alarms/AlarmLevel.kt")
+    assert "- L4  enum AlarmLevel — How serious an alarm is" in outline.lines

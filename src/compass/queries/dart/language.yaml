@@ -1,0 +1,33 @@
+name: dart
+grammar: dart
+extensions: [.dart]
+# Members and top-level variables sit in these; a lone name's range and doc
+# lookup extend to them.
+wrappers: [declaration, static_final_declaration_list, initialized_identifier_list]
+# The grammar puts a function's signature beside its body, not around it, and a
+# variable's modifiers and type beside its name list. The body (or the name) is
+# the definition node, so these siblings carry the range and the doc lookup
+# back to the annotations and the doc comment above them.
+skip_before_doc:
+  - annotation
+  - function_signature
+  - method_signature
+  - getter_signature
+  - setter_signature
+  - const_builtin
+  - final_builtin
+  - inferred_type
+  - type_identifier
+  - type_arguments
+  - nullable_type
+  - function_type
+  - void_type
+visibility:
+  names:
+    - ["^_", private]        # a leading underscore is library-private
+  default: public
+tests:
+  files: ["**/*_test.dart", "**/test/**", "**/integration_test/**", "**/test_driver/**"]
+  name_suffixes: [_test]     # models_test.dart tests models.dart
+imports:
+  resolver: path             # './x.dart' and '../x.dart'; package: and bare 'x.dart' stay unresolved

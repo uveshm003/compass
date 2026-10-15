@@ -17,13 +17,18 @@ from compass.repo import Repo
 from compass.stack import build_profile
 from conftest import FIXTURE_NAMES, read_tree
 
-LANGUAGES = {"python_app": {"python"}, "ts_app": {"typescript", "javascript"}, "go_app": {"go"}, "rust_app": {"rust"}}
+LANGUAGES = {
+    "python_app": {"python"}, "ts_app": {"typescript", "javascript"}, "go_app": {"go"}, "rust_app": {"rust"},
+    "java_app": {"java"}, "kotlin_app": {"kotlin"}, "swift_app": {"swift"}, "dart_app": {"dart"},
+    "csharp_app": {"csharp"}, "cpp_app": {"c", "cpp"},
+}
+# NF-09: the ten v1 languages, C/C++ counted once.
+NF09 = {"python", "typescript", "javascript", "go", "rust", "java", "kotlin", "swift", "dart", "csharp", "c", "cpp"}
 
 
-def test_fixtures_cover_four_languages():
-    assert len(FIXTURE_NAMES) >= 4
+def test_fixtures_cover_the_nf09_languages():
     covered = set().union(*(LANGUAGES[name] for name in FIXTURE_NAMES))
-    assert {"python", "typescript", "javascript", "go", "rust"} <= covered
+    assert NF09 <= covered
 
 
 @pytest.mark.parametrize("fixture", FIXTURE_NAMES)

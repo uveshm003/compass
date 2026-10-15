@@ -40,6 +40,8 @@ flowchart TD
 
 Keeping logic in the core means the same code serves Claude Code hooks, the MCP server, the developer's CLI and CI. It also keeps Compass portable to other agents later, since only the thin plugin layer is Claude Code specific.
 
+The plugin layer reaches Claude Code in one of two install modes, both built from the same `plugin/` folder: as a marketplace plugin, or as plain files in `.claude/` that a team can commit (see [Installation and distribution](#installation-and-distribution), M7).
+
 ## Request lifecycle
 
 A large task passes through five Compass touchpoints between the developer's prompt and an accepted change. Small tasks skip the spec steps.
@@ -108,6 +110,14 @@ All state lives in one `.compass/` folder per repo. Team-owned inputs are commit
 
 Shards are derived and fast to regenerate, so there is no reason to commit them and create merge conflicts.
 
+The installer (M7) writes outside `.compass/`, into Claude Code's own folders, and records what it wrote:
+
+| Path | Contents | Committed? |
+| --- | --- | --- |
+| `.claude/compass/install.json` (project) or `~/.claude/compass/install.json` (user) | Install record: version, mode, scope, each installed file with its hash, the settings and MCP entries added (IN-05) | Project scope: yes, with the rest of `.claude/` |
+| `.claude/commands/compass/`, `.claude/agents/compass-*.md`, `.claude/output-styles/compass-review.md` | `files` mode only: the plugin's commands, agents and style | Project scope: yes |
+| `.claude/settings.json` `hooks`, `.mcp.json` `mcpServers.compass` | `files` mode only: the `compass hook` entries and the MCP registration, merged into existing files (IN-08) | Project scope: yes |
+
 ## Configuration
 
 One YAML file controls everything. Defaults favour adoption: the prompt gate never rejects a prompt, it has Claude ask about what is missing, and every module can be switched off.
@@ -172,6 +182,28 @@ The model name above is only an example; pick whatever runs well on the team's h
 
 For the pilot's telemetry-only baseline, set `enabled: false` on `query`, `prompt_gate`, `context_pack`, `spec_gate`, `review` and `delegation`. Claude Code then runs as stock, while the Stop hook still records every turn, marked `compass: false`.
 
+## Installation and distribution
+
+M7, built in 0.3.0 (requirements IN-01 to IN-15, ADR 009; the work breakdown is in `docs/installer-plan.md`). The code is `src/compass/install/` and the npm wrapper `npm/`. The installer is a CLI command, never a hook, so it may use the network and exit non-zero. Nothing it installs changes what runs during a session.
+
+```mermaid
+flowchart LR
+  N["npx compass-cc install"] -->|finds or installs uv| T["uv tool install compass==version"]
+  U["uvx … compass install"] --> T
+  T --> C["compass install"]
+  C -->|plugin mode| P["claude plugin marketplace add, claude plugin install --scope"]
+  C -->|files mode| F[".claude/ files, settings.json hooks, .mcp.json"]
+  C --> I["compass init with a module preset"]
+  C --> R["install record"]
+```
+
+- **One installer, two entry points.** `compass install` in `src/compass/install/` does the work. The npm package only finds or installs uv, installs the CLI at its own version and passes its arguments on (IN-12), so behaviour stays in the core. `uvx` alone is ephemeral and hooks need `compass` on PATH, so the installer always ends with a persistent `uv tool install`.
+- **Two modes from one source.** `plugin` mode uses the public `claude plugin` CLI. `files` mode copies `plugin/commands/` to `.claude/commands/compass/` (so the command names stay `/compass:*`), `plugin/agents/<n>.md` to `.claude/agents/compass-<n>.md`, `plugin/skills/<n>/` to `.claude/skills/compass-<n>/` (so `/compass-<n>`), and the style. It also merges `hooks.json` into `settings.json`, and the MCP server into `.mcp.json` (project scope) or through `claude mcp add --scope user`. The wheel carries `plugin/` as package data. Installing both modes at once would run every hook twice, so the installer refuses and `compass doctor` reports it.
+- **Agent names differ by mode.** Plugin agents are `compass:<n>`, file agents `compass-<n>`. The core accepts both for contracts, telemetry and the report, and SessionStart names them as the active mode does (IN-11). Telemetry rows record the mode (IN-14).
+- **Upgrade and uninstall go by the install record.** A file whose hash still matches is replaced. An edited file is kept, with the new version written beside it as `.compass-new`, and a deleted file stays deleted. Settings entries are found by their `compass hook ` prefix, every other key is left alone, and a backup is taken before the first write. Uninstall extends CF-04, so the touched files end up as they were.
+- **No update check in hooks.** GSD checks for updates at session start. Compass doesn't, because that would be a network call on a hook path (NF-10). `compass upgrade` runs only when someone types it.
+- **Hosts.** Python packages go to PyPI or an Azure Artifacts feed, the npm wrapper to npmjs, GitHub Packages or an Azure Artifacts npm feed, and git URLs work for both hosts (NF-16). Release jobs are defined identically in both CI systems.
+
 ## Extension points
 
 Stack-agnosticism depends on these extension points being small and data-driven, so adding support never touches core code.
@@ -183,7 +215,9 @@ Stack-agnosticism depends on these extension points being small and data-driven,
 | A prompt-gate rule | A function `(prompt, config) -> list[missing_field]` | `src/compass/gate/rules/` |
 | A test-mapping convention | Test-file globs and name affixes, e.g. `x.test.ts` tests `x.ts` | The language's `language.yaml` (`tests:` section) |
 | A subagent | A Markdown file with frontmatter and an output contract | `plugin/agents/` |
-| A team standard | A skill folder | `.compass/standards/` or the org repo |
+| A skill (ST-04) | A `SKILL.md` folder in the shared shape (standards first, query tools, `stack_profile`, delegation, a bounded answer); `tests/test_plugin.py` checks the shape | `plugin/skills/<name>/` |
+| A team standard | Markdown rules for all skills or one skill (ST-06) | `.compass/standards/all.md`, `.compass/standards/<skill>.md`, or the org repo |
+| An install target (M7) | A module that maps `plugin/` onto one runtime's folders and settings; Claude Code is the only target in v1 (other agents are deferred for review, MT-01) | `src/compass/install/targets/` |
 
 Every new language must come with a fixture repo and snapshot test before it counts as supported.
 
@@ -206,10 +240,14 @@ Compass must never make Claude Code worse than stock. Any failure other than a d
 | Pre-commit check fails internally | Commit allowed, error logged | Nothing |
 | Spec gate blocks a genuinely small edit | Developer runs `!quick` or `/approve` | Clear message naming the fix |
 | Config file invalid | Defaults used; warning printed once per session | One-line warning |
+| Installer phase fails (M7) | The files that phase wrote are rolled back; exit non-zero (the installer is not a hook) | What is in place; running the installer again finishes the job |
+| `settings.json` does not parse | The installer refuses to touch it | The path and the parse error |
+| Plugin and `files` mode both installed | `install` refuses to add the second; `doctor` reports it | How to switch modes |
+| An upgrade meets an edited Compass file | The edit is kept; the new version is written beside it as `.compass-new` | The list of kept files |
 
 ## Architecture decision records
 
-All eight decisions are proposed for review before M1 starts. New decisions get the next ADR number and one row here; a superseded ADR stays listed with its replacement noted.
+The first eight decisions were proposed for review before M1 started; ADR 009 was added with the M7 plan. New decisions get the next ADR number and one row here; a superseded ADR stays listed with its replacement noted.
 
 | ADR | Decision | Why | Trade-off accepted | Status |
 | --- | --- | --- | --- | --- |
@@ -221,3 +259,4 @@ All eight decisions are proposed for review before M1 starts. New decisions get 
 | 006 | Deterministic rules for the prompt gate | Must run under 100 ms on every prompt with no token cost | Rules are cruder than an LLM judge; tuned from logs | Proposed |
 | 007 | Anchor tags in code, stripped before commit | Reviewers see marks in context in any editor; no editor plugin needed | Extra comment noise until `/accept` | Proposed |
 | 008 | stdio-only MCP server | No open ports; nothing reachable from the network | One server process per Claude Code session | Proposed |
+| 009 | One installer in the Python CLI (`compass install`), with a logic-free npm wrapper, installing either as a plugin or as files in `.claude/` from the same `plugin/` source | One-command setup like GSD and BMAD, without splitting behaviour across two languages; `files` mode lets a team commit Compass with its repo; both stay on public extension points (ADR 001) | Two install modes to test; agent names differ by mode; npm and Python packages to publish in step | Proposed |

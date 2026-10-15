@@ -143,7 +143,10 @@ def on_session_start(repo: Repo, payload: dict[str, Any]) -> int:
             from compass import llm
 
             local = llm.available(repo, config)
-        extra = [*rules(config.delegation.digest_threshold_lines, local), *extra]
+        from compass.install import install_mode
+
+        mode = install_mode(repo.root)
+        extra = [*rules(config.delegation.digest_threshold_lines, local, mode), *extra]
     try:
         from compass import telemetry
 
@@ -192,7 +195,9 @@ def on_post_edit(repo: Repo, payload: dict[str, Any]) -> int:
     if rel is None:
         return 0
     agent_id = payload.get("agent_id") if isinstance(payload.get("agent_id"), str) else None
-    agent_type = payload.get("agent_type") if isinstance(payload.get("agent_type"), str) else None
+    from compass.delegation import canonical_agent
+
+    agent_type = canonical_agent(payload.get("agent_type"))
     try:
         review.record_edit(repo, _config(repo).review, rel, _session(payload), agent_id, agent_type)
     except Exception as exc:  # the re-index below still matters

@@ -26,6 +26,7 @@ from collections.abc import Callable, Iterable
 from pathlib import Path
 
 from compass.index.docs import summary
+from compass.index.model import qualified_signature
 from compass.index.store import DirStat, FileRow, Store, SymbolRow
 
 INDEX_NAME = "_index"
@@ -96,7 +97,7 @@ def render_symbols(rows: list[SymbolRow]) -> list[str]:
             stack.clear()
             if row.parent:
                 # Owned but defined elsewhere (a Go method): name the owner.
-                signature = f"{row.parent}.{signature}"
+                signature = qualified_signature(row.signature, row.name, row.parent)
         label = KIND_LABELS.get(row.kind, row.kind)
         indent = "  " * depth
         line = f"- L{row.start_line}  {indent}{label} {signature}{_doc_suffix(row.doc, row.doc_source)}"

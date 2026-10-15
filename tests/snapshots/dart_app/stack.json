@@ -1,0 +1,35 @@
+{
+ "languages": {
+  "dart": 7
+ },
+ "stacks": {
+  "dart": {
+   "packages": [
+    {
+     "path": "pubspec.yaml",
+     "name": "sensor_kit",
+     "version": "1.4.0",
+     "package_manager": "dart pub",
+     "lockfile": "pubspec.lock",
+     "engines": {
+      "dart": "^3.4.0"
+     },
+     "frameworks": {
+      "http": "1.2.2"
+     },
+     "tools": {
+      "lints": "4.0.0",
+      "mocktail": "1.0.4",
+      "test": "1.25.8"
+     },
+     "dependencies": 5,
+     "commands": {
+      "test": "dart test",
+      "lint": "dart analyze",
+      "format": "dart format --output=none --set-exit-if-changed ."
+     }
+    }
+   ]
+  }
+ }
+}

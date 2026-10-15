@@ -123,11 +123,52 @@ def test_the_weekly_checks_run_on_a_claude_code_login_or_not_at_all():
     assert rest[-1]["env"]["CLAUDE_CODE_OAUTH_TOKEN"] == "$(CLAUDE_CODE_OAUTH_TOKEN)"
 
 
+def release() -> tuple[dict, dict]:
+    github = yaml.safe_load((ROOT / ".github/workflows/release.yml").read_text(encoding="utf-8"))
+    azure = yaml.safe_load((ROOT / "azure-pipelines-release.yml").read_text(encoding="utf-8"))
+    return github, azure
+
+
+def build_commands(commands: list[str]) -> list[str]:
+    return [c for c in commands if c.startswith(("uv sync", "uv run", "uv build", "npm pack"))]
+
+
+def test_both_ci_systems_build_releases_the_same_way():
+    github, azure = release()
+    job, pipeline = github["jobs"]["release"], azure["jobs"][0]
+    commands = [step["run"] for step in job["steps"] if "run" in step]
+    scripts = [step["script"] for step in pipeline["steps"] if "script" in step]
+    assert build_commands(commands) == build_commands(scripts) == [
+        "uv sync --locked",
+        "uv run pytest",
+        "uv build --out-dir dist",
+        "npm pack ./npm --pack-destination dist",
+        "uv run python scripts/check_release.py dist",
+    ]
+    assert job["runs-on"] == pipeline["pool"]["vmImage"] == "ubuntu-latest"
+
+
+def test_releases_run_on_version_tags_only_and_publish_nothing_otherwise():
+    github, azure = release()
+    on = github[True] if True in github else github["on"]
+    assert on["push"] == {"tags": ["v*"]}
+    assert azure["trigger"] == {"branches": {"exclude": ["*"]}, "tags": {"include": ["v*"]}} and azure["pr"] == "none"
+    outward = [s for s in github["jobs"]["release"]["steps"] if "publish" in s.get("run", "") or "release create" in s.get("run", "")]
+    assert len(outward) == 3
+    assert all("startsWith(github.ref, 'refs/tags/v')" in s["if"] for s in outward)
+    gated = [s for s in azure["jobs"][0]["steps"]
+             if "publish" in s.get("script", "") or "registry=" in s.get("script", "") or s.get("task", "").startswith("npmAuthenticate")]
+    assert len(gated) == 4
+    assert all("startsWith(variables['Build.SourceBranch'], 'refs/tags/v')" in s["condition"] for s in gated)
+
+
 @pytest.mark.parametrize(
     ("path", "schema_args"),
     [
         (".github/workflows/ci.yml", ["--builtin-schema", "vendor.github-workflows"]),
         (".github/workflows/e2e.yml", ["--builtin-schema", "vendor.github-workflows"]),
+        (".github/workflows/release.yml", ["--builtin-schema", "vendor.github-workflows"]),
+        ("azure-pipelines-release.yml", ["--builtin-schema", "vendor.azure-pipelines", "--data-transform", "azure-pipelines"]),
         # Azure's parser treats every scalar as a string, and so does its schema;
         # the transform also resolves ${{ }} template syntax before checking.
         ("azure-pipelines.yml", ["--builtin-schema", "vendor.azure-pipelines", "--data-transform", "azure-pipelines"]),

@@ -1,0 +1,19 @@
+name: cpp
+grammar: cpp
+# Every header is C++ here, .h included: the C++ grammar parses C headers as
+# well, while the C grammar fails on C++ ones. Only .c files are C.
+extensions: [.cpp, .cc, .cxx, .c++, .hpp, .hh, .hxx, .h++, .h, .ipp, .tpp, .inl]
+wrappers: [template_declaration, field_declaration]
+skip_before_doc: [template_parameter_list, attribute_declaration]
+visibility:
+  modifiers:                 # the access specifier a member sits under
+    - ["^private$", private]
+    - ["^protected$", protected]
+    - ["^public$", public]
+  default: public            # `static` and anonymous namespaces mark file-private code in tags.scm
+tests:
+  files: ["**/tests/**", "**/test/**", "**/*_test.*", "**/*_tests.*", "**/*_unittest.*", "**/test_*.*"]
+  name_prefixes: [test_]
+  name_suffixes: [_test, _tests, _unittest]
+imports:
+  resolver: path             # "./x.h" and "../x.h"; "x.h" and <x.h> need include directories and stay unresolved

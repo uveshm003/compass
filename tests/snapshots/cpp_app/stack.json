@@ -1,0 +1,35 @@
+{
+ "languages": {
+  "cpp": 5,
+  "c": 2
+ },
+ "stacks": {
+  "cmake": {
+   "packages": [
+    {
+     "path": "CMakeLists.txt",
+     "name": "sensor_gateway",
+     "version": "1.4.0",
+     "languages": [
+      "C",
+      "CXX"
+     ],
+     "package_manager": "vcpkg",
+     "engines": {
+      "cmake": ">=3.20",
+      "c++": "17"
+     },
+     "frameworks": {
+      "fmt": "10.2.1",
+      "googletest": "1.14.0"
+     },
+     "dependencies": 2,
+     "commands": {
+      "build": "cmake -S . -B build && cmake --build build",
+      "test": "ctest --test-dir build"
+     }
+    }
+   ]
+  }
+ }
+}

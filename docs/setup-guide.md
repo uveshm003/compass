@@ -10,6 +10,17 @@ Everything runs on your own machine, on top of Claude Code and your own Claude l
 
 Setup takes about ten minutes. Once per machine, you install the `compass` command-line tool and the Claude Code plugin. Then you run `compass init` once in each repository.
 
+**The quick way (0.3.0 and later).** With uv installed (step 1), one command installs the tool, wires Compass into Claude Code and sets up the current repository:
+
+```bash
+uvx --from git+https://github.com/<owner>/<repo> compass install       # or the Azure Repos URL
+compass install                                                        # when the tool is already installed
+```
+
+From a clone, `.\install.ps1` (Windows: `powershell -ExecutionPolicy Bypass -File .\install.ps1`) or `./install.sh` does all of it and installs uv first if it is missing; run it from the repository you want Compass in, or add `-Repo <path>` / `--repo <path>`.
+
+It asks whether Compass is for you alone or for the whole repository (committed in `.claude/`), whether to install it as a plugin or as plain files, and which modules to switch on. Every question is also a flag: `compass install --yes --scope project --mode files`. Then run `compass doctor` to check the install, `compass upgrade` to update it (your edits to Compass's files are kept), and `compass uninstall` to remove it. An `npx compass-cc install` entry point will follow once the package is published. The steps below do the same by hand.
+
 ## What you need
 
 | | Version | Why |
@@ -41,16 +52,16 @@ powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | ie
 Install it from wherever your team hosts the Compass repository:
 
 ```bash
-uv tool install git+https://github.com/<owner>/<repo>                    # GitHub
-uv tool install git+https://dev.azure.com/<org>/<project>/_git/<repo>    # Azure Repos
-uv tool install .                                                         # or from a clone, inside it
+uv tool install --compile-bytecode git+https://github.com/<owner>/<repo>                    # GitHub
+uv tool install --compile-bytecode git+https://dev.azure.com/<org>/<project>/_git/<repo>    # Azure Repos
+uv tool install --compile-bytecode .                                                         # or from a clone, inside it
 ```
 
 Next, put uv's tool folder on your PATH (you only need to do this once), and open a new terminal:
 
 ```bash
 uv tool update-shell
-compass --version        # compass 0.2.0
+compass --version        # compass 0.3.0
 ```
 
 Claude Code runs Compass's hooks by calling `compass` from the PATH, so the terminal or IDE that starts Claude Code must see it too. If you use Claude Code inside an IDE, restart the IDE after `update-shell`.
@@ -117,6 +128,19 @@ The git hooks keep the map current after commits, checkouts, merges and rebases.
 
 ## 5. Check it works
 
+`compass doctor` checks the whole install in a few seconds: the tool on the PATH, the Claude Code version, the plugin or files wired in once, the MCP server and the repository. From a Windows machine:
+
+```text
+Compass 0.3.0 doctor
+  ok    compass 0.3.0 on PATH (C:\Users\<you>\.local\bin\compass.EXE)
+  ok    Claude Code 2.1.299
+  ok    installed as the plugin (local scope)
+  ok    `compass mcp` serves 8 tools
+  ok    code map built
+  ok    git hooks: 5 of 5 installed
+All good.
+```
+
 Restart Claude Code in the repository. Plugins load when a session starts, so a session that was already open won't see Compass. Then check three things:
 
 - `/hooks` lists Compass's hooks for SessionStart, UserPromptSubmit, PreToolUse, PostToolUse, SubagentStop and Stop.
@@ -155,6 +179,14 @@ When the model isn't running, these features simply stay off.
 
 ## Updating
 
+If you installed with `compass install`, one command updates the tool and then the plugin or the installed files. Files you edited are kept, with the new version written next to them as `<file>.compass-new`:
+
+```bash
+compass upgrade
+```
+
+If you installed by hand:
+
 ```bash
 uv tool upgrade compass                                   # the tool
 claude plugin marketplace update compass-marketplace       # the plugin's source
@@ -171,14 +203,15 @@ claude plugin uninstall compass@compass-marketplace
 uv tool uninstall compass
 ```
 
-`compass uninstall` keeps `.compass/`; delete the folder if you no longer want it. With the plugin removed, Claude Code behaves exactly as stock again.
+`compass uninstall` also removes what `compass install` wrote: the plugin, or in files mode every file you have not edited, and it restores your settings files byte for byte when nothing else changed in them. Add `--scope user` for an install made for your user. It keeps `.compass/`; delete the folder if you no longer want it. With the plugin removed, Claude Code behaves exactly as stock again.
 
 ## Troubleshooting
 
 | What you see | What to do |
 | --- | --- |
 | A hook error saying `compass: command not found` | The tool isn't on the PATH Claude Code sees. Run `uv tool update-shell`, then restart the terminal or IDE. |
-| `/mcp` shows compass as failed | The same PATH problem. Or run `compass mcp` in the repository to see the error. |
+| `/mcp` shows compass as failed | The same PATH problem. Or run `compass mcp` in the repository to see the error, or `compass doctor`. |
+| `/mcp` says compass timed out, but `compass doctor` is happy | The server's first start after installing or upgrading the tool compiles its Python files, and on a slow or heavily scanned disk that can take longer than the 30 seconds Claude Code waits. Run `/mcp` to reconnect it. Running `compass doctor` once after installing starts the server and prevents it; installing with `--compile-bytecode`, as `compass install` and the bootstrap scripts do, avoids it altogether. |
 | Compass hooks don't run | Plugins load when a session starts. Restart Claude Code in the repository. |
 | "The code map is being built in the background" | The first index of a big repository is still running. Give it a few seconds. |
 | Answers look out of date | Run `compass index`, or `compass index --full` to rebuild everything. |

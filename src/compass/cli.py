@@ -105,7 +105,42 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--no-git-hooks", action="store_true", help="do not install git hooks")
     p.add_argument("--no-index", action="store_true", help="do not build the index yet")
 
-    sub.add_parser("uninstall", help="remove Compass's git hooks (restoring any they chained); keeps .compass/")
+    p = sub.add_parser(
+        "uninstall",
+        help="remove Compass's git hooks (restoring any they chained) and what `compass install` wrote; keeps .compass/",
+    )
+    p.add_argument("--scope", choices=["user", "project", "local"],
+                   help="remove only this install (user: yours, in every project; leaves the git hooks alone)")
+    p.add_argument("--dry-run", action="store_true", help="print what would be removed; change nothing")
+
+    p = sub.add_parser("install", help="install Compass for Claude Code: the CLI, the plugin or files, and compass init")
+    p.add_argument("--scope", choices=["user", "project", "local"],
+                   help="user: just you, every project; project: this repository, committed for the team;"
+                        " local: this repository, just you (plugin mode only)")
+    p.add_argument("--mode", choices=["plugin", "files"],
+                   help="plugin: through Claude Code's plugin system; files: commands, agents and hooks in .claude/")
+    p.add_argument("--modules", choices=["full", "baseline", "custom"],
+                   help="config preset: every module (full), telemetry only (baseline), or ask about each (custom)")
+    p.add_argument("--enable", default="", metavar="A,B", help="with --modules custom: the modules to switch on")
+    p.add_argument("--no-git-hooks", action="store_true", help="do not install git hooks")
+    p.add_argument("--no-init", action="store_true", help="do not run compass init in this repository")
+    p.add_argument("--reconfigure", action="store_true", help="rewrite an existing .compass/config.yaml from the preset")
+    p.add_argument("--marketplace", metavar="SOURCE",
+                   help="plugin mode: the marketplace to install from (owner/repo, an Azure Repos URL or a path);"
+                        " default: the copy bundled with this CLI")
+    p.add_argument("--source", metavar="SPEC", help="what `uv tool install` installs the CLI from (default: where this copy came from)")
+    p.add_argument("--skip-cli", action="store_true", help="leave the CLI as it is (the npx wrapper has installed it)")
+    p.add_argument("-y", "--yes", action="store_true", help="never prompt; take the defaults for anything not given")
+    p.add_argument("--dry-run", action="store_true", help="print every file it would write and command it would run")
+
+    p = sub.add_parser("upgrade", help="upgrade the compass CLI with uv, then refresh what `compass install` wrote")
+    p.add_argument("--skip-cli", action="store_true", help="only refresh the installed files, for this CLI's version")
+    p.add_argument("--source", metavar="SPEC", help="what `uv tool install` upgrades the CLI from")
+    p.add_argument("-y", "--yes", action="store_true", help="never prompt")
+    p.add_argument("--dry-run", action="store_true", help="print what would change; change nothing")
+
+    p = sub.add_parser("doctor", help="check the install: CLI on PATH, Claude Code, hooks wired once, MCP server, repository")
+    p.add_argument("--no-mcp", action="store_true", help="skip starting the MCP server")
 
     p = sub.add_parser("index", help="build or refresh the SQLite index and map shards")
     p.add_argument("--full", action="store_true", help="re-parse every file, not only changed ones")
@@ -245,17 +280,77 @@ def cmd_init(args: argparse.Namespace) -> int:
 
 
 def cmd_uninstall(args: argparse.Namespace) -> int:
-    from compass.githooks import uninstall
-    from compass.repo import find_repo
+    from pathlib import Path
 
-    repo = find_repo()
-    for message in uninstall(repo):
-        print(message)
-    print(
-        "Left in place: .compass/ (delete it to drop the index and manifests; config.yaml is yours)."
-        " Remove the Claude Code plugin with `claude plugin uninstall compass`."
-    )
+    from compass.githooks import uninstall
+    from compass.install import installer
+    from compass.install.settings import SettingsError
+    from compass.repo import NotAGitRepo, find_repo
+
+    try:
+        repo = find_repo()
+    except NotAGitRepo:
+        if args.scope != "user":
+            raise
+        repo = None
+    removed = False
+    try:
+        if args.scope == "user":
+            removed = installer.uninstall(Path.home(), "user", dry_run=args.dry_run)
+        else:
+            if not args.dry_run:
+                for message in uninstall(repo):
+                    print(message)
+            for scope in [args.scope] if args.scope else ["project", "local"]:
+                removed = installer.uninstall(repo.root, scope, dry_run=args.dry_run) or removed
+    except (installer.InstallError, SettingsError) as exc:
+        return _fail(str(exc))
+    if not removed:
+        print("No `compass install` record for this scope. If you installed the plugin by hand, remove it with"
+              " `claude plugin uninstall compass@compass-marketplace`.")
+    if repo is not None and args.scope != "user":
+        print("Left in place: .compass/ (delete it to drop the index and manifests; config.yaml is yours).")
     return EXIT_OK
+
+
+def cmd_install(args: argparse.Namespace) -> int:
+    from compass.install import installer
+    from compass.install.settings import SettingsError
+
+    enable = {m.strip() for m in args.enable.split(",") if m.strip()}
+    unknown = enable - set(installer.MODULES)
+    if unknown:
+        return _fail(f"unknown module(s) for --enable: {', '.join(sorted(unknown))} (one of {', '.join(installer.MODULES)})")
+    opts = installer.Options(
+        scope=args.scope, mode=args.mode, modules=args.modules,
+        custom={m: m in enable for m in installer.MODULES} if args.enable else {},
+        git_hooks=False if args.no_git_hooks else None, init=not args.no_init, yes=args.yes,
+        dry_run=args.dry_run, reconfigure=args.reconfigure, marketplace=args.marketplace,
+        skip_cli=args.skip_cli, source=args.source,
+    )
+    try:
+        return installer.install(opts)
+    except (installer.InstallError, SettingsError) as exc:
+        return _fail(f"install stopped: {exc}")
+    except EOFError:
+        return _fail("install stopped: no answer on stdin; pass --yes and the flags you need")
+
+
+def cmd_upgrade(args: argparse.Namespace) -> int:
+    from compass.install import installer
+    from compass.install.settings import SettingsError
+
+    opts = installer.Options(yes=args.yes, dry_run=args.dry_run, skip_cli=args.skip_cli, source=args.source)
+    try:
+        return installer.upgrade(opts)
+    except (installer.InstallError, SettingsError) as exc:
+        return _fail(f"upgrade stopped: {exc}")
+
+
+def cmd_doctor(args: argparse.Namespace) -> int:
+    from compass.install import doctor
+
+    return doctor.run(check_mcp=not args.no_mcp)
 
 
 def cmd_index(args: argparse.Namespace) -> int:
@@ -635,6 +730,9 @@ def _cli_path(repo, arg: str) -> str:
 COMMANDS = {
     "init": cmd_init,
     "uninstall": cmd_uninstall,
+    "install": cmd_install,
+    "upgrade": cmd_upgrade,
+    "doctor": cmd_doctor,
     "index": cmd_index,
     "update": cmd_update,
     "files": cmd_files,

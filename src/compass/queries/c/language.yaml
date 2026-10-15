@@ -1,0 +1,13 @@
+name: c
+grammar: c
+# Only .c files: headers are C++ here (see ../cpp/language.yaml), because the
+# C grammar fails on C++ headers and a .h file does not say which it is.
+extensions: [.c]
+visibility:
+  default: public            # `static` marks file-private code in tags.scm
+tests:
+  files: ["**/tests/**", "**/test/**", "**/*_test.*", "**/*_tests.*", "**/test_*.*"]
+  name_prefixes: [test_]
+  name_suffixes: [_test, _tests]
+imports:
+  resolver: path             # "./x.h" and "../x.h"; "x.h" and <x.h> need include directories and stay unresolved

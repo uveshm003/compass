@@ -1,0 +1,23 @@
+{
+  "name": "compass-cc",
+  "version": "0.3.0",
+  "description": "One-command installer for Compass, the code map, gates, delegation and review layer for Claude Code. Installs the Python CLI with uv, then runs `compass install`.",
+  "bin": {
+    "compass-cc": "bin/compass-cc.js"
+  },
+  "files": [
+    "bin/",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "keywords": [
+    "claude-code",
+    "compass",
+    "mcp",
+    "code-map",
+    "installer"
+  ],
+  "license": "UNLICENSED"
+}

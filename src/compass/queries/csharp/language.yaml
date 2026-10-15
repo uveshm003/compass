@@ -1,0 +1,16 @@
+name: csharp
+grammar: csharp
+extensions: [.cs]
+visibility:
+  modifiers:                 # the first access modifier wins: `protected internal` is protected
+    - ["^public$", public]
+    - ["^protected$", protected]
+    - ["^internal$", internal]
+    - ["^private$", private]
+  default: private           # members and nested types; interface members inherit the interface's
+tests:
+  files: ["**/*.Tests/**", "**/*.Test/**", "**/*.UnitTests/**", "**/*.IntegrationTests/**",
+          "**/tests/**/*.cs", "**/test/**/*.cs", "**/*Tests.cs", "**/*Test.cs"]
+  name_suffixes: [Tests, Test]   # BackoffTests.cs tests Backoff.cs
+imports:
+  separator: "."             # no resolver: a namespace spans many files and projects

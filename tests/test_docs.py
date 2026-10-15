@@ -3,7 +3,7 @@ from __future__ import annotations
 import pytest
 
 from compass.index.docs import clean_comment, clean_docstring, readme_summary, summary
-from compass.index.model import is_readme
+from compass.index.model import is_readme, qualified_signature
 
 
 @pytest.mark.parametrize(
@@ -57,6 +57,24 @@ def test_summary_skips_badges_and_unwraps_links():
     assert readme_summary('[<img alt="ci" src="b.svg">](ci)\n\nFlask is a [WSGI] framework.\n') == (
         "Flask is a [WSGI] framework."
     )
+
+
+def test_summary_drops_dartdoc_xmldoc_and_javadoc_markup():
+    assert summary("The alarm level for [reading]: critical at twice the threshold.") == (
+        "The alarm level for reading: critical at twice the threshold"
+    )
+    assert summary('<summary>Waits as <see cref="T:IRetryPolicy"/> says.</summary>') == "Waits as IRetryPolicy says"
+    assert summary("Delay before {@code attempt}, see {@link Backoff#next}.") == "Delay before attempt, see Backoff#next"
+
+
+def test_qualified_signature_puts_the_owner_before_the_name():
+    assert qualified_signature("next(attempt: number): number", "next", "Policy") == "Policy.next(attempt: number): number"
+    assert qualified_signature("TimeSpan NextDelay(int attempt)", "NextDelay", "Backoff") == (
+        "TimeSpan Backoff.NextDelay(int attempt)"
+    )
+    assert qualified_signature("bool Reading::is_alarm() const", "is_alarm", "Reading") == "bool Reading::is_alarm() const"
+    assert qualified_signature("bool operator ==(Object other)", "==", "Reading") == "bool Reading.operator ==(Object other)"
+    assert qualified_signature(None, "run", None) == "run"
 
 
 def test_summary_caps_length_at_a_word_boundary():

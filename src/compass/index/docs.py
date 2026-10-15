@@ -25,19 +25,29 @@ _LICENSE = re.compile(
 )
 _PRAGMA = re.compile(
     r"^\s*(-\*-.*-\*-|(vim?|ex):|coding[:=]|type:\s*ignore|noqa|pylint:|mypy:|pyright:|"
-    r"eslint|@ts-|prettier-ignore|jshint|istanbul|global\s|<reference\s|go:build|\+build|nolint)",
+    r"eslint|@ts-|prettier-ignore|jshint|istanbul|global\s|<reference\s|go:build|\+build|nolint|swift-tools-version)",
     re.IGNORECASE,
 )
 # Lines that end a doc's summary paragraph: tag blocks, section headings, fences.
 _SECTION = re.compile(
     r"^\s*(@\w|:(param|type|return|returns|rtype|raises)\b|(Args|Arguments|Returns|Raises|Yields|"
-    r"Examples?|Parameters|Notes?|See Also|Attributes)\s*:?\s*$|#{1,6}\s|```|~~~)"
+    r"Examples?|Parameters|Notes?|See Also|Attributes)\s*:?\s*$|#{1,6}\s|```|~~~|"
+    r"<(param|typeparam|returns|remarks|exception|example|value|inheritdoc)\b)"
 )
+# Inline doc markup, reduced to the text a reader sees: <see cref="T:X"/> is X,
+# {@link X} and {@code x} are X and x, and wrapper tags such as <summary> go.
+_XML_REF = re.compile(
+    r'<(?:see|seealso|paramref|typeparamref)\s+(?:cref|name|langword|href)\s*=\s*"(?:[A-Za-z]:)?([^"]*)"\s*/?>'
+    r"(?:\s*</(?:see|seealso)>)?"
+)
+_JAVADOC_INLINE = re.compile(r"\{@(?:link|linkplain|code|literal)\s+([^}]*)\}")
+_DOC_TAG = re.compile(r"</?(?:summary|para|p|c|code|b|i|em|strong|tt|br)\s*/?>", re.IGNORECASE)
 _SENTENCE_END = re.compile(r"[.!?](?=\s+[A-Z0-9\"'`(\[])|[.!?]$")
 _MD_LINK = re.compile(r"!?\[([^\]]*)\]\([^)]*\)")
 _MD_REF_LINK = re.compile(r"\[([^\]]+)\]\[[^\]]*\]")
-# [WSGI] or rustdoc's [`Error`], but not indexing like a[0].
-_MD_SHORTCUT_LINK = re.compile(r"(?<![\w`\]])\[([^\]\[]+)\](?![(\[:])")
+# [WSGI], rustdoc's [`Error`] or dartdoc's [reading]: …, but not indexing like
+# a[0] or a link definition ([x]: https://…).
+_MD_SHORTCUT_LINK = re.compile(r"(?<![\w`\]])\[([^\]\[]+)\](?![(\[]|:\s*<?\w+://)")
 # Badge rows, image links and HTML: nothing a reader would call prose.
 _IMAGE = re.compile(r"!\[[^\]]*\](\([^)]*\)|\[[^\]]*\])?")
 _LINK_DEFINITION = re.compile(r"^\s*\[[^\]]+\]:\s*\S+")
@@ -170,19 +180,23 @@ def leading_comment(path: list[Node], src: bytes, spec: LanguageSpec) -> tuple[s
     """Doc text from the comments directly above a definition, and the nodes used."""
     comments: list[Node] = []
     anchor = path[0].start_point[0]
+
+    def usable(comment: Node) -> bool:
+        text = _text(comment)
+        return not (
+            last_row(comment) < anchor - 1  # a blank line in between
+            or not _starts_line(comment, src)  # trails code on its line
+            or _is_inner_doc(text)
+            or (comment.start_byte == 0 and text.startswith("#!"))
+        )
+
     for level in path:
         anchor = min(anchor, level.start_point[0])
         sibling = level.prev_sibling
         blocked = False
         while sibling is not None:
             if is_comment(sibling):
-                text = _text(sibling)
-                if (
-                    last_row(sibling) < anchor - 1  # a blank line in between
-                    or not _starts_line(sibling, src)  # trails code on its line
-                    or _is_inner_doc(text)
-                    or (sibling.start_byte == 0 and text.startswith("#!"))
-                ):
+                if not usable(sibling):
                     blocked = True
                     break
                 comments.append(sibling)
@@ -195,6 +209,11 @@ def leading_comment(path: list[Node], src: bytes, spec: LanguageSpec) -> tuple[s
             elif sibling.type in spec.skip_before_doc:
                 anchor = min(anchor, sibling.start_point[0])
             else:
+                for trailing in _trailing_comments(sibling):
+                    if trailing.start_point[1] > level.start_point[1] or not usable(trailing):
+                        break
+                    comments.append(trailing)
+                    anchor = trailing.start_point[0]
                 blocked = True
                 break
             sibling = sibling.prev_sibling
@@ -206,6 +225,22 @@ def leading_comment(path: list[Node], src: bytes, spec: LanguageSpec) -> tuple[s
     # Lint and type-checker directives above a definition are not its doc.
     text = _trim([line for line in clean_comments(comments).split("\n") if not _PRAGMA.match(line)])
     return (text or None), comments
+
+
+def _trailing_comments(node: Node) -> list[Node]:
+    """The comments a node ends with, nearest first, looking into its last
+    child while that ends the node (``import_list`` > ``import_header``)."""
+    while node.child_count:
+        children = node.children
+        found = []
+        for child in reversed(children):
+            if not is_comment(child):
+                break
+            found.append(child)
+        if found:
+            return found
+        node = children[-1]
+    return []
 
 
 def clean_comments(nodes: list[Node]) -> str:
@@ -332,7 +367,8 @@ def summary(doc: str | None, limit: int = SUMMARY_CHARS) -> str | None:
         if not lines and _is_markup_only(line):
             continue  # badge rows and link definitions above the prose
         lines.append(line.strip())
-    text = " ".join(" ".join(lines).split())
+    text = _DOC_TAG.sub(" ", _XML_REF.sub(r"\1", _JAVADOC_INLINE.sub(r"\1", " ".join(lines))))
+    text = " ".join(text.split())
     text = _MD_SHORTCUT_LINK.sub(r"\1", _MD_REF_LINK.sub(r"\1", _MD_LINK.sub(r"\1", text)))
     m = _SENTENCE_END.search(text)
     if m:

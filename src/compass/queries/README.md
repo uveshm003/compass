@@ -116,6 +116,14 @@ Rules the core applies to every language:
   struct, enum, trait or impl becomes a `method`.
 - Definitions nested inside a function or method are local and are dropped.
 
+Where a language writes the return type before the name (C#, Java, C, C++,
+Dart), capture that type as `@signature`, so the signature reads
+`TimeSpan NextDelay(int attempt)` from the type on, without modifiers such as
+`public` or `static`. A constructor has no type and starts at its name, and a
+typed constant starts at its type (`const int MAX = 5`). Answers and shards
+put the owner before the name, not before the type: `TimeSpan
+Backoff.NextDelay(int attempt)`.
+
 ## `imports.scm` captures
 
 | Capture | Meaning |

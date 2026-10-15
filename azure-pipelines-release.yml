@@ -1,0 +1,82 @@
+# Release for Azure DevOps (IN-13, M7 step 10). Mirrors
+# .github/workflows/release.yml: GitHub and Azure DevOps are both first-class
+# (NF-16), so change the two together; tests/test_ci_configs.py fails when
+# their build commands drift.
+#
+#
+# Set this file up as a third pipeline. A v* tag runs the tests, builds the
+# wheel, sdist and npm tarball, checks that every copy of the version matches
+# the tag, and keeps the artifacts as the pipeline artifact "dist". Publishing
+# to a feed is opt-in, so nothing goes out until a feed is chosen:
+#   - PYTHON_FEED_URL: the feed's upload URL,
+#     https://pkgs.dev.azure.com/<org>/<project>/_packaging/<feed>/pypi/upload/
+#   - NPM_FEED_URL: the feed's npm registry,
+#     https://pkgs.dev.azure.com/<org>/<project>/_packaging/<feed>/npm/registry/
+# Both authenticate as the pipeline's build service (System.AccessToken), which
+# needs Contributor on the feed. A manual run builds and checks only.
+trigger:
+  branches:
+    exclude: ["*"]
+  tags:
+    include: ["v*"]
+
+pr: none
+
+jobs:
+  - job: release
+    displayName: Build, check and publish
+    timeoutInMinutes: "30"
+    pool:
+      vmImage: ubuntu-latest
+    variables:
+      RELEASE_TAG: $(Build.SourceBranchName)
+      UV_PYTHON: "3.12"
+    steps:
+      - task: UsePythonVersion@0
+        displayName: Python 3.12
+        inputs:
+          versionSpec: "3.12"
+
+      - script: python -m pip install --upgrade uv
+        displayName: Install uv
+
+      - script: uv sync --locked
+        displayName: Sync dependencies
+
+      - script: uv run pytest
+        displayName: Tests
+
+      - script: uv build --out-dir dist
+        displayName: Build the Python package
+
+      - script: npm pack ./npm --pack-destination dist
+        displayName: Pack the npm wrapper
+
+      - script: uv run python scripts/check_release.py dist
+        displayName: Check versions and artifacts
+
+      - task: PublishPipelineArtifact@1
+        displayName: Keep the artifacts
+        inputs:
+          targetPath: dist
+          artifact: dist
+
+      - script: uv publish --publish-url "$(PYTHON_FEED_URL)" --username build dist/*.whl dist/*.tar.gz
+        displayName: Publish to the Azure Artifacts Python feed
+        condition: and(succeeded(), startsWith(variables['Build.SourceBranch'], 'refs/tags/v'), ne(variables['PYTHON_FEED_URL'], ''))
+        env:
+          UV_PUBLISH_PASSWORD: $(System.AccessToken)
+
+      - script: echo "registry=$(NPM_FEED_URL)" > dist/.npmrc && echo "always-auth=true" >> dist/.npmrc
+        displayName: Point npm at the feed
+        condition: and(succeeded(), startsWith(variables['Build.SourceBranch'], 'refs/tags/v'), ne(variables['NPM_FEED_URL'], ''))
+
+      - task: npmAuthenticate@0
+        displayName: Authenticate npm
+        condition: and(succeeded(), startsWith(variables['Build.SourceBranch'], 'refs/tags/v'), ne(variables['NPM_FEED_URL'], ''))
+        inputs:
+          workingFile: dist/.npmrc
+
+      - script: npm publish dist/*.tgz --userconfig dist/.npmrc
+        displayName: Publish the npm wrapper
+        condition: and(succeeded(), startsWith(variables['Build.SourceBranch'], 'refs/tags/v'), ne(variables['NPM_FEED_URL'], ''))

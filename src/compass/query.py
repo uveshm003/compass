@@ -33,7 +33,7 @@ from typing import Any
 from compass import background
 from compass.config import Config, load_config
 from compass.index.docs import summary
-from compass.index.model import source_lines
+from compass.index.model import qualified_signature, source_lines
 from compass.index.shards import KIND_LABELS, render_dir, render_index, render_symbols
 from compass.index.store import IndexUnavailable, Store, SymbolHit
 from compass.languages import load_registry
@@ -128,9 +128,7 @@ def _qualified(hit: SymbolHit) -> str:
 
 def hit_line(hit: SymbolHit) -> str:
     label = KIND_LABELS.get(hit.kind, hit.kind)
-    signature = hit.signature or hit.name
-    if hit.parent:
-        signature = f"{hit.parent}.{signature}"
+    signature = qualified_signature(hit.signature, hit.name, hit.parent)
     doc = summary(hit.doc)
     mark = (" ~ " if hit.doc_source == "generated" else " — ") + doc if doc else ""
     test = "  [test]" if hit.is_test else ""

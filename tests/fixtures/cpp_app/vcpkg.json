@@ -1,0 +1,22 @@
+{
+  "name": "sensor-gateway",
+  "version": "1.4.0",
+  "dependencies": [
+    "fmt",
+    {
+      "name": "gtest",
+      "host": true
+    }
+  ],
+  "overrides": [
+    {
+      "name": "fmt",
+      "version": "10.2.1"
+    },
+    {
+      "name": "gtest",
+      "version": "1.14.0"
+    }
+  ],
+  "builtin-baseline": "c8696863d371ab7f46e213d8f5ca923c4aef2a00"
+}

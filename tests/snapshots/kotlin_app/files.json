@@ -1,0 +1,80 @@
+[
+ {
+  "path": "README.md",
+  "lang": null,
+  "size": 88,
+  "hash": "eb15a850e0cc3687fe55043b8a10c7e2"
+ },
+ {
+  "path": "build.gradle.kts",
+  "lang": "kotlin",
+  "size": 469,
+  "hash": "b127b9ab70316954e1c67b4e839ef274"
+ },
+ {
+  "path": "gradle/libs.versions.toml",
+  "lang": null,
+  "size": 563,
+  "hash": "8930da30d34188f2b582074fe155f95c"
+ },
+ {
+  "path": "gradle/wrapper/gradle-wrapper.properties",
+  "lang": null,
+  "size": 224,
+  "hash": "387261f949c66552ed83447df9c5634e"
+ },
+ {
+  "path": "gradlew",
+  "lang": null,
+  "size": 206,
+  "hash": "b05bf79b729123b6b2486d88b3f0544b"
+ },
+ {
+  "path": "settings.gradle.kts",
+  "lang": "kotlin",
+  "size": 35,
+  "hash": "bbc55363d507d9fe6150c0c6794f831f"
+ },
+ {
+  "path": "src/main/kotlin/com/example/alarms/AlarmLevel.kt",
+  "lang": "kotlin",
+  "size": 379,
+  "hash": "725c4c3a1af7ef8e7c15d569713ce6f3"
+ },
+ {
+  "path": "src/main/kotlin/com/example/alarms/Main.kt",
+  "lang": "kotlin",
+  "size": 460,
+  "hash": "0d6c108242c5e34ba32f9e371d5072b9"
+ },
+ {
+  "path": "src/main/kotlin/com/example/alarms/Notifier.kt",
+  "lang": "kotlin",
+  "size": 504,
+  "hash": "ee2781cd38d9044948beeaad20b61f5f"
+ },
+ {
+  "path": "src/main/kotlin/com/example/alarms/Reading.kt",
+  "lang": "kotlin",
+  "size": 1000,
+  "hash": "781c153cd8c9323706f3ca268c65c24b"
+ },
+ {
+  "path": "src/main/kotlin/com/example/alarms/transport/Backoff.kt",
+  "lang": "kotlin",
+  "size": 768,
+  "hash": "fcada21a72b13fd93ba2d7c295af5d83"
+ },
+ {
+  "path": "src/test/kotlin/com/example/alarms/ReadingTest.kt",
+  "lang": "kotlin",
+  "size": 388,
+  "hash": "5325a7a7dc16d1bd76190e16b8389854"
+ },
+ {
+  "path": "src/test/kotlin/com/example/alarms/transport/BackoffTest.kt",
+  "lang": "kotlin",
+  "size": 250,
+  "hash": "c27529fd1cabdf4cb9a4703414b4f42b"
+ }
+]

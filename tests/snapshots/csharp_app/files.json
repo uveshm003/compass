@@ -1,0 +1,86 @@
+[
+ {
+  "path": "Directory.Build.props",
+  "lang": null,
+  "size": 272,
+  "hash": "a0c5bef120dac1a0144217db9a53c950"
+ },
+ {
+  "path": "README.md",
+  "lang": null,
+  "size": 91,
+  "hash": "99bda87eb18a5d4c01885aeef93bacb1"
+ },
+ {
+  "path": "Sensors.sln",
+  "lang": null,
+  "size": 1407,
+  "hash": "a3c939cb99163704a3fed9baf195a30d"
+ },
+ {
+  "path": "global.json",
+  "lang": null,
+  "size": 80,
+  "hash": "5f06a3aa98ca8a84a8002ef7167eed05"
+ },
+ {
+  "path": "src/Sensors.Core/Alarms/AlarmEvaluator.cs",
+  "lang": "csharp",
+  "size": 1753,
+  "hash": "5ddee358841682594f6db21700b0ba2a"
+ },
+ {
+  "path": "src/Sensors.Core/Models/Reading.cs",
+  "lang": "csharp",
+  "size": 772,
+  "hash": "be3902e3933b452b545ebe1b8b19d8e3"
+ },
+ {
+  "path": "src/Sensors.Core/Sensors.Core.csproj",
+  "lang": null,
+  "size": 414,
+  "hash": "0a87859116f2668c710988bf2df50978"
+ },
+ {
+  "path": "src/Sensors.Core/Transport/Backoff.cs",
+  "lang": "csharp",
+  "size": 884,
+  "hash": "69805ea8dbdf48e851b703796e9cecbf"
+ },
+ {
+  "path": "src/Sensors.Core/Transport/IRetryPolicy.cs",
+  "lang": "csharp",
+  "size": 415,
+  "hash": "7963cbdadad67e42f4d7c4a1568e65dc"
+ },
+ {
+  "path": "src/Sensors.Core/Transport/Retry.cs",
+  "lang": "csharp",
+  "size": 1105,
+  "hash": "a1cb4864f926ef98e7f662a660456772"
+ },
+ {
+  "path": "src/Sensors.Core/packages.lock.json",
+  "lang": null,
+  "size": 923,
+  "hash": "ee62c13cb090b875c0ba55cf27b02020"
+ },
+ {
+  "path": "tests/Sensors.Core.Tests/AlarmEvaluatorTests.cs",
+  "lang": "csharp",
+  "size": 628,
+  "hash": "9be9ed496796d6520f247b5300b2c7fd"
+ },
+ {
+  "path": "tests/Sensors.Core.Tests/BackoffTests.cs",
+  "lang": "csharp",
+  "size": 614,
+  "hash": "a5f7e85198fbee978f0a1a5f536a11c5"
+ },
+ {
+  "path": "tests/Sensors.Core.Tests/Sensors.Core.Tests.csproj",
+  "lang": null,
+  "size": 655,
+  "hash": "af20f350c0e3cbf50b1548906f473e46"
+ }
+]

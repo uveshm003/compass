@@ -167,7 +167,7 @@ def _waiting(task: str) -> str:
 
 
 def on_pre_edit(repo: Repo, payload: dict[str, Any]) -> Answer:
-    if payload.get("agent_type") == "compass:scaffold":
+    if payload.get("agent_type") in ("compass:scaffold", "compass-scaffold"):  # plugin or files mode (IN-11)
         refused = _scaffold_check(repo, payload)
         if refused:
             return refused

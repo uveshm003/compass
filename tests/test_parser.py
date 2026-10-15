@@ -208,6 +208,16 @@ def test_trailing_comment_is_not_a_doc():
     assert [s.doc for s in result.symbols if s.name == "f"] == [None]
 
 
+def test_a_doc_folded_into_the_header_before_a_definition_still_counts():
+    # The Kotlin grammar puts this KDoc inside the import list, not beside the class.
+    kotlin = "package a.b\n\nimport x.Y\n\n/** How serious an alarm is. */\nenum class Level { LOW }\n"
+    result = parse_source(load_registry().get("kotlin"), "Level.kt", kotlin.encode())
+    assert [s.doc for s in result.symbols if s.name == "Level"] == ["How serious an alarm is."]
+    # A comment closing an indented block belongs to that block, not to what follows.
+    result = parse("python", "def a():\n    x = 1\n    # about x\ndef b():\n    pass\n")
+    assert [s.doc for s in result.symbols if s.name == "b"] == [None]
+
+
 @pytest.mark.parametrize(
     ("lang", "source", "calls"),
     [

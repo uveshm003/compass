@@ -1,0 +1,56 @@
+[
+ {
+  "path": ".swiftlint.yml",
+  "lang": null,
+  "size": 64,
+  "hash": "b81687eb3d9cf21a45329c03d46056bf"
+ },
+ {
+  "path": "Package.swift",
+  "lang": "swift",
+  "size": 1064,
+  "hash": "a64ae1fca616d94dfc27e695c94124f0"
+ },
+ {
+  "path": "README.md",
+  "lang": null,
+  "size": 139,
+  "hash": "78c6246da8bb6f0ee82c639f8ce5acf4"
+ },
+ {
+  "path": "Sources/Gateway/Backoff.swift",
+  "lang": "swift",
+  "size": 485,
+  "hash": "df2580ad2e571c2515d156c1bad9ff86"
+ },
+ {
+  "path": "Sources/Gateway/Uploader.swift",
+  "lang": "swift",
+  "size": 850,
+  "hash": "b04ca14be5494ce07d169c928df3b33d"
+ },
+ {
+  "path": "Sources/Gateway/main.swift",
+  "lang": "swift",
+  "size": 502,
+  "hash": "cd878809e08abea5ea14d64aedb5ca17"
+ },
+ {
+  "path": "Sources/Inventory/Reading.swift",
+  "lang": "swift",
+  "size": 1742,
+  "hash": "ef9ee3eaf69696d00207877f2b9d41dd"
+ },
+ {
+  "path": "Sources/Inventory/ReadingStore.swift",
+  "lang": "swift",
+  "size": 784,
+  "hash": "b14ea83193aebdc2fbaf7508fe844fa8"
+ },
+ {
+  "path": "Tests/InventoryTests/ReadingTests.swift",
+  "lang": "swift",
+  "size": 555,
+  "hash": "21538a15df0ecb2e0b84dfb503407ebd"
+ }
+]

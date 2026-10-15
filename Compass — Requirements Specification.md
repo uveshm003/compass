@@ -8,9 +8,9 @@ Compass is a tech-stack-agnostic layer between developers and Claude Code. It ra
 
 This spec defines what v1 must do. How it is built lives in the companion Architecture & Technical Design doc.
 
-- **Version:** Draft 0.1
-- **Working name:** Compass (placeholder, open to change)
-- **Delivery form:** a Claude Code plugin (hooks, subagents, skills, commands), plus a local indexer CLI and MCP server
+- **Version:** Draft 0.2 (October 2026: the installer, C10; the skill library, ST-04 to ST-06; the deferred GSD/BMAD ideas)
+- **Name:** Compass (decided October 14, 2026; the package names are still open, see Open questions)
+- **Delivery form:** a Claude Code plugin (hooks, subagents, skills, commands), plus a local indexer CLI and MCP server, installed with one command (`npx` or `uvx`) either as a plugin or as files in `.claude/` (C10)
 - **Target projects:** any git repository in any language with a tree-sitter grammar or universal-ctags support
 
 ## Problem and goals
@@ -48,7 +48,7 @@ Compass serves three users. Developers get most of the day-to-day value, while l
 | --- | --- |
 | Developer | Faster, correct first attempts; short reviewable output; less time re-explaining context |
 | Tech lead | Team-wide standards applied consistently; clear evidence of what the AI assumed |
-| DevEx / platform owner | Easy install and upgrade; module toggles; token and time metrics to justify the tool |
+| DevEx / platform owner | One-command install, upgrade and uninstall, per user or committed for a whole repo; module toggles; token and time metrics to justify the tool |
 
 ### Core use cases
 
@@ -59,8 +59,9 @@ Compass serves three users. Developers get most of the day-to-day value, while l
 | UC-3 | Refactor across modules | Import graph finds dependents; spec gate forces scope; test map picks tests |
 | UC-4 | Review an AI change | Reviewer opens the change manifest and reads only the Review and Assumption items |
 | UC-5 | Onboard to an unfamiliar repo | Folder tree, stack profile and map shards give a structural tour |
-| UC-6 | Update team standards | Lead edits the standards skill; every session picks it up next start |
+| UC-6 | Update team standards | Lead edits `.compass/standards/<skill>.md` (or `all.md`); every skill run picks it up |
 | UC-7 | Digest large output | Logs, test runs and big files go to a Haiku subagent; only a summary returns |
+| UC-8 | Set up Compass on a machine or for a team | `npx`/`uvx` installer → scope, mode and module prompts → CLI, Claude Code integration and `compass init` in one run; `compass doctor` confirms it |
 
 ## System context
 
@@ -93,6 +94,7 @@ Hooks and git events keep the index fresh; Claude reads it through MCP tools and
 | C7 | Review output system | Short replies, anchor tags, change manifests |
 | C8 | Standards pack | Team rules and actual dependency versions injected per session |
 | C9 | Telemetry | Per-task token, time and tool-call metrics |
+| C10 | Installer | One-command install, upgrade, uninstall and health check, as a plugin or as files in `.claude/` |
 
 ## Functional requirements
 
@@ -186,6 +188,9 @@ v1 ships every Must item. Should items land if the pilot schedule allows, and Co
 | ST-01 | Standards stored as skills per stack, in the repo or a shared org repo | Must |
 | ST-02 | SessionStart injects actual dependency versions read from lockfiles | Must |
 | ST-03 | Optional docs MCP server for version-matched documentation | Could |
+| ST-04 | Ship a library of platform-, language- and technology-agnostic skills in `plugin/skills/`, invoked as `/compass:<name>` (files mode: `/compass-<name>`): code-review, security-review, test-gaps, impact-analysis, debug, refactor-plan, pr-writeup, dependency-audit, perf-review, onboarding-tour, adr-writer | Should |
+| ST-05 | Every skill has one shape: read the team's standards first, look code up through the query tools before reading files, take the stack from `stack_profile` and never assume one, delegate bulk reading and test runs to the Compass subagents, and bound its answer (ranked findings citing `file:line` where it reports) | Should |
+| ST-06 | Teams adapt skills without editing them: `.compass/standards/all.md` and `.compass/standards/<skill>.md`, committed, add to each skill's checklist and win where they disagree (the per-stack half of ST-01) | Should |
 
 ### C9 Telemetry and setup
 
@@ -194,10 +199,42 @@ v1 ships every Must item. Should items land if the pilot schedule allows, and Co
 | TM-01 | Stop hook records input, output and cache tokens, wall-clock time and tool calls per task | Must |
 | TM-02 | Metrics stay local by default; export to a shared store is opt-in | Must |
 | TM-03 | `compass report` compares tasks run with Compass on and off | Should |
-| CF-01 | Install via the Claude Code plugin marketplace plus one CLI package | Must |
+| CF-01 | Install via the Claude Code plugin marketplace plus one CLI package; the installer (C10) wraps both into one command | Must |
 | CF-02 | `compass init` creates `.compass/`, config, git hooks and the first index | Must |
 | CF-03 | Every component can be switched off in config | Must |
 | CF-04 | `compass uninstall` removes Compass's git hooks and puts back any hooks they chained, so removing the plugin and running it leaves no Compass hook behind | Should |
+
+### C10 Installer
+
+M7, built in 0.3.0 (the release jobs publish nothing until the package names and feeds are decided); the reasoning and work breakdown are in `docs/installer-plan.md`. The installer only writes files: nothing it adds runs at session time except the existing `compass hook` and `compass mcp` commands, so every NF target and fail-open rule is unchanged.
+
+| ID | Requirement | Priority |
+| --- | --- | --- |
+| IN-01 | One command installs everything: `npx <package> install` or `uvx … compass install` puts the `compass` CLI on PATH persistently (`uv tool install`), installs the Claude Code integration and runs `compass init` in the current repository | Must |
+| IN-02 | Two install modes from the same `plugin/` source: `plugin` (through the public `claude plugin` CLI) and `files` (commands, agents and output style copied into `.claude/`, hooks merged into `settings.json`, the MCP server registered) | Must |
+| IN-03 | Scopes `user` (`~/.claude`), `project` (committed `.claude/`, team-wide) and `local` (plugin mode only) | Must |
+| IN-04 | On a terminal, prompt for scope, mode, module preset and git hooks, offering a local model only when a loopback endpoint answers; every prompt is also a flag, `--yes` never prompts, `--dry-run` prints the planned writes and changes nothing | Should |
+| IN-05 | Write an install record (version, mode, scope, every installed file with its hash, settings and MCP entries added); an upgrade replaces only files that still match their hash, keeps edited ones and writes the new version beside them as `<file>.compass-new` | Must |
+| IN-06 | `compass upgrade` upgrades the CLI with uv and refreshes the installed files to the same version; it runs only when invoked, never from a hook (no update check at session start) | Should |
+| IN-07 | `compass uninstall` (extending CF-04) also removes exactly what the install record lists, the `compass hook` entries in settings and the MCP entry, leaving the touched files as they were before the install | Must |
+| IN-08 | Settings merges are non-destructive: other keys and hooks untouched, a backup before the first write, atomic replace, UTF-8 without BOM, and a refusal with the parse error when a file does not parse | Must |
+| IN-09 | `compass doctor` reports the CLI on Claude Code's PATH, versions in step, the Claude Code version in the supported range, hooks wired exactly once (never both modes), the MCP server starting, and the repository initialised | Should |
+| IN-10 | `pyproject.toml`, `plugin.json`, the npm package and the install record carry one version, enforced by a test | Must |
+| IN-11 | The core recognises Compass's subagents under both names (`compass:digest` from the plugin, `compass-digest` from files mode) for output contracts, telemetry and the report, and SessionStart's delegation rules name them as the active mode does | Must |
+| IN-12 | The npm package holds no logic: it finds uv (or installs it with the developer's consent), installs the CLI of its own version and passes every argument to `compass install`; it runs in PowerShell, cmd and POSIX shells without WSL | Must |
+| IN-13 | Both hosts distribute it (NF-16): PyPI or an Azure Artifacts Python feed, npmjs/GitHub Packages or an Azure Artifacts npm feed, and git URLs for either host | Must |
+| IN-14 | Telemetry rows record the install mode (`plugin` or `files`), so comparisons never mix modes | Should |
+| IN-15 | Module presets `full` (default), `baseline` (telemetry only, the pilot's baseline) and `custom`; an existing `config.yaml` is kept unless `--reconfigure` | Should |
+
+### Deferred for review
+
+Ideas taken from GSD and BMAD while planning C10. They are not v1 requirements and have no priority yet. Each needs an in-depth discussion before anything is built; the questions are in `docs/installer-plan.md` ("Later, for review"). Their IDs are reserved so the docs can refer to them.
+
+| ID | Idea | Main question |
+| --- | --- | --- |
+| WF-01 | Phase workflow (GSD-style): `.compass/planning/` with project, roadmap and state files; commands to discuss, plan, execute and verify a phase built on tasks, specs and manifests | How much tasks and the spec gate already cover, and whether the extra planning turns earn back their tokens |
+| AG-01 | Agent personas (BMAD-style): analyst, architect and QA reviewer as subagents or commands, each with an output contract | Persona prompts cost tokens Compass exists to save; standards pack (C8) or new subagents? |
+| MT-01 | Install targets for other agents and IDEs (Codex, Gemini CLI, Cursor, OpenCode) through `install/targets/` | Conflicts with ADR 001 and the v1 non-goal; which features survive without Claude Code's hooks |
 
 ## Non-functional requirements
 
@@ -237,14 +274,16 @@ The hard constraint is that Compass may only use Claude Code's public extension 
 
 - Projects use git, hosted on GitHub or Azure DevOps (Azure Repos). Azure DevOps TFVC repositories are not git, so the non-goal above applies to them.
 - Developers use the Claude Code CLI or its IDE extensions.
-- Developer machines can run Python 3.11+ (or the packaged binary if we ship one).
+- Developer machines can run Python 3.11+ (or the packaged binary if we ship one), installed through uv; Node is needed only for the optional `npx` entry point.
 - Teams are willing to commit a small `.compass/config.yaml` and standards files to each repo.
 
 ### Dependencies
 
 | Dependency | Used for | Required |
 | --- | --- | --- |
-| Claude Code plugin system | Distributing hooks, subagents, skills, commands | Yes |
+| Claude Code plugin system | Distributing hooks, subagents, skills, commands | Yes (or `files` mode: Claude Code's `.claude/` folders and settings) |
+| uv | Installing the CLI and its Python (IN-01) | Yes |
+| Node.js / npm | The `npx` installer entry point (IN-12) | No |
 | tree-sitter + `tree-sitter-language-pack` | Parsing and tags queries | Yes |
 | universal-ctags | Fallback parser | No |
 | SQLite | Index storage | Yes (bundled with Python) |
@@ -259,6 +298,7 @@ v1 is accepted when every Must requirement passes its test and the pilot shows t
 
 - [ ] All Must requirements have an automated test or a documented manual check
 - [ ] `compass init` succeeds on 5 reference repos in at least 4 different languages
+- [ ] On clean macOS, Linux and Windows machines, one installer command gives a working session in both install modes, and `compass uninstall` leaves no diff behind (C10)
 - [ ] NF-01 to NF-04 latency targets met on the 100k LOC reference repo
 - [ ] Disabling Compass entirely restores stock Claude Code behaviour with no leftover hooks
 - [ ] Benchmark suite (see Evaluation & Metrics Plan) runs end to end and produces a report
@@ -279,19 +319,22 @@ v1 is accepted when every Must requirement passes its test and the pilot shows t
 ### Out of scope for v1
 
 - GUI dashboard (CLI report only)
-- Support for other agents such as Cursor or Copilot, although the MCP server should stay agent-neutral so this is possible later
+- Support for other agents such as Cursor or Copilot, although the MCP server should stay agent-neutral so this is possible later (recorded for review as MT-01)
 - Hosted or shared index service
 - Embedding-based semantic search
 - Automatic LLM rewriting of the developer's prompt
 
 ### Open questions
 
-- [ ] Final product name
+- [x] Final product name: decided 2026-10-14, **Compass**.
 - [ ] Python-only, or port hot paths to Go or Rust for a single binary?
 - [x] Default strictness for the prompt gate: decided 2026-09-24. The gate never rejects a prompt; by default (`ask`) Claude checks with the developer before changing code, and `strict` also holds edits until the developer answers. Whether `strict` should become the default is for the pilot's gate log to show.
-- [ ] Where the org-wide standards pack lives and who owns it
-- [ ] Which pilot repos and teams, and what local-LLM hardware they have
+- [ ] Where the org-wide standards pack lives and who owns it (still open on 2026-10-14)
+- [ ] Which pilot repos and teams, and what local-LLM hardware they have (still open on 2026-10-14)
 - [ ] Is telemetry export acceptable under company data policy?
+- [x] Which feeds releases publish to: decided 2026-10-14, **Azure Artifacts**, a Python feed and an npm feed (`PYTHON_FEED_URL`, `NPM_FEED_URL` in `azure-pipelines-release.yml`). The Azure DevOps organisation, project and feeds do not exist yet.
+- [ ] Package names. Both placeholders are taken on the public registries by unrelated projects (PyPI `compass`, a geolocation client; npm `compass-cc`). A private feed can still carry them, but a developer who installs without the feed configured, or a feed whose upstream sources include PyPI or npmjs, would get the other project's package. So the published names need to be distinct, for example a scoped npm name (`@<org>/compass`) and a prefixed Python distribution name. The CLI command and the import package can stay `compass`.
+- [ ] Whether to take up the deferred GSD/BMAD ideas: phase workflow (WF-01), agent personas (AG-01), other agents and IDEs (MT-01)
 
 ### Glossary
 
@@ -304,3 +347,5 @@ v1 is accepted when every Must requirement passes its test and the pilot shows t
 | Anchor tag | A comment such as `@ai:assume T12` marking an AI change for review |
 | Change manifest | Generated file listing every anchored change with file:line links |
 | Tier | Executor level: 0 scripts, 1 local LLM, 2 Haiku, 3 main model |
+| Install mode | How Compass is wired into Claude Code: `plugin` (marketplace) or `files` (copied into `.claude/`) |
+| Install record | `.claude/compass/install.json`: what the installer wrote, with hashes, so upgrade and uninstall touch only that |

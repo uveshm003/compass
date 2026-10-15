@@ -1,0 +1,79 @@
+# Release for GitHub (IN-13, M7 step 10). Mirrors azure-pipelines-release.yml:
+# GitHub and Azure DevOps are both first-class (NF-16), so change the two
+# together; tests/test_ci_configs.py fails when their build commands drift.
+#
+#
+# A v* tag (git tag v0.3.0 && git push origin v0.3.0) runs the tests, builds
+# the wheel, sdist and npm tarball, checks that every copy of the version
+# matches the tag, and attaches the artifacts to a GitHub release. Publishing
+# to a package feed is opt-in, so nothing goes out until a feed is chosen:
+#   - PyPI: repository secret PYPI_TOKEN (an API token for the project)
+#   - npm: repository secret NPM_TOKEN; variable NPM_REGISTRY picks the
+#     registry (default https://registry.npmjs.org, or
+#     https://npm.pkg.github.com for GitHub Packages)
+# A manual run (workflow_dispatch) builds and checks, and publishes nothing.
+name: release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Build, check and publish
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: write  # the GitHub release
+      packages: write  # GitHub Packages, when NPM_REGISTRY points there
+    env:
+      RELEASE_TAG: ${{ github.ref_name }}
+      PYPI_TOKEN: ${{ secrets.PYPI_TOKEN }}
+      NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+      NPM_REGISTRY: ${{ vars.NPM_REGISTRY || 'https://registry.npmjs.org' }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: astral-sh/setup-uv@v10.2.0
+        with:
+          python-version: "3.12"
+          enable-cache: true
+
+      - run: uv sync --locked
+
+      - run: uv run pytest
+
+      - run: uv build --out-dir dist
+
+      - run: npm pack ./npm --pack-destination dist
+
+      - run: uv run python scripts/check_release.py dist
+
+      - name: GitHub release
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$RELEASE_TAG" dist/* --title "Compass $RELEASE_TAG" --generate-notes
+
+      - name: Publish to PyPI
+        if: startsWith(github.ref, 'refs/tags/v') && env.PYPI_TOKEN != ''
+        env:
+          UV_PUBLISH_TOKEN: ${{ secrets.PYPI_TOKEN }}
+        run: uv publish dist/*.whl dist/*.tar.gz
+
+      - name: Publish the npm wrapper
+        if: startsWith(github.ref, 'refs/tags/v') && env.NPM_TOKEN != ''
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          host="${NPM_REGISTRY#*://}"
+          echo "//${host%/}/:_authToken=\${NODE_AUTH_TOKEN}" > "$RUNNER_TEMP/.npmrc"
+          npm publish dist/*.tgz --registry "$NPM_REGISTRY" --userconfig "$RUNNER_TEMP/.npmrc"

@@ -1,0 +1,34 @@
+{
+ "languages": {
+  "java": 8
+ },
+ "stacks": {
+  "maven": {
+   "packages": [
+    {
+     "path": "pom.xml",
+     "name": "sensor-gateway",
+     "version": "1.4.0",
+     "packaging": "jar",
+     "engines": {
+      "java": "21"
+     },
+     "frameworks": {
+      "jackson": "2.18.2",
+      "slf4j": "2.0.16"
+     },
+     "tools": {
+      "checkstyle": "3.6.0",
+      "junit": "5.11.3"
+     },
+     "dependencies": 3,
+     "commands": {
+      "build": "mvn package",
+      "test": "mvn test",
+      "lint": "mvn checkstyle:check"
+     }
+    }
+   ]
+  }
+ }
+}
