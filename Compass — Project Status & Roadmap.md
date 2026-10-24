@@ -1,6 +1,7 @@
 # Compass — Project Status & Roadmap
 
-Oct 8, 2026, audited again Oct 14, 2026 · @Uvesh · Compass 0.3.0 (branch `m7-installer-languages`, in review)
+Oct 8, 2026, audited again Oct 14, updated Oct 15 and Oct 16, 2026 · @Uvesh · Compass 0.3.0 (branch `m7-installer-languages`, in review)
+
 
 
 ## About this document
@@ -49,6 +50,7 @@ Keep this document current: tick items in [section 7](#7-pending-work) as they c
 - fail open
 - never turn a prompt away
 - no network calls in hooks
+- never run the repository's code (NF-11, since Oct 15)
 - SQLite is the source of truth and Markdown shards are the view
 - deterministic output
 - built on Claude Code, never an API key
@@ -72,10 +74,20 @@ Keep this document current: tick items in [section 7](#7-pending-work) as they c
 | M4 Gates | Prompt gate (never rejects), context pack, spec gate, `/compass:task`, `/compass:approve` | ✅ | `check_gates.py` passed (rerun once the gate stopped turning prompts away) |
 | M5 Delegation | `digest`, `test-runner`, `scaffold` with output contracts; local-LLM tools and enrichment | ✅ | `check_delegation.py`: a 623-line test run came back as 8 lines, 3 of 3 runs |
 | M6 Measurement | Telemetry from transcripts, `compass report`, benchmark harness | ✅ | Telemetry rows matched Claude Code's own token counts exactly; the harness ran the example tasks on and off |
-| M7 Installer | `compass install` / `upgrade` / `doctor` / extended `uninstall`; plugin and files modes; npm wrapper; `install.ps1` and `install.sh`; release jobs | ✅ | `tests/e2e/check_install.py` passed Oct 14 on Windows in both modes: install, `doctor`, a session answered through the query tools with zero Read calls, `upgrade` kept an edited file, `uninstall` left git status and the user's settings unchanged, and `doctor` caught a doubled install. `install.sh` not yet run; release jobs built but never run |
+| M7 Installer | `compass install` / `upgrade` / `doctor` / extended `uninstall`; plugin and files modes; npm wrapper; `install.ps1` and `install.sh`; release jobs | ✅ | `tests/e2e/check_install.py` passed Oct 14 on Windows in both modes: install, `doctor`, a session answered through the query tools with zero Read calls, `upgrade` kept an edited file, `uninstall` left git status and the user's settings unchanged, and `doctor` caught a doubled install. On Oct 15, `install.sh` passed in a fresh Ubuntu 24.04 container (files mode), once the tool's Python was pinned (see [since the last update](#since-the-last-update-oct-14--oct-15)). Not yet run on macOS. The release jobs are built but have never run |
 | Skill library | 11 agnostic skills, team overrides in `.compass/standards/` | 🟡 | `claude plugin validate --strict` passes; shape test in `tests/test_plugin.py`. `code-review` ran in real sessions in both modes (Oct 14); the other ten have not |
 
-**Test suite (rerun Oct 14 after the language and installer work, Windows, 376 s):** 703 passed, 29 skipped. Before T2 was accepted, `test_compass_itself_carries_no_anchor_tags` failed on its 103 open tags; it passes now that they are stripped.
+**Test suite (rerun Oct 16, Windows, 437 s):** 767 tests: 737 passed, 29 skipped, and 1 failure that is expected while task T5 is open: `test_compass_itself_carries_no_anchor_tags` counts its 95 review tags, and passes once they are accepted. Oct 15 had 732 passed, Oct 14 703.
+
+**Latency on this machine (Oct 15, `pytest --perf`, generated 100k LOC repo).** The committed 0.3.0 and the Oct 15 working tree, run back to back:
+
+| Measure (p95) | Budget | 0.3.0 | Oct 15 |
+| --- | --- | --- | --- |
+| Prompt gate (NF-01) | 100 ms | 1,024 ms | 486 ms |
+| Context pack (NF-02) | 300 ms | 413 ms | 412 ms |
+| Single-file update (NF-04) | 500 ms | 972 ms | 730 ms |
+
+Both miss the budgets here. A bare Python start alone has a p95 of 140 ms on this corporate Windows laptop, against about 30 ms for the whole gate fast path on a Mac. The Oct 15 changes cost nothing measurable, but the pilot's Windows machines need the recorded reference run (7.4) before anyone relies on these budgets.
 
 **The only measured result so far** comes from a five-file fixture, so it is a harness check, not evidence. There, Compass used 16% more main-model tokens than stock on a lookup task (64k against 55k), but finished faster (10.6 s against 13.2 s). That was down from +44% before the query tools were always loaded. The overhead (session context, delegation) only pays off on large repositories, which is why the real benchmark needs repos of 50k LOC or more.
 
@@ -84,11 +96,64 @@ Keep this document current: tick items in [section 7](#7-pending-work) as they c
 | Item | State |
 | --- | --- |
 | Branch | 0.3.0 (installer, skills, the six new languages, release jobs, spec updates) committed on Oct 14 on `m7-installer-languages` and pushed for a pull request into `main`; its CI run is the first on any M7 code |
-| Open review | None. Task T2 was accepted on Oct 14: its 103 tags (52 review, 6 assumptions, 2 TODO, 43 mechanical) were stripped and the manifest archived in `.compass/changes/archive/T2.md`, which keeps the notes |
+| Open review | **Task T5** (Oct 15–16: the NF-10/NF-11 fixes, traceability, `/compass:doctor`, the Python pin, the notice fix), uncommitted. Review `.compass/changes/T5.md`, then `/compass:accept T5` before committing: the pre-commit check refuses its tags. Task T2 was accepted on Oct 14 (103 tags; notes kept in `.compass/changes/archive/T2.md`) |
 | CI | GitHub Actions: macOS, Ubuntu, Windows × Python 3.11/3.12; Azure Pipelines defined identically but never run (no Azure DevOps organisation yet) |
 | Weekly compatibility job | Defined on both systems (Mondays 06:17 UTC); needs the `CLAUDE_CODE_OAUTH_TOKEN` secret, so its status is unknown |
-| Spec exports | The `.docx`/`.pdf` copies one folder up predate M1 |
-| This machine | `uv` still not on PATH (the tests run from `.venv`); `compass` 0.3.0 is on PATH, but the installed plugin is still the 0.2.0 cache; Claude Code is now 2.1.299. The Compass MCP server timed out (30 s) at the start of two sessions, although `compass doctor` passes and a warm start answers in about 1.5 s: the tool environment was installed without bytecode, so those first starts compiled its dependencies (diagnosed Oct 14; reinstalling with `--compile-bytecode` is pending) |
+| Spec exports | None found one folder up on Oct 15 (see 7.6) |
+| This machine | Fixed on Oct 15:<br>• `uv` is on the user PATH (Python 3.14's `Scripts` folder; new terminals see it).<br>• `compass` 0.3.0 is on PATH, with its tool environment already compiled.<br>• Claude Code 2.1.300 reads the plugin from this checkout in place (`claude plugin list` says 0.3.0; the old 0.2.0 cache folder is unused).<br>• The MCP server connects (`claude mcp list`), and a headless lookup session made Compass calls.<br>• This repository's git hooks were rewritten with `-P`<br>**Found Oct 16:** the Windows user PATH still holds the Oct 14 hands-on sandbox's `uv-bin` and `home\.local\bin` (`%TEMP%\tmp.F7izeApKWk\…`), ahead of `~\.local\bin`. Claude Code's hooks and MCP server have run that frozen Oct 14 copy since then, not this checkout; the git hooks name the real tool's interpreter, and the e2e checks use their own shim, so neither was affected. `compass doctor` now warns about it. To fix: remove both entries from the user PATH, then restart Claude Code (7.1) |
+
+### Since the last update (Oct 15 → Oct 16)
+
+- **The prompt gate took Claude Code's own messages for the developer's.** Claude Code passes its own messages through UserPromptSubmit, such as `<task-notification>` when a background agent finishes. The gate treated them as the developer's prompts:
+  - one became task T5's brief (in `state.json`), in place of the developer's request;
+  - its text could size a task (a notification that says "refactor" would draft a spec) or make Claude ask the developer about it, and the context pack resolved the paths in it;
+  - it started a new turn, which in strict mode ends the hold before the developer has answered, and ends a `!quick` turn early.
+
+  Fixed: the gate gives them a kind of their own (`notice`) and the prompt hook returns at once, with a test. Telemetry already left them out, and now shares the same list. This machine's live sessions still showed the old behaviour, which led to the next finding.
+- **A stale Compass on this machine's PATH.** A test sandbox from Oct 14 had put its tool folder on the Windows user PATH (through `uv tool update-shell`, which writes the registry whatever HOME says), ahead of the real install, so interactive sessions here ran that copy. `compass doctor` said ok because both were 0.3.0; it now warns when PATH holds more than one `compass` and names the one that runs (IN-09, with a test). The setup guide's troubleshooting table covers it.
+- **The context pack read a pasted path as a symbol** (CP-02). A backticked `C:\…\pytest.log` resolved to the npm wrapper's `log()` function, because the symbol fallback split the path at its last dot. A path is now looked up as a symbol only through a member separator (`tests/test_x.py::test_y`, `Class#method`), with a test.
+- **First `compass init` on real repositories** (shallow clones of the owner's own projects on this Windows laptop, Oct 16, this working tree). Every run exited 0, wrote nothing to `errors.log`, and left `git status` at `?? .compass/`:
+
+  | Repository | Languages indexed | Size | Full index | No-change `compass index` |
+  | --- | --- | --- | --- | --- |
+  | BitChord | Kotlin, C++, Go, Java, Python, C; CMake detected | 909 files, 212k lines, 11,110 symbols | 56.7 s | 13.1 s (it re-renders every shard) |
+  | Heartry | Dart (Flutter, Riverpod, Drift) and platform stubs | 154 files, 656 symbols | 11.8 s | 2.6 s |
+  | quickserve-fe | Dart, C++, Swift, Kotlin; CMake detected | 130 files, 295 symbols | 11.3 s | 1.2 s |
+  | uvesh_portfolio | Dart (go_router) | 43 files, 301 symbols | 3.1 s | 0.5 s |
+  | Flutter SDK (stress test) | Dart, C++, C, Java, Objective-C++ and more | 15,436 files, 3.4M lines, 162,334 symbols | 390 s; `index.db` 262 MB | — |
+
+  The Flutter run was first killed mid-build (the session ended); `compass init` on the same folder rebuilt from scratch and finished cleanly. BitChord's full build is about 27 s per 100k lines and Flutter's about 11 s, both inside NF-03's 60 s; Flutter's index is about 8 MB per 100k lines, inside NF-15's 50 MB. On Flutter an edit takes about 1.25 s and SessionStart 3.0 s. The hooks there, on this laptop (a bare Python start takes about 180 ms): SessionStart 3.9 s, a prompt 0.3–0.7 s, an edit about 0.75 s steady (2.5 s for the first one after start-up), against budgets of 100 ms and 500 ms. Usable, but felt; the pilot machines need their own numbers (7.4).
+- **Docs.** Every documented `uv tool install` and `uvx` now carries `--python 3.12` (the Getting Started guide, the installer plan's transcript and CLAUDE.md still had the old commands). The plugin layout lists `doctor.md`. The user guide says notices are never checked.
+
+### Since the last update (Oct 14 → Oct 15)
+
+- **The NF-10 privacy audit and the NF-11 security review are done** (`docs/security-privacy-review.md`). They found four problems, each fixed with a test that fails without the fix:
+  - **F1.** On Windows, programs were looked up in the working directory, the repository root, before PATH. A committed `git.exe` would have run on every hook.
+  - **F2.** `python -m compass` (the git hooks, background enrichment, doctor's probe) put the repository root first on `sys.path`. A `compass/` package or a `yaml.py` there would have been imported in place of Compass's own code.
+  - **F3.** The local-model client followed redirects off loopback.
+  - **F4.** ctags read option files from the repository's `.ctags.d/`.
+
+  Five low residual risks remain; R1 needs an owner decision (D13).
+- **Traceability** (`docs/traceability.md`). Every Must requirement now maps to its tests, real-session checks and manual checks. The sweep found six untested edges, and closing them turned up two bugs, both fixed:
+  - the prompt gate's hints always said `!quick`, whatever `bypass_prefix` was;
+  - switching `query.enabled` off mid-session took effect one call late.
+- **Code items from 7.2, all with tests:**
+  - IN-05: no `.compass-new` beside an edited file the release did not change.
+  - IN-15: `compass install` says the preset config was written.
+  - TM-03: `compass report` flags sessions where the query tools were on but never used. On this repository it names the two sessions where the server never connected.
+  - `/compass:doctor`.
+  - The npm wrapper's test now runs on Windows.
+- **Two installer problems found in live checks, fixed:**
+  - **The tool's Python.** `install.sh` on a fresh Ubuntu: uv chose Python 3.15, for which the pinned tree-sitter, PyYAML and pydantic-core have no wheels, so the install failed without a C compiler. Every install path and every documented command now pins `--python 3.12`, which CI tests.
+  - **`/compass:doctor` on a broken install.** It showed nothing, because Claude Code drops a command whose `!` line fails. It now runs `compass doctor --exit-zero`, and doctor names the exact uninstall commands for a doubled install.
+- **Real-session checks on Claude Code 2.1.300.** Delegation, review loop, gates and install pass:
+  - Three checks first failed because this machine's `TEMP` is an 8.3 short path, which 2.1.300 asks about before reading. The checks and the benchmark now use the long form.
+  - `check_query_tools.py` fails 2 of 2 runs. Claude located the code through Compass, then read three short files whole, which the query-tools rule allows. Whether to keep its zero-Read bar is decision D12.
+- **Documents.**
+  - `docs/init-cheatsheet.md` is kept, rewritten for `compass install`, `doctor` and the skills.
+  - The user guide's install, doctor and upgrade samples are recaptured from real runs.
+  - The setup guide documents the supported Claude Code range (NF-14).
+  - The Requirements Spec rows for IN-05, IN-09, TM-03, NF-10 and NF-11 are updated.
 
 ### Since the last audit (Oct 8 → Oct 14)
 
@@ -127,7 +192,7 @@ Keep this document current: tick items in [section 7](#7-pending-work) as they c
 | | ST-02 real dependency versions at session start | ✅ | |
 | | ST-03 docs MCP server (Could) | ⬜ | |
 | | ST-04 to ST-06 skill library, one shape, team overrides | 🟡 | Built and validated; `code-review` ran in real sessions in both modes on Oct 14 (loaded, arguments filled, query tools, zero Read calls). The other ten skills and the team overrides are untried |
-| C9 Telemetry & setup | TM-01 to TM-03, CF-01 to CF-04 | ✅ | Telemetry-only baseline possible (every module off but telemetry) |
+| C9 Telemetry & setup | TM-01 to TM-03, CF-01 to CF-04 | ✅ | Telemetry-only baseline possible (every module off but telemetry); since Oct 15 the report flags sessions whose query tools went unused (TM-03) |
 | C10 Installer | IN-01 to IN-12, IN-14, IN-15 | ✅ | `tests/e2e/check_install.py` passed on Oct 14 in both modes (Windows, Claude Code 2.1.299), after it found and fixed two plugin-mode bugs (see [since the last audit](#since-the-last-audit-oct-8--oct-14)) |
 | | IN-13 distribution through both hosts | 🟠 | Release jobs built on both CI systems (Oct 14) and gated by `scripts/check_release.py`. Feeds decided (Azure Artifacts); still needed: the package names (D1a) and the Azure DevOps organisation and feeds |
 | Deferred | WF-01 phase workflow, AG-01 personas, MT-01 other agents | ⏸ | Need an in-depth discussion first |
@@ -141,11 +206,11 @@ Keep this document current: tick items in [section 7](#7-pending-work) as they c
 | NF-06, NF-07 | −30% tokens, at most +5% time | ⬜ | Only measurable with the real benchmark |
 | NF-08 | macOS, Linux, Windows without WSL | ✅ | All three in CI |
 | NF-09 | 10 languages with full tags queries | ✅ | **10 of 10** (Oct 14): Java, Kotlin, Swift, Dart, C# and C/C++ joined Python, TypeScript/JavaScript, Go and Rust, each with a fixture, snapshots and query tests. Some imports stay unresolved by design (C# `using`, Swift modules, Dart `package:`, C/C++ includes outside `./` and `../`); CLAUDE.md lists them |
-| NF-10 | No code leaves the machine except through Claude Code | 🟡 | Designed and tested (loopback only, proxies bypassed); the audit is not done |
-| NF-11 | stdio MCP; hooks run only Compass's code | 🟡 | Designed; the review is not done |
+| NF-10 | No code leaves the machine except through Claude Code | ✅ | Audited Oct 15 (`docs/security-privacy-review.md`); redirects off loopback fixed (F3); the telemetry export path awaits D13 |
+| NF-11 | stdio MCP; hooks run only Compass's code | ✅ | Reviewed Oct 15; three ways a repository could run its own code or steer ctags fixed (F1, F2, F4), each with a test |
 | NF-12 | Fail open | ✅ | Hook-contract tests |
 | NF-13 | Deterministic output | ✅ | Byte-identical rebuild tests |
-| NF-14 | Weekly test against the latest Claude Code | 🟡 | Job defined; needs the secret; supported range not documented |
+| NF-14 | Weekly test against the latest Claude Code | 🟡 | Job defined; needs the secret. Supported range documented in the setup guide (2.1.281 or later, last tested with 2.1.300 on Oct 15); `check_query_tools.py` stays red until D12 |
 | NF-15 | Index + shards at most 50 MB per 100k LOC | 🟡 | Perf test exists; record it with NF-01 to NF-04 |
 | NF-16 | GitHub and Azure DevOps first class | 🟠 | Both CI definitions and hosted links done; Azure Pipelines never actually run; package feeds not chosen |
 
@@ -199,6 +264,12 @@ Phases 2 and 3 run in parallel once phase 1 settles the repos and the feeds.
 | D9 | Whether `strict` becomes the prompt gate's default | Not blocking; decide from the pilot's gate log | Requirements Spec |
 | D10 | Whether to take up WF-01, AG-01 or MT-01 | Not blocking; each needs an in-depth discussion | `docs/installer-plan.md` |
 | D11 | Move ADRs 001–009 from Proposed to Accepted, or revise them | Not blocking; good hygiene before v1 | Architecture doc |
+| D12 | The M2 check's bar (new, Oct 15). On Claude Code 2.1.300, Claude finds the code through Compass but reads files of 11 to 70 lines whole, which the query-tools rule allows: one Read is cheaper than several `read_symbol` calls. Choices: keep "zero Read calls", relax it to "located through Compass, no Grep or Glob", or run it on a fixture with larger files | A green weekly job (NF-14) | `tests/e2e/check_query_tools.py`; CLAUDE.md, query tools |
+| D13 | The telemetry export path (new, Oct 15). The committed `config.yaml` can point `telemetry.export` at any file, so a hostile repository could have rows appended to a file of its choosing. Choices: accept only `.jsonl` targets, or take the path from the developer's own settings | Not blocking; part of the data-policy review (D5) | `docs/security-privacy-review.md`, R1 |
+| D14 | Whether a typed reply ("approve", "accept") counts as the developer's approval and acceptance (new, Oct 16; changes SG-05 and RO-05). Recommended: yes, since only the developer types prompts | The adoption plan's phase 1, before the pilot | `docs/adoption-plan.md`, UX-04 to UX-06 |
+| D15 | Whether Compass may offer itself once in a git repository that isn't set up, when installed for the user (new, Oct 16) | Adoption plan, phase 2 | `docs/adoption-plan.md`, UX-01 |
+| D16 | The default module preset for new installs: `full`, or a new `essentials` that never holds work back (new, Oct 16) | Adoption plan, phase 2 | `docs/adoption-plan.md`, UX-12 |
+| D17 | Review notes in the manifest only, with no tags in the code and no commit block (new, Oct 16) | Not blocking; decide at the pilot's week-4 checkpoint | `docs/adoption-plan.md`, UX-13 |
 
 ---
 
@@ -208,8 +279,10 @@ Phases 2 and 3 run in parallel once phase 1 settles the repos and the feeds.
 | --- | --- | --- |
 | Overhead beats savings on small repos | The only measurement (a five-file fixture) shows +16% tokens | The real benchmark on 50k+ LOC repos; keep session-start context lean; measure the skills before they reach the pilot |
 | Developers switch Compass off | The top project risk in the Proposal | The gate never rejects a prompt; `!quick`; tune from `gate.jsonl` (bypass under 20%); the `baseline` preset for a gentle start |
-| Claude Code changes under Compass | Hooks, plugin and transcript formats move fast (tested on 2.1.281, running 2.1.299) | Set the weekly-job secret; rerun `tests/e2e/run_all.py` and record the result |
-| The code map silently never reaches Claude | The MCP server timed out at start-up in two of this machine's sessions; Claude then works stock with nothing to say so, and Tier 0, the main saving, is gone. The cause was the first start compiling the server's dependencies (Oct 14), so every install path now precompiles them; corporate Windows machines with heavy scanning, like the pilot's, may still start slowly | `compass doctor` times the server's start (fails past 30 s, warns past 10 s); confirm a cold start after a fresh install on a pilot machine; have `compass report` flag sessions where Compass was on but no Compass tool was called |
+| Developers never start, because Compass takes learning | 28 CLI commands, 4 slash commands, 11 skills, and two moments (plan approval, the commit refusal) that stop work until you know a command (Oct 16) | `docs/adoption-plan.md`: plain replies instead of commands, one `/compass` door, a one-page quick start, friction telemetry; phase 1 before the pilot |
+| Hooks too slow on corporate Windows | On this laptop the prompt hook takes about 0.4–0.5 s per prompt (p95), and a bare Python start takes 140 ms. A slow hook is the surest way to get Compass switched off (Proposal, top risk) | Record NF-01 to NF-04 on a pilot Windows machine (7.4). If the numbers hold, profile the prompt hook's start-up (imports, antivirus scanning of the tool environment) before the pilot |
+| Claude Code changes under Compass | Hooks, plugin and transcript formats move fast. The Oct 15 rerun on 2.1.300 found two changes: it asks before reading 8.3 short paths, and it reads local-marketplace plugins in place | Set the weekly-job secret; rerun `tests/e2e/run_all.py` after each Claude Code update and record the result |
+| The code map silently never reaches Claude | The MCP server timed out at start-up in two of this machine's sessions; Claude then works stock with nothing to say so, and Tier 0, the main saving, is gone. The cause was the first start compiling the server's dependencies (Oct 14), so every install path now precompiles them; corporate Windows machines with heavy scanning, like the pilot's, may still start slowly | `compass doctor` times the server's start (fails past 30 s, warns past 10 s); confirm a cold start after a fresh install on a pilot machine; `compass report` flags sessions where the query tools were on but never called (since Oct 15) |
 | Files mode and plugin mode drift apart | Two install paths for the same behaviour | One source (`plugin/`), tests that the installed tree matches it, `compass doctor` |
 | New languages unproven on real code | The six NF-09 languages added Oct 14 are tested on small fixtures only, with some imports unresolved by design | Index one real repository per pilot stack before the pilot and check the map and `tests_for` by hand |
 
@@ -226,12 +299,14 @@ Each item lists its priority (🔴 blocks the pilot or v1 · 🟠 before a wider
 - [x] 🔴 **Dev**: Test `install.ps1` hands-on in a second repository, in both modes, then `compass doctor`, `compass upgrade --skip-cli` and `compass uninstall`. *(Oct 14, in a sandbox with its own HOME, Claude config and uv tool folder, on a ts_app copy: both modes installed, `doctor` said "All good", upgrade and uninstall ran cleanly, and git status matched the starting point apart from `.compass/`. Sessions in both modes are covered by `check_install.py`, 7.2.)*
 - [x] 🔴 **Dev**: Try the skills in a real session: `/compass:code-review` (plugin) and `/compass-code-review` (files). Check that they load, that `$ARGUMENTS` is filled in, and that they use the query tools rather than Read. *(Oct 14, on a python_app copy with a planted bug in an uncommitted `LRUCache.put` and a harmless edit elsewhere, the path to the buggy file as the argument. Both modes: the skill was listed, its expanded text read `Request: src/inventory/_internal/cache.py`, and Claude used `file_outline`, `callers_of`, `importers_of`, `tests_for` and more with **zero Read calls** (plugin: 4 Compass calls, 39 s; files: 7, 59 s). Both reviews found the planted eviction bug and the off-by-one, with line numbers, and listed the missing tests.)*
 - [x] 🟠 **Dev**: Verify that Claude Code sets `CLAUDE_PLUGIN_ROOT` for plugin hooks (IN-11, IN-14). *(Oct 14, Claude Code 2.1.299: the plugin session's telemetry row recorded `install_mode: plugin`, which only that variable produces, and the files session's `files`.)*
-- [ ] 🟠 **Dev**: Run `install.sh` on macOS and Linux. *(Plugin mode against the real `claude` CLI is done: `check_install.py`, Oct 14.)*
-- [ ] 🟠 **Dev**: Fix this machine: uv on PATH, reinstall the 0.3.0 plugin, restart, and check that the MCP server connects.
+- [ ] 🟠 **Dev**: Run `install.sh` on macOS and Linux. *(Plugin mode against the real `claude` CLI is done: `check_install.py`, Oct 14. **Linux done Oct 15**, in a fresh Ubuntu 24.04 container, files mode: the script installed uv, then the tool, then Compass; `doctor` passed apart from the missing `claude`; a commit ran through the `-P` git hooks; uninstall left only `?? .compass/`. It also found the Python 3.15 problem, now fixed. Plugin mode could not run in the container, because the network's TLS interception blocks the Claude Code download. macOS is still to do.)*
+- [x] 🟠 **Dev**: Fix this machine: uv on PATH, reinstall the 0.3.0 plugin, restart, and check that the MCP server connects. *(Oct 15: uv is on the user PATH. Claude Code 2.1.300 reads the plugin in place at 0.3.0, so no reinstall was needed. `claude mcp list` shows the server connected. The tool environment already had its bytecode.)*
+- [ ] 🔴 **Dev** (added Oct 16): Take the Oct 14 sandbox's two folders (`%TEMP%\tmp.F7izeApKWk\uv-bin` and `…\home\.local\bin`) off the Windows user PATH, restart Claude Code, and check that `compass doctor` lists one `compass` and that a background agent's notification adds nothing to the gate log. Until then, sessions in this repository run Oct 14 code.
 - [x] 🔴 **Dev** (added Oct 14): Find why the MCP server times out at session start on this machine (two sessions in a row; `compass doctor` passes; a warm start takes about 1.5 s). *(Oct 14: `uv tool install` writes no bytecode by default, so the first start after an install or an upgrade compiles pydantic, the MCP SDK, anyio, httpx and cryptography. The `__pycache__` timestamps in the tool environment fall inside both failed connection windows, and on this machine that work outlasted Claude Code's 30 s connect limit. Every install path now passes `--compile-bytecode` (`compass install`, `compass upgrade`, `install.ps1`, `install.sh`, the npm wrapper), and `compass doctor` times the server's start: it fails past 30 s and warns past 10 s.)*
-- [ ] 🟠 **Dev** (added Oct 14): Once the server connects, rerun `compass report` on this repository and check that Compass tool calls are above zero.
+- [x] 🟠 **Dev** (added Oct 14): Once the server connects, rerun `compass report` on this repository and check that Compass tool calls are above zero. *(Oct 15: a headless lookup session in this repository recorded a `compass:callers_of` call, `install_mode: plugin`. The report's new flag names the two earlier sessions where the server never connected.)*
 - [ ] 🟠 **Owner**: Share the original code-review prompt to merge into `plugin/skills/code-review/SKILL.md` (a TODO tag marks the spot).
-- [ ] 🟠 **Dev**: Decide whether `docs/init-cheatsheet.md` (untracked) is committed; if so, update it for `compass install`, `doctor` and the skills.
+- [x] 🟠 **Dev**: Decide whether `docs/init-cheatsheet.md` (untracked) is committed; if so, update it for `compass install`, `doctor` and the skills. *(Oct 15: kept, rewritten and linked from CLAUDE.md; it goes in with this change.)*
+- [ ] 🔴 **Owner** (added Oct 16): Review `docs/adoption-plan.md` and decide D14 to D17. Then **Dev** builds its phase 1 (about 5.5 days: approve and accept by plain reply, `/compass` status, messages that say what to reply, a one-page quick start) before the pilot, and phase 2 before the pilot's Compass weeks.
 
 ### 7.2 Phase 2: coverage and release
 
@@ -243,12 +318,13 @@ Each item lists its priority (🔴 blocks the pilot or v1 · 🟠 before a wider
 - [ ] 🔴 **Owner, D1a** (added Oct 14): Choose the published package names (the PyPI and npm placeholders are taken by other projects), then **Dev** renames them in `pyproject.toml`, `npm/package.json`, the installer's pin and the docs.
 - [ ] 🔴 **Owner, D2** (added Oct 14): Create the Azure DevOps organisation and project, a Python feed and an npm feed, and the release pipeline from `azure-pipelines-release.yml`; set `PYTHON_FEED_URL` and `NPM_FEED_URL`.
 - [ ] 🟠 **Dev** (added Oct 14): Run the two release jobs for the first time: push a throwaway tag on a fork (or a `workflow_dispatch` run) with no feed secrets set, and check that the GitHub release gets the three artifacts.
-- [ ] 🟠 **Dev**: Run the npm wrapper's automated test on Windows as well.
-- [ ] 🟢 **Dev**: A `/compass:doctor` command.
-- [ ] 🟢 **Dev, IN-15** (added Oct 14): A fresh `compass install` writes the preset config and then runs `init`, which reports "config .compass/config.yaml exists; kept as is". Have the installer's output say the preset was written instead.
-- [ ] 🟢 **Dev, IN-05** (added Oct 14): `compass upgrade` writes `<file>.compass-new` beside an edited file even when Compass's own version of it did not change (`record.plan_files` compares the file on disk with the new content only). Skip it when the new content's hash equals the recorded one.
-- [ ] 🟠 **Dev, TM-03** (added Oct 14): Have `compass report` flag sessions where Compass was on but no Compass tool was called, so a server that never connected shows up in the numbers.
-- [ ] 🟢 **Dev, Could items**: PG-06, CP-04, IX-13, IX-14, IX-15, ST-03.
+- [x] 🟠 **Dev**: Run the npm wrapper's automated test on Windows as well. *(Oct 15: the fakes are copies of a venv launcher, which Node can spawn.)*
+- [x] 🟢 **Dev**: A `/compass:doctor` command. *(Oct 15. It runs `compass doctor --exit-zero`, because Claude Code drops a command whose `!` line fails. Checked in headless sessions on a healthy install and on a doubled one.)*
+- [x] 🟢 **Dev, IN-15** (added Oct 14, done Oct 15): A fresh `compass install` writes the preset config and then runs `init`, which reports "config .compass/config.yaml exists; kept as is". Have the installer's output say the preset was written instead.
+- [x] 🟢 **Dev, IN-05** (added Oct 14, done Oct 15): `compass upgrade` writes `<file>.compass-new` beside an edited file even when Compass's own version of it did not change (`record.plan_files` compares the file on disk with the new content only). Skip it when the new content's hash equals the recorded one.
+- [x] 🟠 **Dev, TM-03** (added Oct 14): Have `compass report` flag sessions where Compass was on but no Compass tool was called, so a server that never connected shows up in the numbers. *(Oct 15. Sessions with the query tools on that used Read, Grep or Glob but no Compass tool; a session with no lookups says nothing either way.)*
+- [ ] 🟢 **Dev, Could items**: PG-06, CP-04, IX-13, IX-14, IX-15, ST-03. *(Oct 15: left for after the pilot decision. PG-06 must stay off the prompt hook's 100 ms path, and ST-03 brings network access that NF-10 has to allow.)*
+- [ ] 🟠 **Owner/Dev, D12** (added Oct 15): Settle `check_query_tools.py`'s bar on Claude Code 2.1.300, so the weekly job can go green.
 
 ### 7.3 Phase 3: benchmark build
 
@@ -259,14 +335,14 @@ Each item lists its priority (🔴 blocks the pilot or v1 · 🟠 before a wider
 
 ### 7.4 Phase 4: v1 acceptance (Requirements Spec, "Release acceptance")
 
-- [ ] 🔴 Traceability: every Must requirement mapped to an automated test or a documented manual check.
-- [ ] 🔴 `compass init` succeeds on 5 reference repos in at least 4 languages.
+- [x] 🔴 Traceability: every Must requirement mapped to an automated test or a documented manual check. *(Oct 15: `docs/traceability.md`. ST-01 and IN-13 are partly met, with their manual checks written down. The release-acceptance box itself is ticked once those pass.)*
+- [ ] 🔴 `compass init` succeeds on 5 reference repos in at least 4 languages. *(Oct 16, on this Windows laptop: 5 real repositories (BitChord, Heartry, quickserve-fe, uvesh_portfolio and the Flutter SDK) covering Kotlin, Java, Go, C, C++, Dart, Swift and Python, all clean; see [since the last update](#since-the-last-update-oct-15--oct-16). Still to do: pick the pilot's reference repos (D4) and repeat it on macOS and Linux.)*
 - [ ] 🔴 One installer command gives a working session on clean macOS, Linux and Windows, in both modes; uninstall leaves no diff.
-- [ ] 🔴 `pytest --perf` on the 100k LOC reference repo: record NF-01 to NF-04 and NF-15 with the date and machine.
+- [ ] 🔴 `pytest --perf` on the 100k LOC reference repo: record NF-01 to NF-04 and NF-15 with the date and machine. *(Oct 15, on the generated repo on this Windows laptop: every hook budget missed, before and after the day's changes; see the latency table in section 2.)*
 - [ ] 🔴 Disabling Compass restores stock Claude Code, with no leftover hooks, in both modes.
 - [ ] 🔴 The benchmark runs end to end and produces the report.
-- [ ] 🟠 The NF-10 privacy audit and the NF-11 security review.
-- [ ] 🟠 NF-14: set `CLAUDE_CODE_OAUTH_TOKEN`, confirm the weekly job is green, and document the supported Claude Code range.
+- [x] 🟠 The NF-10 privacy audit and the NF-11 security review. *(Oct 15: `docs/security-privacy-review.md`; four findings fixed; R1 goes to D13.)*
+- [ ] 🟠 NF-14: set `CLAUDE_CODE_OAUTH_TOKEN`, confirm the weekly job is green, and document the supported Claude Code range. *(Range documented Oct 15 in the setup guide; the secret and a green run remain, after D12.)*
 - [ ] 🟠 NF-16: run Azure Pipelines at least once (it needs an Azure DevOps organisation and an agent).
 
 ### 7.5 Phase 5: pilot
@@ -286,9 +362,9 @@ Each item lists its priority (🔴 blocks the pilot or v1 · 🟠 before a wider
 - [x] 🟢 Evaluation Plan: `/task` becomes `/compass:task`, `/approve` becomes `compass approve`, and the pilot's baseline weeks name `--modules baseline`. *(Oct 14)*
 - [x] 🟢 Proposal: the installer is no longer "planned"; the build total reads 8.5 weeks, as its table does; the pilot weeks no longer include building. *(Oct 14)*
 - [x] 🟢 Getting Started guide and installer plan: build status per milestone and per Step 10 piece; the wheel folder is `compass/_bundle/`, not `compass/_plugin/`; upgrade lives in `install/installer.py`. *(Oct 14)*
-- [ ] 🟢 CLAUDE.md: rerun `tests/e2e/run_all.py` on the current Claude Code, and update the done-when results (from 2026-09-24, Claude Code 2.1.281; 2.1.299 is current).
-- [ ] 🟢 `docs/init-cheatsheet.md`: still untracked and still written for `compass init` by hand (see 7.1).
-- [ ] 🟢 Regenerate the `.docx`/`.pdf` exports one folder up.
+- [x] 🟢 CLAUDE.md: rerun `tests/e2e/run_all.py` on the current Claude Code, and update the done-when results (from 2026-09-24, Claude Code 2.1.281; 2.1.299 is current). *(Oct 15, on 2.1.300: four of five pass; see D12.)*
+- [x] 🟢 `docs/init-cheatsheet.md`: still untracked and still written for `compass init` by hand (see 7.1). *(Oct 15.)*
+- [ ] 🟢 Regenerate the `.docx`/`.pdf` exports one folder up. *(Oct 15: the folder one level up holds no exports now. Decide whether they are still wanted before regenerating them.)*
 
 ---
 
@@ -317,5 +393,9 @@ Recorded in the Requirements Spec ("Deferred for review") and `docs/installer-pl
 | `CLAUDE.md` | Working rules, invariants and implementation notes, for anyone (or any agent) changing the code |
 | `docs/setup-guide.md`, `docs/user-guide.md` | Installing and using Compass |
 | `docs/installer-plan.md` | M7's design, the GSD/BMAD comparison, the deferred ideas |
+| `docs/traceability.md` | Every Must requirement against its tests and checks |
+| `docs/security-privacy-review.md` | The NF-10 audit and NF-11 review, findings and residual risks |
+| `docs/init-cheatsheet.md` | Switching Compass on, on one page |
+| `docs/adoption-plan.md` | Proposed: making Compass need nothing to learn |
 | `bench/README.md` | The benchmark harness and the task format |
 | `plugin/README.md` | What each piece of the plugin does |

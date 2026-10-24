@@ -340,7 +340,7 @@ class Queries:
     def stack_profile(self) -> Result:
         from compass.stack import build_profile, render_text
 
-        self._sync_config()
+        self.sync_config()
         profile = build_profile(self.repo.root, self.config)
         return Result(render_text(profile).splitlines(), profile)
 
@@ -701,7 +701,7 @@ class Queries:
 
     def _prepare(self) -> None:
         """Before each tool: pick up config edits, then the freshness check."""
-        self._sync_config()
+        self.sync_config()
         self._refresh_repo()
 
     def _config_stat(self) -> tuple[int, int] | None:
@@ -711,7 +711,7 @@ class Queries:
             return None
         return (st.st_size, st.st_mtime_ns)
 
-    def _sync_config(self) -> None:
+    def sync_config(self) -> None:
         """Reload config.yaml when it changed: the MCP server lives for a whole
         session, and a stale ``index`` section would make every refresh look
         like it needs a full rebuild."""

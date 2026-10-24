@@ -45,11 +45,14 @@ class Answer:
 
 def on_prompt(repo: Repo, payload: dict[str, Any]) -> Answer:
     text = payload.get("prompt") if isinstance(payload.get("prompt"), str) else ""
+    parsed = parse(text)
+    # developer's next prompt may do, and telemetry counts the notification's turn with the prompt before it
+    if parsed.kind == "notice":  # Claude Code's own message: never a brief, a question or a new turn
+        return Answer()
     session = _session(payload)
     snapshot = state.read(repo)
     record = snapshot["sessions"].get(session) if session else None
     followup = bool(record and record["prompted"])  # "it" and "that" can point at earlier turns
-    parsed = parse(text)
     parsed.followup = followup
     task = state.active_task(snapshot)
     fresh = task is not None and state.is_fresh(snapshot, task)
@@ -103,7 +106,7 @@ def on_prompt(repo: Repo, payload: dict[str, Any]) -> Answer:
             if missing:  # the prompt still goes through: Claude checks with the developer first
                 outcome, hold = "ask", gate["strictness"] == "strict"
                 context.append(ask_first(missing, hold))
-                messages.append(developer_notice(missing, hold))
+                messages.append(developer_notice(missing, hold, gate["bypass_prefix"]))
                 _mark_asked(repo, session, missing if hold else [])
         waiting = state.needs_approval(state.read(repo)) if config.data["spec_gate"]["enabled"] else None
         if waiting and parsed.kind != "bypass" and not drafted:
@@ -134,10 +137,12 @@ def _define_task(repo: Repo, config, task: str, parsed: ParsedPrompt, messages: 
     if size != "large":
         return []
     spec.create(repo, task, parsed, reason)
+    from compass.gate import skips
+
     messages.append(
         f"[compass] {task} looks large ({reason}), so Claude writes a short plan first ({spec.spec_rel(task)}),"
         f" with its open questions. Once you've answered them, /compass:approve {task} lets Claude implement it."
-        " (!quick skips the plan for one turn.)"
+        + skips(config.data["prompt_gate"]["bypass_prefix"], "the plan for one turn")
     )
     return [spec_instructions(task, reason)]
 
@@ -202,12 +207,14 @@ def on_pre_edit(repo: Repo, payload: dict[str, Any]) -> Answer:
         )
     if task is None or not config.data["spec_gate"]["enabled"]:
         return Answer()
+    prefix = gate["bypass_prefix"]
     return Answer(
         code=2,
         stderr=(
             f"[compass] {task} is a large task and its spec is not approved yet, so Compass holds the edit to {rel}."
             f" Finish {spec_rel(task)} (answer or list its open questions), then ask the developer to run"
-            f" /compass:approve {task}. The developer can also start a prompt with !quick to allow edits for one turn."
+            f" /compass:approve {task}."
+            + (f" The developer can also start a prompt with {prefix} to allow edits for one turn." if prefix else "")
         ),
     )
 

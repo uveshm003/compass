@@ -113,6 +113,19 @@ def test_ctags_availability_never_forces_a_rebuild(ctags_exe, make_repo, monkeyp
     assert (result.mode, result.parsed) == ("incremental", 0)
 
 
+def test_option_files_in_the_repository_are_ignored(make_repo, monkeypatch):
+    exe = real_ctags()
+    if exe is None:
+        pytest.skip("Universal Ctags not installed")
+    monkeypatch.setenv("COMPASS_CTAGS", exe)
+    ctags.find_ctags.cache_clear()
+    repo = Repo(make_repo(files={"app/billing.rb": RUBY, ".ctags.d/repo.ctags": "--languages=-Ruby\n"}))
+    Indexer(repo).build()
+    with Store.open(repo.db_path) as store:
+        names = {s["name"] for s in store.dump()["symbols"]}
+    assert {"Billing", "Invoice", "total"} <= names
+
+
 def test_without_ctags_other_languages_are_listed_without_symbols(make_repo):
     root = make_repo(files={"app/billing.rb": RUBY})
     repo = Repo(root)

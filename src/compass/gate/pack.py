@@ -45,7 +45,9 @@ def resolve(store: Store, parsed: ParsedPrompt) -> None:
     """Fill ``parsed.resolved``: candidate text -> {"file"|"dir"|"files"|"symbols": …}."""
     for candidate in parsed.candidates:
         found = _resolve_path(store, candidate.text) if candidate.kind == "path" else None
-        if found is None and (candidate.kind == "symbol" or candidate.quoted):
+        # only a member separator (`tests/test_x.py::test_y`, `Class#method`) makes a quoted path a symbol too
+        member = candidate.kind == "symbol" or "::" in candidate.text or "#" in candidate.text
+        if found is None and member and (candidate.kind == "symbol" or candidate.quoted):
             found = _resolve_symbol(store, candidate.text)
         if found is None and candidate.kind == "symbol" and candidate.quoted:
             found = _resolve_path(store, candidate.text)

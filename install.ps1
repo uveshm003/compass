@@ -52,7 +52,8 @@ if (-not $uv) {
 }
 Write-Host "uv: $uv"
 
-$installArgs = @("tool", "install", "--force", "--compile-bytecode")
+# 3.12, as CI tests: uv would otherwise take its newest Python, for which some pinned packages have no wheels yet
+$installArgs = @("tool", "install", "--force", "--compile-bytecode", "--python", "3.12")
 if ($Editable) { $installArgs += "--editable" }
 $installArgs += $Source
 & $uv @installArgs

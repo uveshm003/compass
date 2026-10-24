@@ -276,6 +276,26 @@ def test_cli_twins(indexed_fixtures):
         assert proc.returncode == 0 and proc.stdout.strip(), command
 
 
+@pytest.mark.parametrize(
+    ("command", "run"),
+    [
+        (["read-symbol", "Exponential.Next"], lambda q: q.read_symbol("Exponential.Next")),
+        (["file-outline", "internal/transport/retry.go"], lambda q: q.file_outline("internal/transport/retry.go")),
+        (["map", "internal/transport"], lambda q: q.map("internal/transport")),
+        (["tests-for", "internal/transport/retry.go"], lambda q: q.tests_for("internal/transport/retry.go")),
+        (["importers-of", "internal/transport"], lambda q: q.importers_of("internal/transport")),
+        (["callers-of", "Retry"], lambda q: q.callers_of("Retry")),
+    ],
+    ids=lambda value: value[0] if isinstance(value, list) else "",
+)
+def test_every_cli_twin_answers_in_json(indexed_fixtures, command, run):
+    repo = indexed_fixtures["go_app"]
+    proc = run_compass("-C", str(repo.root), *command, "--json", cwd=repo.root)
+    assert proc.returncode == 0, proc.stderr
+    assert json.loads(proc.stdout) == json.loads(json.dumps(run(Queries(repo)).data))
+    assert json.loads(proc.stdout)  # never an empty answer for these
+
+
 def test_cli_twin_outside_an_initialised_repo(make_repo):
     proc = run_compass("-C", str(make_repo("go_app")), "find-symbol", "Retry")
     assert proc.returncode == 1 and "compass init" in proc.stderr

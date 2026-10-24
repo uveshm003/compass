@@ -116,7 +116,8 @@ async function main() {
     const spec = source || `compass==${VERSION}`;
     log(`compass-cc ${VERSION}: installing the compass CLI (${spec}) with uv`);
     if (!dryRun) {
-      const result = run(uv, ["tool", "install", "--force", "--compile-bytecode", spec]);
+      // 3.12, as CI tests: uv would otherwise take its newest Python, which some pinned packages have no wheels for
+      const result = run(uv, ["tool", "install", "--force", "--compile-bytecode", "--python", "3.12", spec]);
       if (result.status !== 0) fail(`\`uv tool install ${spec}\` failed`);
     }
     compass = onPath("compass");

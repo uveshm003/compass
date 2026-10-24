@@ -1,6 +1,6 @@
 # Compass plugin for Claude Code
 
-The plugin is plain files: hooks, three commands, three subagents, eleven
+The plugin is plain files: hooks, four commands, three subagents, eleven
 skills, an optional output style and the MCP registration. All behaviour lives
 in the `compass` CLI, which every hook calls (`compass hook <event>`), so
 install both. The same files can also be installed without the plugin system,
@@ -18,9 +18,9 @@ defaults). `compass doctor` checks the result, `compass upgrade` updates it and
 1. The CLI, from a clone or straight from the repository:
 
    ```bash
-   uv tool install --compile-bytecode .                # in a clone
-   uv tool install --compile-bytecode git+https://github.com/<owner>/<repo>
-   uv tool install --compile-bytecode git+https://dev.azure.com/<org>/<project>/_git/<repo>
+   uv tool install --compile-bytecode --python 3.12 .                # in a clone
+   uv tool install --compile-bytecode --python 3.12 git+https://github.com/<owner>/<repo>
+   uv tool install --compile-bytecode --python 3.12 git+https://dev.azure.com/<org>/<project>/_git/<repo>
 
    `--compile-bytecode` matters: without it the MCP server's first start compiles
    its Python files, which can outlast the 30 seconds Claude Code waits for it.
@@ -66,6 +66,7 @@ allow it for good ("don't ask again"): the tools only read the code map.
 | `/compass:task <brief>` | `commands/task.md` | Starts a task from `Goal: … Scope: … Non-goals: … Accept when: … Constraints: …`, optionally tagged `Category: … Size: S/M/L` for telemetry; a large one gets a spec draft (developer only) |
 | `/compass:approve [task]` | `commands/approve.md` | Approves a large task's spec, recording who and when (developer only) |
 | `/compass:accept [task]` | `commands/accept.md` | Strips the task's anchor tags and archives its manifest (developer only) |
+| `/compass:doctor` | `commands/doctor.md` | Runs `compass doctor` and reports what needs fixing; changes nothing, so Claude may run it too |
 | `digest` subagent | `agents/digest.md` | Condenses large logs and files to 30 lines, citing `file:line` |
 | `test-runner` subagent | `agents/test-runner.md` | Runs tests or a build and reports only the failures, in 20 lines at most |
 | `scaffold` subagent | `agents/scaffold.md` | Makes mechanical edits to the files it is given, tagging each change |

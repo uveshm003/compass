@@ -139,6 +139,7 @@ def test_upgrade_keeps_edits_and_deletions(repo):
     style.write_bytes(b"stale\n")
     record = rec.load(repo, "project")
     record.files[".claude/output-styles/compass-review.md"] = rec.digest(b"stale\n")  # as if an older release wrote it
+    record.files[".claude/commands/compass/task.md"] = rec.digest(b"an older task.md\n")
     rec.path_for(repo, "project").write_text(record.to_json(), encoding="utf-8")
 
     lines: list[str] = []
@@ -152,6 +153,23 @@ def test_upgrade_keeps_edits_and_deletions(repo):
     assert uninstall(repo, "project", out=lines.append)
     assert task.exists() and not (repo / ".claude/commands/compass/task.md.compass-new").exists()
     assert sorted(tree(repo)) == [".claude/commands/compass/task.md"]  # only the team's edited file is left
+
+
+def test_an_upgrade_offers_no_new_version_of_an_edited_file_compass_did_not_change(repo):
+    quiet(files_opts())
+    task = repo / ".claude/commands/compass/task.md"
+    task.write_bytes(task.read_bytes() + b"\nOur team's note.\n")
+    recorded = rec.load(repo, "project").files[".claude/commands/compass/task.md"]
+
+    lines: list[str] = []
+    assert upgrade(Options(skip_cli=True, yes=True), out=lines.append) == 0
+    assert task.read_text(encoding="utf-8").endswith("Our team's note.\n")
+    assert not (repo / ".claude/commands/compass/task.md.compass-new").exists()
+    assert not any("task.md (edited)" in line for line in lines)
+    assert rec.load(repo, "project").files[".claude/commands/compass/task.md"] == recorded
+
+    assert uninstall(repo, "project", out=lambda _: None)
+    assert sorted(tree(repo)) == [".claude/commands/compass/task.md"]  # still the team's file, still kept
 
 
 def test_a_user_install_goes_to_the_home_directory(repo, monkeypatch, tmp_path):
@@ -318,8 +336,9 @@ def test_presets_set_the_module_switches():
     assert (custom["query"]["enabled"], custom["prompt_gate"]["enabled"], custom["local_llm"]["enabled"]) == (True, False, True)
 
 
-def test_install_runs_init_with_the_preset(repo):
+def test_install_runs_init_with_the_preset(repo, capsys):
     quiet(files_opts(init=True, modules="baseline", git_hooks=False))
+    from compass.cli import INSTALL_PRESET_ENV
     from compass.config import load_config
 
     config = load_config(repo)
@@ -327,10 +346,14 @@ def test_install_runs_init_with_the_preset(repo):
     assert (repo / ".compass/index.db").is_file()
     assert not (repo / ".git/hooks/pre-commit").exists()
     assert rec.load(repo, "project").init == {"modules": "baseline", "git_hooks": False}
+    said = capsys.readouterr().out
+    assert "wrote .compass/config.yaml, baseline preset" in said and "kept as is" not in said
+    assert INSTALL_PRESET_ENV not in os.environ
     # An existing config is the team's: a second install keeps it.
     write(repo, ".compass/config.yaml", "review:\n  enabled: true\n")
     quiet(files_opts(init=True, modules="baseline", git_hooks=False))
     assert (repo / ".compass/config.yaml").read_text(encoding="utf-8") == "review:\n  enabled: true\n"
+    assert "exists; kept as is" in capsys.readouterr().out
 
 
 def test_the_cli_installs_and_uninstalls(repo):
@@ -351,6 +374,10 @@ def test_doctor_reports_a_doubled_install(repo):
     proc = run_compass("doctor", "--no-mcp", cwd=repo)
     assert proc.returncode == 1
     assert "Compass is installed twice" in proc.stdout
+    assert "`compass uninstall --scope project` (the files)" in proc.stdout
+    assert "`claude plugin uninstall compass@compass-marketplace --scope local` (the plugin)" in proc.stdout
+    reported = run_compass("doctor", "--no-mcp", "--exit-zero", cwd=repo)
+    assert (reported.returncode, reported.stdout) == (0, proc.stdout)
 
 
 # -- what the hooks see (IN-11, IN-14) ---------------------------------------------------------
@@ -409,11 +436,33 @@ def test_the_wheel_carries_the_plugin():
     assert bundle_root() == ROOT  # a checkout reads plugin/ directly
 
 
-@pytest.mark.skipif(shutil.which("node") is None, reason="needs Node.js")
-def test_the_npm_wrapper_installs_the_cli_then_hands_over(tmp_path):
+# file in that venv records the call during start-up, before Python looks for a script named after the first argument
+WINDOWS_RECORDER = """import json, os, sys
+name = os.path.splitext(os.path.basename(sys.executable))[0].lower()
+if name in ("uv", "compass"):
+    with open(os.environ["FAKE_LOG"], "a", encoding="utf-8") as f:
+        f.write(json.dumps([name] + sys.orig_argv[1:]) + "\\n")
+    os._exit(0)
+"""
+
+
+def npm_fakes(tmp_path: Path) -> Path:
+    """``uv`` and ``compass`` executables that record their arguments in
+    ``$FAKE_LOG``. Node refuses to spawn .cmd files without a shell, so on
+    Windows they are real .exe files: copies of a fresh venv's launcher."""
+    if os.name == "nt":
+        import venv
+
+        venv.create(tmp_path / "fake-env", with_pip=False)
+        bin_dir = tmp_path / "fake-env" / "Scripts"
+        site = tmp_path / "fake-env" / "Lib" / "site-packages"
+        (site / "fake_recorder.py").write_text(WINDOWS_RECORDER, encoding="utf-8")
+        (site / "fake_recorder.pth").write_text("import fake_recorder\n", encoding="utf-8")
+        for name in ("uv", "compass"):
+            shutil.copy2(bin_dir / "python.exe", bin_dir / f"{name}.exe")
+        return bin_dir
     bin_dir = tmp_path / "bin"
     bin_dir.mkdir()
-    log = tmp_path / "calls.jsonl"
     recorder = bin_dir / "record.py"
     recorder.write_text(
         "import json, os, sys\n"
@@ -421,21 +470,23 @@ def test_the_npm_wrapper_installs_the_cli_then_hands_over(tmp_path):
         "    f.write(json.dumps([os.path.basename(sys.argv[1])] + sys.argv[2:]) + '\\n')\n",
         encoding="utf-8",
     )
-    # Node refuses to spawn .cmd files without a shell, so the fakes are real executables:
-    # copies of this interpreter's launcher are not portable, so build tiny ones with a shebang on POSIX
-    # and skip on Windows, where only .exe can be spawned directly.
-    if os.name == "nt":
-        pytest.skip("the fakes need to be .exe files on Windows")
     for name in ("uv", "compass"):
         shim = bin_dir / name
         shim.write_text(f'#!/bin/sh\nexec "{sys.executable}" "{recorder}" "$0" "$@"\n', encoding="utf-8")
         shim.chmod(0o755)
+    return bin_dir
+
+
+@pytest.mark.skipif(shutil.which("node") is None, reason="needs Node.js")
+def test_the_npm_wrapper_installs_the_cli_then_hands_over(tmp_path):
+    bin_dir = npm_fakes(tmp_path)
+    log = tmp_path / "calls.jsonl"
     env = {**os.environ, "PATH": f"{bin_dir}{os.pathsep}{os.environ['PATH']}", "FAKE_LOG": str(log)}
     proc = subprocess.run(["node", str(ROOT / "npm/bin/compass-cc.js"), "install", "--yes", "--mode", "files"],
                           capture_output=True, text=True, env=env)
     assert proc.returncode == 0, proc.stderr
     calls = [json.loads(line) for line in log.read_text(encoding="utf-8").splitlines()]
     assert calls == [
-        ["uv", "tool", "install", "--force", "--compile-bytecode", f"compass=={compass.__version__}"],
+        ["uv", "tool", "install", "--force", "--compile-bytecode", "--python", "3.12", f"compass=={compass.__version__}"],
         ["compass", "install", "--skip-cli", "--yes", "--mode", "files"],
     ]

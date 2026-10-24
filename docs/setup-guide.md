@@ -13,7 +13,7 @@ Setup takes about ten minutes. Once per machine, you install the `compass` comma
 **The quick way (0.3.0 and later).** With uv installed (step 1), one command installs the tool, wires Compass into Claude Code and sets up the current repository:
 
 ```bash
-uvx --from git+https://github.com/<owner>/<repo> compass install       # or the Azure Repos URL
+uvx --python 3.12 --from git+https://github.com/<owner>/<repo> compass install       # or the Azure Repos URL
 compass install                                                        # when the tool is already installed
 ```
 
@@ -25,7 +25,7 @@ It asks whether Compass is for you alone or for the whole repository (committed 
 
 | | Version | Why |
 | --- | --- | --- |
-| Claude Code | 2.1.281 or later, signed in with your Claude account | Compass is a Claude Code plugin |
+| Claude Code | 2.1.281 or later, signed in with your Claude account; last tested with 2.1.300 (Oct 15, 2026) | Compass is a Claude Code plugin |
 | git | any recent version | Compass works in git repositories, on GitHub or Azure Repos |
 | uv | any recent version | installs the `compass` tool and the Python it needs (3.11 or later) |
 | universal-ctags | optional | indexes languages that have no built-in parser |
@@ -52,10 +52,12 @@ powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | ie
 Install it from wherever your team hosts the Compass repository:
 
 ```bash
-uv tool install --compile-bytecode git+https://github.com/<owner>/<repo>                    # GitHub
-uv tool install --compile-bytecode git+https://dev.azure.com/<org>/<project>/_git/<repo>    # Azure Repos
-uv tool install --compile-bytecode .                                                         # or from a clone, inside it
+uv tool install --compile-bytecode --python 3.12 git+https://github.com/<owner>/<repo>                    # GitHub
+uv tool install --compile-bytecode --python 3.12 git+https://dev.azure.com/<org>/<project>/_git/<repo>    # Azure Repos
+uv tool install --compile-bytecode --python 3.12 .                                                         # or from a clone, inside it
 ```
+
+`--python 3.12` keeps uv on the Python that Compass is tested with: for the newest Python, some of the parser packages Compass pins have no ready-built wheels yet, and building them needs a C compiler. uv downloads 3.12 if you don't have it.
 
 Next, put uv's tool folder on your PATH (you only need to do this once), and open a new terminal:
 
@@ -133,7 +135,7 @@ The git hooks keep the map current after commits, checkouts, merges and rebases.
 ```text
 Compass 0.3.0 doctor
   ok    compass 0.3.0 on PATH (C:\Users\<you>\.local\bin\compass.EXE)
-  ok    Claude Code 2.1.299
+  ok    Claude Code 2.1.300
   ok    installed as the plugin (local scope)
   ok    `compass mcp` serves 8 tools
   ok    code map built
@@ -179,7 +181,7 @@ When the model isn't running, these features simply stay off.
 
 ## Updating
 
-If you installed with `compass install`, one command updates the tool and then the plugin or the installed files. Files you edited are kept, with the new version written next to them as `<file>.compass-new`:
+If you installed with `compass install`, one command updates the tool and then the plugin or the installed files. Files you edited are kept; when the new release changed one of them too, its version is written next to yours as `<file>.compass-new`:
 
 ```bash
 compass upgrade
@@ -213,6 +215,7 @@ uv tool uninstall compass
 | `/mcp` shows compass as failed | The same PATH problem. Or run `compass mcp` in the repository to see the error, or `compass doctor`. |
 | `/mcp` says compass timed out, but `compass doctor` is happy | The server's first start after installing or upgrading the tool compiles its Python files, and on a slow or heavily scanned disk that can take longer than the 30 seconds Claude Code waits. Run `/mcp` to reconnect it. Running `compass doctor` once after installing starts the server and prevents it; installing with `--compile-bytecode`, as `compass install` and the bootstrap scripts do, avoids it altogether. |
 | Compass hooks don't run | Plugins load when a session starts. Restart Claude Code in the repository. |
+| `compass doctor` warns "more than one compass on PATH" | Claude Code runs the first one it finds, which may be an old install or a test sandbox, so a fix or an upgrade seems to have no effect. Take the folder you don't use off your PATH (on Windows, your user PATH in *Edit environment variables for your account*) and restart the terminal and Claude Code. When you test an install in a sandbox, put its tool folder on PATH first: otherwise `uv tool update-shell` adds it to your real user PATH for good. |
 | "The code map is being built in the background" | The first index of a big repository is still running. Give it a few seconds. |
 | Answers look out of date | Run `compass index`, or `compass index --full` to rebuild everything. |
 | Plugin changes don't show up | Uninstall the plugin, install it again, and restart. |

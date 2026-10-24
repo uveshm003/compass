@@ -4,6 +4,7 @@ exit 0 (NF-12)."""
 
 from __future__ import annotations
 
+import io
 import json
 import os
 import shutil
@@ -13,6 +14,8 @@ import time
 
 import pytest
 
+from compass import hooks
+from compass.hooks import HANDLERS
 from compass.index.indexer import Indexer
 from compass.index.store import Store
 from compass.lock import file_lock
@@ -149,6 +152,20 @@ def test_internal_errors_exit_zero_and_are_logged(indexed):
     assert (proc.returncode, proc.stdout, proc.stderr) == (0, "", "")
     log = (indexed.logs_dir / "errors.log").read_text(encoding="utf-8")
     assert "[hook post-edit]" in log and "Traceback" in log
+
+
+@pytest.mark.parametrize("event", sorted(HANDLERS))
+def test_every_hook_fails_open(indexed, event, monkeypatch):
+    proc = run_compass("hook", event, input="{not json", cwd=indexed.root, env={"CLAUDE_PROJECT_DIR": str(indexed.root)})
+    assert (proc.returncode, proc.stdout, proc.stderr) == (0, "", "")
+    assert f"[hook {event}]" in (indexed.logs_dir / "errors.log").read_text(encoding="utf-8")
+
+    def broken(repo, payload):
+        raise RuntimeError("a bug in the handler")
+
+    monkeypatch.setitem(HANDLERS, event, broken)
+    assert hooks.run(event, io.StringIO(json.dumps({"cwd": str(indexed.root)}))) == 0
+    assert "a bug in the handler" in (indexed.logs_dir / "errors.log").read_text(encoding="utf-8")
 
 
 SESSION_CONTEXT = "[compass] Compass is active in this repository."

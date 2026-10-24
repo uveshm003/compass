@@ -38,11 +38,11 @@ list.
 ## Use it
 
 ```bash
-uvx --from git+https://github.com/<owner>/<repo> compass install   # all in one (0.3.0+)
+uvx --python 3.12 --from git+https://github.com/<owner>/<repo> compass install   # all in one (0.3.0+)
 ./install.sh            # or, from a clone: installs uv if needed, then the above (install.ps1 on Windows)
 
 # or step by step:
-uv tool install --compile-bytecode .                # the compass CLI
+uv tool install --compile-bytecode --python 3.12 .                # the compass CLI
 claude plugin marketplace add ./                    # this repo's .claude-plugin/marketplace.json
 claude plugin install compass@compass-marketplace   # the plugin
 compass -C /path/to/repo init                       # per repository: config, git hooks, first index

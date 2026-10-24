@@ -28,7 +28,8 @@ Each piece of work goes to the cheapest thing that can do it well. Lookups, chec
 
 - **Your prompt always goes through.** At most, Claude asks you one question before it starts.
 - **No templates.** Write prompts the way you always have. `/compass:task` is there if you like structure, but nothing needs it.
-- **Most prompts are never checked.** Questions, replies, follow-ups, requests that change no code ("run the tests", "commit this") and requests that say what they're about all go straight through.
+- **Most prompts are never checked.** Questions, replies, follow-ups, requests that change no code ("run the tests", "commit this") and requests that say what they're about all go straight through. So do Claude Code's own notices, such as a background task finishing: they are not yours, so Compass ignores them.
+
 - **One word to skip.** Start a prompt with `!quick` to skip every check for that turn. Every module can be switched off in `.compass/config.yaml`.
 - **Fast.** On a repository of 100,000 lines, Compass adds about 35 ms to a prompt, and about 55 ms to a new request it checks and adds context to.
 - **It steps aside when it breaks.** Any error inside Compass is logged, and Claude Code carries on as if Compass weren't there.
@@ -391,18 +392,18 @@ The skills' team rules live next to the config, in `.compass/standards/` (see [Y
 ```text
 $ compass install --yes --scope project --mode files --skip-cli
 Compass 0.3.0 installer
-  files       18 files under ~\compass-demo\.claude
+  files       19 files under ~\compass-demo\.claude
   hooks       .claude/settings.json: compass hook for PostToolUse, PreToolUse, SessionStart, Stop, SubagentStop, UserPromptSubmit
   mcp         .mcp.json: compass
 Compass in ~\compass-demo
-  config      .compass/config.yaml exists; kept as is
+  config      wrote .compass/config.yaml, full preset (commit it)
   gitignore   .compass/.gitignore keeps derived files out of git
   git hook    post-commit: installed
   git hook    post-checkout: installed
   git hook    post-merge: installed
   git hook    post-rewrite: installed
   git hook    pre-commit: installed
-  index       Indexed 29 files, 21 symbols in 0.25 s (full build).
+  index       Indexed 30 files, 21 symbols in 0.82 s (full build).
   map         .compass/map/_index.md
   record      ~\compass-demo\.claude\compass\install.json
 
@@ -412,7 +413,7 @@ Commit .claude/ and .compass/config.yaml (and .mcp.json in files mode) so the te
 
 Once those files are committed, teammates who pull them get the same hooks, commands, skills and settings. Each of them still needs the `compass` tool on their machine.
 
-In files mode the commands keep their names (`/compass:task`, `/compass:approve`, `/compass:accept`), while the skills become `/compass-<name>` and the subagents `compass-<name>`. Everything else behaves the same in both modes.
+In files mode the commands keep their names (`/compass:task`, `/compass:approve`, `/compass:accept`, `/compass:doctor`), while the skills become `/compass-<name>` and the subagents `compass-<name>`. Everything else behaves the same in both modes.
 
 **Check it.** `compass doctor` checks each piece in turn, and says what to do about anything that's wrong, including Compass installed twice, which would run every hook twice:
 
@@ -420,7 +421,7 @@ In files mode the commands keep their names (`/compass:task`, `/compass:approve`
 $ compass doctor
 Compass 0.3.0 doctor
   ok    compass 0.3.0 on PATH (~\.local\bin\compass.EXE)
-  ok    Claude Code 2.1.299
+  ok    Claude Code 2.1.300
   ok    installed as files (project scope): hooks for 6 events
   ok    `compass mcp` serves 8 tools
   ok    code map built
@@ -428,12 +429,12 @@ Compass 0.3.0 doctor
 All good.
 ```
 
-**Upgrade.** `compass upgrade` installs the newest `compass` tool, then refreshes the files Compass installed (`--skip-cli` does only the second part). Files you have edited are kept, with Compass's version written beside them as `<file>.compass-new` for you to compare, and files you deleted stay deleted. Here the team had added a rule to the code-review skill:
+**Upgrade.** `compass upgrade` installs the newest `compass` tool, then refreshes the files Compass installed (`--skip-cli` does only the second part). Files you have edited are kept. When the new release changed one of them too, Compass's version is written beside it as `<file>.compass-new` for you to compare; when it did not, nothing is written. Files you deleted stay deleted. Here the team had added a rule to the code-review skill, and the new release had changed that skill as well:
 
 ```text
 $ compass upgrade --skip-cli
-Upgrading the project install (files mode, 0.3.0 -> 0.3.0)
-  files       18 files under ~\compass-demo\.claude
+Upgrading the project install (files mode, 0.2.0 -> 0.3.0)
+  files       19 files under ~\compass-demo\.claude
   kept        .claude/skills/compass-code-review/SKILL.md (edited); the new version is beside it as SKILL.md.compass-new
   hooks       .claude/settings.json: compass hook for PostToolUse, PreToolUse, SessionStart, Stop, SubagentStop, UserPromptSubmit
   mcp         .mcp.json: compass
@@ -462,6 +463,7 @@ In Claude Code:
 | `/compass:task <brief>` | Starts a task from Goal, Scope, Non-goals, Accept when, Constraints (plus Category and Size); optional |
 | `/compass:approve [task]` | Approves a large task's plan |
 | `/compass:accept [task]` | Strips a reviewed task's tags and archives its manifest |
+| `/compass:doctor` | Checks the install from inside Claude Code (`compass doctor`) and lists anything to fix |
 | `/compass:<skill> [target]` | Runs one of the eleven [skills](#skills-for-everyday-jobs); `/compass-<skill>` in files mode |
 
 In the terminal (every command takes `-C DIR` to run against another repository):

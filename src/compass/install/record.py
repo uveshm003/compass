@@ -71,7 +71,8 @@ def now() -> str:
 @dataclass(frozen=True)
 class FileAction:
     rel: str
-    action: str  # write | add | same | keep-edited | keep-deleted | keep-existing | remove | keep-obsolete
+    # write | add | same | keep-edited | keep-current | keep-deleted | keep-existing | remove | keep-obsolete
+    action: str
     content: bytes | None = None
 
 
@@ -79,7 +80,8 @@ def plan_files(base: Path, wanted: dict[str, bytes], previous: Record | None) ->
     """What to do with each file, against what the last install wrote.
 
     - recorded and unchanged on disk: replace it (``write``, or ``same``)
-    - recorded but edited: keep the edit, write the new version beside it
+    - recorded but edited: keep the edit, write the new version beside it,
+      unless Compass's version is still the one recorded (``keep-current``)
     - recorded but deleted: the team removed it; leave it removed
     - not recorded but present: someone else's file; keep it, new version beside it
     - recorded, no longer shipped: remove it if unchanged, else keep it
@@ -97,6 +99,8 @@ def plan_files(base: Path, wanted: dict[str, bytes], previous: Record | None) ->
                 actions.append(FileAction(rel, "keep-deleted"))
             elif digest(current) == recorded[rel]:
                 actions.append(FileAction(rel, "write", content))
+            elif digest(content) == recorded[rel]:
+                actions.append(FileAction(rel, "keep-current"))
             else:
                 actions.append(FileAction(rel, "keep-edited", content))
         elif current is None:

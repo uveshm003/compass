@@ -31,6 +31,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from compass.gate import NOT_PROMPTS
 from compass.repo import Repo
 
 ROW_VERSION = 1
@@ -62,7 +63,7 @@ CATEGORIES = {  # the benchmark's task mix, and the words developers use for it
 }
 _SYNONYMS = {word: slug for slug, words in CATEGORIES.items() for word in words}
 _COMPASS_TOOL = re.compile(r"^mcp__(?:plugin_compass_)?compass__(\w+)$")
-_NOT_PROMPTS = ("[Request interrupted", "<task-notification>")
+_NOT_PROMPTS = NOT_PROMPTS
 
 
 # -- reading transcripts ------------------------------------------------------------------

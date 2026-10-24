@@ -200,7 +200,7 @@ flowchart LR
 - **One installer, two entry points.** `compass install` in `src/compass/install/` does the work. The npm package only finds or installs uv, installs the CLI at its own version and passes its arguments on (IN-12), so behaviour stays in the core. `uvx` alone is ephemeral and hooks need `compass` on PATH, so the installer always ends with a persistent `uv tool install`.
 - **Two modes from one source.** `plugin` mode uses the public `claude plugin` CLI. `files` mode copies `plugin/commands/` to `.claude/commands/compass/` (so the command names stay `/compass:*`), `plugin/agents/<n>.md` to `.claude/agents/compass-<n>.md`, `plugin/skills/<n>/` to `.claude/skills/compass-<n>/` (so `/compass-<n>`), and the style. It also merges `hooks.json` into `settings.json`, and the MCP server into `.mcp.json` (project scope) or through `claude mcp add --scope user`. The wheel carries `plugin/` as package data. Installing both modes at once would run every hook twice, so the installer refuses and `compass doctor` reports it.
 - **Agent names differ by mode.** Plugin agents are `compass:<n>`, file agents `compass-<n>`. The core accepts both for contracts, telemetry and the report, and SessionStart names them as the active mode does (IN-11). Telemetry rows record the mode (IN-14).
-- **Upgrade and uninstall go by the install record.** A file whose hash still matches is replaced. An edited file is kept, with the new version written beside it as `.compass-new`, and a deleted file stays deleted. Settings entries are found by their `compass hook ` prefix, every other key is left alone, and a backup is taken before the first write. Uninstall extends CF-04, so the touched files end up as they were.
+- **Upgrade and uninstall go by the install record.** A file whose hash still matches is replaced. An edited file is kept, with the new version written beside it as `.compass-new` when the release changed that file (not when it ships the version already recorded), and a deleted file stays deleted. Settings entries are found by their `compass hook ` prefix, every other key is left alone, and a backup is taken before the first write. Uninstall extends CF-04, so the touched files end up as they were.
 - **No update check in hooks.** GSD checks for updates at session start. Compass doesn't, because that would be a network call on a hook path (NF-10). `compass upgrade` runs only when someone types it.
 - **Hosts.** Python packages go to PyPI or an Azure Artifacts feed, the npm wrapper to npmjs, GitHub Packages or an Azure Artifacts npm feed, and git URLs work for both hosts (NF-16). Release jobs are defined identically in both CI systems.
 
@@ -243,7 +243,7 @@ Compass must never make Claude Code worse than stock. Any failure other than a d
 | Installer phase fails (M7) | The files that phase wrote are rolled back; exit non-zero (the installer is not a hook) | What is in place; running the installer again finishes the job |
 | `settings.json` does not parse | The installer refuses to touch it | The path and the parse error |
 | Plugin and `files` mode both installed | `install` refuses to add the second; `doctor` reports it | How to switch modes |
-| An upgrade meets an edited Compass file | The edit is kept; the new version is written beside it as `.compass-new` | The list of kept files |
+| An upgrade meets an edited Compass file | The edit is kept; if the release changed the file, the new version is written beside it as `.compass-new` | The list of kept files |
 
 ## Architecture decision records
 

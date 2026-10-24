@@ -112,6 +112,14 @@ def test_task_and_approve_are_the_developers_too():
     assert "```!\ncompass task new --brief - <<'COMPASS_BRIEF'\n$ARGUMENTS\nCOMPASS_BRIEF\n```" in body
 
 
+def test_doctor_only_reads():
+    meta, body = frontmatter(PLUGIN / "commands/doctor.md")
+    assert meta["allowed-tools"] == "Bash(compass doctor:*)"  # nothing else: the fixes are the developer's to run
+    # --exit-zero: Claude Code drops a command whose `!` line fails, the very case doctor is for
+    assert "```!\ncompass doctor --exit-zero $ARGUMENTS\n```" in body
+    assert "Do not run the fixes or edit any files" in body
+
+
 def test_subagents_match_their_contracts():
     # DL-01, DL-02: the Step 8 table, and the limits compass.delegation enforces.
     from compass.delegation import CONTRACTS

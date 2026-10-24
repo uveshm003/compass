@@ -109,7 +109,7 @@ class Sandbox:
     def install(self, repo: Path, mode: str) -> subprocess.CompletedProcess:
         flags = ["install", "--yes", "--scope", "project", "--mode", mode]
         if self.uv:  # pyproject.toml's cache-keys make uv rebuild this checkout when its sources change
-            return self.run([self.uv, "tool", "run", "--from", str(ROOT), "compass", *flags], repo)
+            return self.run([self.uv, "tool", "run", "--python", "3.12", "--from", str(ROOT), "compass", *flags], repo)
         return self.run([sys.executable, "-m", "compass", *flags, "--skip-cli"], repo)
 
     def session(self, repo: Path) -> dict:
@@ -234,7 +234,8 @@ def main() -> int:
     if shutil.which("claude") is None:
         print("claude (Claude Code) is not on PATH", file=sys.stderr)
         return 2
-    work = Path(tempfile.mkdtemp(prefix="compass-install-e2e-"))
+    # which a headless session cannot answer
+    work = Path(tempfile.mkdtemp(prefix="compass-install-e2e-")).resolve()
     box = None
     try:
         box = Sandbox(work, args.model)

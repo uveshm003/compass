@@ -198,7 +198,7 @@ v1 ships every Must item. Should items land if the pilot schedule allows, and Co
 | --- | --- | --- |
 | TM-01 | Stop hook records input, output and cache tokens, wall-clock time and tool calls per task | Must |
 | TM-02 | Metrics stay local by default; export to a shared store is opt-in | Must |
-| TM-03 | `compass report` compares tasks run with Compass on and off | Should |
+| TM-03 | `compass report` compares tasks run with Compass on and off, and flags sessions where the query tools were on but Claude looked code up only with Read, Grep or Glob (a server that never connected) | Should |
 | CF-01 | Install via the Claude Code plugin marketplace plus one CLI package; the installer (C10) wraps both into one command | Must |
 | CF-02 | `compass init` creates `.compass/`, config, git hooks and the first index | Must |
 | CF-03 | Every component can be switched off in config | Must |
@@ -214,11 +214,11 @@ M7, built in 0.3.0 (the release jobs publish nothing until the package names and
 | IN-02 | Two install modes from the same `plugin/` source: `plugin` (through the public `claude plugin` CLI) and `files` (commands, agents and output style copied into `.claude/`, hooks merged into `settings.json`, the MCP server registered) | Must |
 | IN-03 | Scopes `user` (`~/.claude`), `project` (committed `.claude/`, team-wide) and `local` (plugin mode only) | Must |
 | IN-04 | On a terminal, prompt for scope, mode, module preset and git hooks, offering a local model only when a loopback endpoint answers; every prompt is also a flag, `--yes` never prompts, `--dry-run` prints the planned writes and changes nothing | Should |
-| IN-05 | Write an install record (version, mode, scope, every installed file with its hash, settings and MCP entries added); an upgrade replaces only files that still match their hash, keeps edited ones and writes the new version beside them as `<file>.compass-new` | Must |
+| IN-05 | Write an install record (version, mode, scope, every installed file with its hash, settings and MCP entries added); an upgrade replaces only files that still match their hash, keeps edited ones and, when the release changed one of them, writes the new version beside it as `<file>.compass-new` | Must |
 | IN-06 | `compass upgrade` upgrades the CLI with uv and refreshes the installed files to the same version; it runs only when invoked, never from a hook (no update check at session start) | Should |
 | IN-07 | `compass uninstall` (extending CF-04) also removes exactly what the install record lists, the `compass hook` entries in settings and the MCP entry, leaving the touched files as they were before the install | Must |
 | IN-08 | Settings merges are non-destructive: other keys and hooks untouched, a backup before the first write, atomic replace, UTF-8 without BOM, and a refusal with the parse error when a file does not parse | Must |
-| IN-09 | `compass doctor` reports the CLI on Claude Code's PATH, versions in step, the Claude Code version in the supported range, hooks wired exactly once (never both modes), the MCP server starting, and the repository initialised | Should |
+| IN-09 | `compass doctor` reports the CLI on Claude Code's PATH (and any second copy that the first one shadows), versions in step, the Claude Code version in the supported range, hooks wired exactly once (never both modes), the MCP server starting, the repository initialised and its git hooks current; `/compass:doctor` runs it from inside Claude Code | Should |
 | IN-10 | `pyproject.toml`, `plugin.json`, the npm package and the install record carry one version, enforced by a test | Must |
 | IN-11 | The core recognises Compass's subagents under both names (`compass:digest` from the plugin, `compass-digest` from files mode) for output contracts, telemetry and the report, and SessionStart's delegation rules name them as the active mode does | Must |
 | IN-12 | The npm package holds no logic: it finds uv (or installs it with the developer's consent), installs the CLI of its own version and passes every argument to `compass install`; it runs in PowerShell, cmd and POSIX shells without WSL | Must |
@@ -251,8 +251,8 @@ Hook latency and fail-open behaviour matter most. A slow or broken hook is felt 
 | NF-07 | Speed | Task wall-clock time vs baseline | ≤ +5% |
 | NF-08 | Portability | Runs natively on macOS, Linux and Windows 10+, without WSL | All three in CI |
 | NF-09 | Coverage | Languages with full tags queries in v1: TypeScript/JavaScript, Python, Java, Kotlin, Swift, Dart, Go, Rust, C#, C/C++ | 10 |
-| NF-10 | Privacy | No code leaves the machine except through Claude Code itself; local-LLM calls stay on localhost | Verified by audit |
-| NF-11 | Security | MCP server uses stdio only; hooks never execute code from the repo other than Compass's own scripts | Verified by review |
+| NF-10 | Privacy | No code leaves the machine except through Claude Code itself; local-LLM calls stay on localhost | Verified by audit (`docs/security-privacy-review.md`) |
+| NF-11 | Security | MCP server uses stdio only; hooks never execute code from the repo other than Compass's own scripts | Verified by review (`docs/security-privacy-review.md`) |
 | NF-12 | Reliability | Any Compass error fails open (Claude Code continues) except deliberate gates; errors go to `.compass/logs/` | 100% of hooks |
 | NF-13 | Determinism | Identical input produces byte-identical index and shards, so map diffs are meaningful | Tested in CI |
 | NF-14 | Compatibility | Tested against the latest Claude Code release weekly; supported version range documented | Weekly CI job |
@@ -296,7 +296,7 @@ v1 is accepted when every Must requirement passes its test and the pilot shows t
 
 ### Release acceptance
 
-- [ ] All Must requirements have an automated test or a documented manual check
+- [ ] All Must requirements have an automated test or a documented manual check (`docs/traceability.md`; ST-01 and IN-13 are still partly met)
 - [ ] `compass init` succeeds on 5 reference repos in at least 4 different languages
 - [ ] On clean macOS, Linux and Windows machines, one installer command gives a working session in both install modes, and `compass uninstall` leaves no diff behind (C10)
 - [ ] NF-01 to NF-04 latency targets met on the 100k LOC reference repo

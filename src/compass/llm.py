@@ -31,6 +31,13 @@ class Unavailable(Exception):
     """The local model is switched off, not on loopback, or not answering."""
 
 
+class _NoRedirect(urllib.request.HTTPRedirectHandler):
+    """A redirect is an error: the server may only answer from where it is."""
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):  # noqa: ANN001 (urllib's signature)
+        return None
+
+
 def is_loopback(base_url: str) -> bool:
     host = urlsplit(base_url).hostname or ""
     if host == "localhost":
@@ -94,7 +101,7 @@ class LocalModel:
             method=method,
         )
         # No proxies: a loopback call must stay on loopback whatever HTTP_PROXY says.
-        opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+        opener = urllib.request.build_opener(urllib.request.ProxyHandler({}), _NoRedirect())
         try:
             with opener.open(request, timeout=timeout) as response:
                 return json.loads(response.read().decode("utf-8", "replace") or "null")

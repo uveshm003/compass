@@ -9,10 +9,10 @@ npx compass-cc install --source git+https://github.com/<owner>/<repo>    # the C
 npx compass-cc doctor | upgrade | uninstall
 ```
 
-This package holds no logic of its own. It finds [uv](https://docs.astral.sh/uv/), or installs it once you agree. Then it installs the `compass` CLI at the same version as this package (`uv tool install compass==<version>`) and passes every argument to `compass install`. Without Node, the same works through uv alone:
+This package holds no logic of its own. It finds [uv](https://docs.astral.sh/uv/), or installs it once you agree. Then it installs the `compass` CLI at the same version as this package (`uv tool install compass==<version>`) and passes every argument to `compass install`. Without Node, the same works through uv alone (Python 3.12, which Compass is tested with):
 
 ```bash
-uvx --from git+https://github.com/<owner>/<repo> compass install
+uvx --python 3.12 --from git+https://github.com/<owner>/<repo> compass install
 ```
 
 Compass works through Claude Code and your own Claude login. It never asks for an API key.

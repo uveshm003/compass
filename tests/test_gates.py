@@ -80,6 +80,8 @@ def repo(make_repo):
         ("/compass:task Goal: x", "command"),
         ("!quick bump the version", "bypass"),
         ("   ", "empty"),
+        ("<task-notification>\n<status>completed</status>\n<result>Fix the parser</result>", "notice"),
+        ("[Request interrupted by user]", "notice"),
     ],
 )
 def test_prompt_kinds(text, kind):
@@ -282,6 +284,12 @@ def test_the_pack_is_silent_about_names_that_are_not_the_projects(repo):
     assert pack_for(repo, "throw a ValueError from JSONDecoder like React does") == ""
 
 
+def test_a_quoted_path_is_not_read_as_a_symbol(repo):
+    text = pack_for(repo, "compare `C:\\Temp\\out\\policy.next` with `src/transport/reconnect.ts::withRetry`")
+    assert "policy.next" not in text  # the last dot is an extension, not ReconnectPolicy.next
+    assert "- `src/transport/reconnect.ts::withRetry`: src/transport/reconnect.ts:24-32  fn withRetry" in text
+
+
 def test_the_pack_keeps_to_its_budget(repo):
     text = pack_for(repo, "see src/transport/reconnect.ts and src/transport/socket.ts and ReconnectPolicy", budget=60)
     assert len(text) <= 60 * 3 + 120 and "left out to stay within the pack's budget" in text
@@ -360,6 +368,23 @@ def test_off_mode_and_non_tasks_are_never_checked(repo):
         assert pre_edit(repo.root, source, session="s2").returncode == 0, text
 
 
+def test_claude_codes_own_notifications_are_not_prompts(repo):
+    write(repo.root, ".compass/config.yaml", "prompt_gate:\n  strictness: strict\n")
+    answer(hook("prompt", repo.root, prompt="improve performance"))  # asked, and edits held
+    notice = (
+        "<task-notification>\n<task-id>a1</task-id>\n<status>completed</status>\n"
+        "<result>Refactor src/transport/socket.ts and fix the failing tests</result>\n</task-notification>"
+    )
+    assert answer(hook("prompt", repo.root, prompt=notice)) == ("", "")
+    assert len(gate_log(repo)) == 1  # nothing decided, nothing logged
+    assert pre_edit(repo.root, repo.root / "src/transport/socket.ts").returncode == 2  # still held: no answer yet
+    # As the first message of a fresh task, it neither becomes the brief nor sizes the task.
+    answer(hook("prompt", repo.root, prompt="the reconnect loop in src/transport; it should stop spinning the CPU"))
+    run_compass("-C", str(repo.root), "task", "new")
+    answer(hook("prompt", repo.root, session="s2", prompt=notice))
+    assert state.read(repo)["tasks"]["T2"]["brief"] is None and not spec.spec_path(repo, "T2").exists()
+
+
 def test_quick_skips_the_check_and_is_logged_for_tuning(repo):
     write(repo.root, ".compass/config.yaml", "prompt_gate:\n  strictness: strict\n")
     proc = hook("prompt", repo.root, prompt="!quick fix it")
@@ -370,9 +395,32 @@ def test_quick_skips_the_check_and_is_logged_for_tuning(repo):
     )
 
 
+def test_a_custom_bypass_prefix_is_honoured_and_named(repo):
+    write(repo.root, ".compass/config.yaml", 'prompt_gate:\n  bypass_prefix: "!skip"\n')
+    assert hook("prompt", repo.root, prompt="!skip fix it").returncode == 0
+    assert [(row["kind"], row["outcome"]) for row in gate_log(repo)] == [("bypass", "bypass")]
+    _, message = answer(hook("prompt", repo.root, session="s2", prompt="fix it"))
+    assert message.endswith("(!skip skips this check.)") and "!quick" not in message
+    assert "skips" not in developer_notice(["scope"], bypass_prefix="")  # no prefix, no hint
+
+
+def test_the_spec_gate_names_a_custom_bypass_prefix(repo):
+    write(repo.root, ".compass/config.yaml", 'prompt_gate:\n  bypass_prefix: "!skip"\n')
+    _, message = answer(hook("prompt", repo.root, prompt="Refactor src/transport into smaller files"))
+    assert "(!skip skips the plan for one turn.)" in message and "!quick" not in message
+    refused = pre_edit(repo.root, repo.root / "src/transport/socket.ts")
+    assert refused.returncode == 2 and "start a prompt with !skip" in refused.stderr and "!quick" not in refused.stderr
+
+
 def test_the_pack_rides_along_on_questions(repo):
     context, _ = answer(hook("prompt", repo.root, prompt="where is withRetry used?"))
     assert "- `withRetry`: src/transport/reconnect.ts:24-32  fn withRetry" in context
+
+
+def test_the_context_pack_can_be_switched_off(repo):
+    write(repo.root, ".compass/config.yaml", "context_pack:\n  enabled: false\n")
+    context, _ = answer(hook("prompt", repo.root, prompt="where is withRetry used?"))
+    assert "withRetry" not in context and "From the code map" not in context
 
 
 # -- the spec gate end to end (SG-01 to SG-05) ------------------------------------------------

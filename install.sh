@@ -45,7 +45,8 @@ fi
 echo "uv: $UV"
 
 # shellcheck disable=SC2086  # EDITABLE is empty or one word
-"$UV" tool install --force --compile-bytecode $EDITABLE "$SOURCE"
+# 3.12, as CI tests: uv would otherwise take its newest Python, for which some pinned packages have no wheels yet
+"$UV" tool install --force --compile-bytecode --python 3.12 $EDITABLE "$SOURCE"
 
 case ":$PATH:" in
   *":$HOME/.local/bin:"*) ;;

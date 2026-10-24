@@ -19,7 +19,8 @@ def spawn(args: list[str], cwd: Path, low_priority: bool = False) -> bool:
         "stderr": subprocess.DEVNULL,
         "close_fds": True,
     }
-    command = [sys.executable, "-m", "compass", *args]
+    # or a yaml.py at the repository root is never imported in place of Compass's own code
+    command = [sys.executable, "-P", "-m", "compass", *args]
     if os.name == "nt":
         kwargs["creationflags"] = subprocess.DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP
         if low_priority:
@@ -27,9 +28,9 @@ def spawn(args: list[str], cwd: Path, low_priority: bool = False) -> bool:
     else:
         kwargs["start_new_session"] = True
         if low_priority:
-            import shutil
+            from compass.executables import which
 
-            nice = shutil.which("nice")  # POSIX; preexec_fn is not safe with threads
+            nice = which("nice")  # POSIX; preexec_fn is not safe with threads
             command = [nice, "-n", "10", *command] if nice else command
     try:
         subprocess.Popen(command, **kwargs)

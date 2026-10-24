@@ -64,7 +64,7 @@ ABLATIONS = {  # condition -> the config sections it switches off
 }
 CONDITIONS = ("off", "on", *ABLATIONS)
 BASE_TOOLS = ("Read", "Grep", "Glob", "Edit", "Write", "MultiEdit")
-COMPASS = [sys.executable, "-m", "compass"]  # the harness's own calls; Claude Code's hooks use the PATH shim
+COMPASS = [sys.executable, "-P", "-m", "compass"]  # the harness's own calls; Claude Code's hooks use the PATH shim
 APPROVAL_REPLY = "Approved. Proceed with the stated assumptions for any open question."
 MAX_APPROVALS = 2
 
@@ -189,7 +189,8 @@ def run_one(run: Run, args, batch: str, out: Path, env: dict[str, str], claude_v
     from compass.repo import Repo
     from compass.telemetry import modules_on, session_totals
 
-    work = Path(tempfile.mkdtemp(prefix=f"compass-bench-{run.id}-"))
+    # which a headless run cannot answer, so a run under such a TEMP would fail for reasons that are not the task's
+    work = Path(tempfile.mkdtemp(prefix=f"compass-bench-{run.id}-")).resolve()
     repo = work / "repo"
     try:
         prepare(run.task, load_repos(), repo)
@@ -352,9 +353,10 @@ def compass_env(work: Path) -> dict[str, str]:
     bin_dir = work / "bin"
     bin_dir.mkdir(parents=True, exist_ok=True)
     shim = bin_dir / "compass"
-    shim.write_text(f'#!/bin/sh\nexec "{sys.executable}" -m compass "$@"\n', encoding="utf-8", newline="\n")
+    # would otherwise shadow the code under test
+    shim.write_text(f'#!/bin/sh\nexec "{sys.executable}" -P -m compass "$@"\n', encoding="utf-8", newline="\n")
     shim.chmod(0o755)
-    (bin_dir / "compass.cmd").write_text(f'@"{sys.executable}" -m compass %*\r\n', encoding="utf-8")
+    (bin_dir / "compass.cmd").write_text(f'@"{sys.executable}" -P -m compass %*\r\n', encoding="utf-8")
     return {**os.environ, "PATH": f"{bin_dir}{os.pathsep}{os.environ.get('PATH', '')}", "DISABLE_AUTOUPDATER": "1"}
 
 
@@ -391,7 +393,7 @@ def main(argv: list[str] | None = None) -> int:
         print("warning: no --model given; each run records the model Claude Code chose", file=sys.stderr)
     batch = args.batch or datetime.now().strftime("%Y%m%d-%H%M%S")
     folder = args.results / batch
-    work = Path(tempfile.mkdtemp(prefix="compass-bench-"))
+    work = Path(tempfile.mkdtemp(prefix="compass-bench-")).resolve()
     env = compass_env(work)
     version = (subprocess.run([args.claude, "--version"], capture_output=True, text=True, env=env).stdout.split() or [""])[0]
     print(f"{len(runs)} runs ({len(tasks)} tasks × {len(conditions)} conditions × {args.repeats}) into {folder}")

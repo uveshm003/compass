@@ -6,13 +6,13 @@ something is broken. A CLI command, never run from a hook.
 
 from __future__ import annotations
 
-import shutil
 import sys
 import time
 from collections.abc import Callable
 from pathlib import Path
 
 from compass import __version__
+from compass.executables import which, which_all
 from compass.install import SCOPES
 from compass.install import record as rec
 from compass.install import source
@@ -43,13 +43,17 @@ def run(out: Out = print, check_mcp: bool = True) -> int:
 
     out(f"Compass {__version__} doctor")
     on_path = tool_version("compass")
-    where = shutil.which("compass")
+    where = which("compass")
     if where is None:
         say(FAIL, "compass is not on PATH, so Claude Code cannot run its hooks; run `uv tool update-shell` and restart")
     elif on_path != __version__:
         say(WARN, f"compass on PATH ({where}) is {on_path or 'unknown'}, this one is {__version__}")
     else:
         say(OK, f"compass {__version__} on PATH ({where})")
+    others = which_all("compass")[1:]
+    if where and others:
+        say(WARN, f"more than one compass on PATH: Claude Code's hooks run the first ({where}), not"
+                  f" {', '.join(others)}. Take the folder you don't use off PATH (an old install or a test sandbox)")
     bundled = source.plugin_version()
     if bundled and bundled != __version__:
         say(WARN, f"the bundled plugin files are {bundled}, the CLI {__version__}")
@@ -72,8 +76,11 @@ def run(out: Out = print, check_mcp: bool = True) -> int:
     files_scopes = [s for s, info in wired.items() if info["hooks"]]
     plugin_scopes = [s for s, info in wired.items() if info["plugin"]]
     if files_scopes and plugin_scopes:
+        plugin_id = wired[plugin_scopes[0]]["plugin"]
         say(FAIL, f"Compass is installed twice: as files ({', '.join(files_scopes)}) and as the plugin"
-                  f" ({', '.join(plugin_scopes)}); every hook runs twice. Remove one (`compass uninstall --scope …`)")
+                  f" ({', '.join(plugin_scopes)}); every hook runs twice. Remove one: `compass uninstall --scope"
+                  f" {files_scopes[0]}` (the files) or `claude plugin uninstall {plugin_id} --scope {plugin_scopes[0]}`"
+                  " (the plugin)")
     elif len(files_scopes) > 1:
         say(FAIL, f"Compass's hooks are in more than one settings file ({', '.join(files_scopes)}); every hook runs twice")
     elif files_scopes:
@@ -106,7 +113,7 @@ def run(out: Out = print, check_mcp: bool = True) -> int:
         elif took > MCP_SLOW_S:
             say(WARN, f"`compass mcp` serves {len(tools)} tools but took {took:.0f} s to start; Claude Code gives up"
                       f" at {MCP_TIMEOUT_S:.0f} s. The first start after an install compiles Python files, so run"
-                      " `compass doctor` again; if it stays slow, reinstall with `uv tool install --compile-bytecode`")
+                      " `compass doctor` again; if it stays slow, reinstall with `uv tool install --compile-bytecode --python 3.12`")
         else:
             say(OK, f"`compass mcp` serves {len(tools)} tools")
 
@@ -117,14 +124,19 @@ def run(out: Out = print, check_mcp: bool = True) -> int:
     else:
         say(OK if (repo.compass_dir / "index.db").is_file() else WARN,
             "code map built" if (repo.compass_dir / "index.db").is_file() else "no code map yet; run `compass index`")
-        from compass.githooks import HOOKS, _is_ours, hooks_dir
+        from compass.githooks import HOOKS, _is_ours, hooks_dir, outdated
 
         directory, reason = hooks_dir(repo)
         if directory is None:
             say(WARN, f"git hooks: {reason}; add Compass's lines to your own hooks (see `compass init`)")
         else:
             ours = [h for h in HOOKS if _is_ours(directory / h)]
-            say(OK if len(ours) == len(HOOKS) else WARN, f"git hooks: {len(ours)} of {len(HOOKS)} installed")
+            stale = outdated(directory)
+            if stale:
+                say(WARN, f"git hooks: {', '.join(stale)} written by an older Compass or another Python;"
+                          " run `compass init` to rewrite them")
+            else:
+                say(OK if len(ours) == len(HOOKS) else WARN, f"git hooks: {len(ours)} of {len(HOOKS)} installed")
         from compass.config import load_config
 
         config = load_config(repo.root)
@@ -149,7 +161,7 @@ def _mcp_tools(root: Path | None) -> list[str] | None:
         return None
 
     async def main() -> list[str]:
-        params = StdioServerParameters(command=sys.executable, args=["-m", "compass", "mcp"],
+        params = StdioServerParameters(command=sys.executable, args=["-P", "-m", "compass", "mcp"],
                                        cwd=str(root or Path.cwd()))
         with anyio.fail_after(MCP_TIMEOUT_S):
             async with stdio_client(params) as (read, write):

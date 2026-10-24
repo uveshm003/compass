@@ -26,7 +26,7 @@ flowchart LR
 | M6 Measurement | 9 | Benchmark produces an on/off comparison report | 0.5 weeks |
 | M7 Installer | 10 | One `npx` or `uvx` command gives a working Compass on macOS, Linux and Windows, as a plugin or as files in `.claude/`; upgrade keeps local edits; uninstall leaves no diff | 1.5 weeks |
 
-**Where the build stands (Oct 14, 2026).** M1 to M6 are built, and their done-when checks passed in real Claude Code sessions on 2026-09-24 and 25 (Claude Code 2.1.281). M7 is built in 0.3.0, release jobs included, and its done-when check (`tests/e2e/check_install.py`) passed on Oct 14 in both modes (Windows, Claude Code 2.1.299); the release jobs have not run yet, and nothing publishes until the package names and feeds are decided. The six remaining NF-09 languages (Java, Kotlin, Swift, Dart, C#, C/C++) landed the same day. The skill library (ST-04 to ST-06) ships with the plugin. `Compass — Project Status & Roadmap.md` tracks what is left.
+**Where the build stands (Oct 16, 2026).** M1 to M6 are built, and their done-when checks passed in real Claude Code sessions on 2026-09-24 and 25 (Claude Code 2.1.281). M7 is built in 0.3.0, release jobs included, and its done-when check (`tests/e2e/check_install.py`) passed on Oct 14 in both modes (Windows, Claude Code 2.1.299); the release jobs have not run yet, and nothing publishes until the package names and feeds are decided. The six remaining NF-09 languages (Java, Kotlin, Swift, Dart, C#, C/C++) landed the same day. The skill library (ST-04 to ST-06) ships with the plugin. On Oct 15, the first NF-10 audit and NF-11 review (`docs/security-privacy-review.md`) found and fixed four problems. `docs/traceability.md` maps every Must requirement to its tests. The real-session checks were rerun on Claude Code 2.1.300: four of five pass, and the fifth needs a decision on its bar. On Oct 16 the prompt gate stopped treating Claude Code's own notifications (a background agent finishing) as the developer's prompts. `Compass — Project Status & Roadmap.md` tracks what is left.
 
 Tip: turn on telemetry (Step 9, first bullet) early, even before M6. Baseline data from your own sessions is worth more than any estimate.
 
@@ -80,7 +80,7 @@ compass/
 │   ├── .claude-plugin/plugin.json
 │   ├── hooks/hooks.json
 │   ├── agents/             # digest.md, scaffold.md, test-runner.md
-│   ├── commands/           # task.md, approve.md, accept.md
+│   ├── commands/           # task.md, approve.md, accept.md, doctor.md
 │   ├── skills/
 │   └── .mcp.json
 ├── npm/                    # M7: the logic-free npx wrapper (package.json, bin/)
@@ -347,19 +347,20 @@ If asked a question the input cannot answer, say so in one line.
 
 ### Install locally while developing
 
-1. `uv tool install --editable .` puts `compass` on PATH, running your working copy.
+1. `uv tool install --editable --compile-bytecode --python 3.12 .` puts `compass` on PATH, running your working copy.
+   `--python 3.12` is the Python CI tests (uv would otherwise take its newest, for which pinned parsers may have no wheels), and `--compile-bytecode` keeps the MCP server's first start inside Claude Code's 30 s limit.
 2. `.claude-plugin/marketplace.json` at the repo root lists `./plugin`. Add it and install from it: `claude plugin marketplace add ./`, then `claude plugin install compass@compass-marketplace` (or `/plugin marketplace add` and `/plugin install` inside Claude Code). For a one-off session, `claude --plugin-dir ./plugin` loads it without installing.
 3. After changing hooks or agents, reinstall or restart Claude Code, then run `/hooks`, `/agents` and `/mcp` to confirm they loaded.
 4. Keep a scratch repo open in a second terminal for manual testing.
 
-**Done when:** a fresh machine goes from clone to working plugin with `uv tool install .` and the two install commands.
+**Done when:** a fresh machine goes from clone to working plugin with `uv tool install --python 3.12 .` and the two install commands.
 
 ### Distribute from GitHub or Azure DevOps (NF-16)
 
 The team's repos may live on either host, so both distribution paths must work before release:
 
 - **Plugin:** Claude Code accepts any git URL as a marketplace source, so `/plugin marketplace add` takes either `owner/repo` for GitHub or `https://dev.azure.com/<org>/<project>/_git/<repo>` for Azure Repos. Private repos authenticate through the user's git credential helper (Git Credential Manager on Windows). `--sparse .claude-plugin plugin` fetches only the plugin, not the whole source tree.
-- **CLI package:** `uv tool install git+<repo URL>` works against either host. For a package feed, use PyPI or an Azure Artifacts Python feed; GitHub Packages has no Python registry.
+- **CLI package:** `uv tool install --python 3.12 git+<repo URL>` works against either host. For a package feed, use PyPI or an Azure Artifacts Python feed; GitHub Packages has no Python registry.
 - **One command (M7):** Step 10 wraps these steps into `compass install`, with an `npx` entry point published to npmjs, GitHub Packages or an Azure Artifacts npm feed.
 
 ## Step 6: Review manifest and anchor tags

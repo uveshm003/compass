@@ -20,6 +20,8 @@ if TYPE_CHECKING:  # argparse is imported only past the hook fast path
 EXIT_OK = 0
 EXIT_ERROR = 1
 NOT_INITIALIZED = "this repository has no .compass/ yet; run `compass init` first"
+# install hands init to) just ignores it instead of failing on an unknown argument
+INSTALL_PRESET_ENV = "COMPASS_INSTALL_PRESET"  # set by `compass install` when it has just written the config
 
 
 def app() -> None:
@@ -141,6 +143,8 @@ def build_parser() -> argparse.ArgumentParser:
 
     p = sub.add_parser("doctor", help="check the install: CLI on PATH, Claude Code, hooks wired once, MCP server, repository")
     p.add_argument("--no-mcp", action="store_true", help="skip starting the MCP server")
+    p.add_argument("--exit-zero", action="store_true",
+                   help="exit 0 even when something needs fixing (what /compass:doctor runs)")
 
     p = sub.add_parser("index", help="build or refresh the SQLite index and map shards")
     p.add_argument("--full", action="store_true", help="re-parse every file, not only changed ones")
@@ -257,7 +261,10 @@ def cmd_init(args: argparse.Namespace) -> int:
     repo = find_repo()
     repo.ensure_state_dir()
     lines = [f"Compass in {repo.root}"]
-    if repo.config_path.exists():
+    preset = os.environ.get(INSTALL_PRESET_ENV)
+    if repo.config_path.exists() and preset:
+        lines.append(f"  config      wrote .compass/config.yaml, {preset} preset (commit it)")
+    elif repo.config_path.exists():
         lines.append("  config      .compass/config.yaml exists; kept as is")
     else:
         repo.config_path.write_text(DEFAULT_CONFIG_TEXT, encoding="utf-8", newline="\n")
@@ -350,7 +357,8 @@ def cmd_upgrade(args: argparse.Namespace) -> int:
 def cmd_doctor(args: argparse.Namespace) -> int:
     from compass.install import doctor
 
-    return doctor.run(check_mcp=not args.no_mcp)
+    code = doctor.run(check_mcp=not args.no_mcp)
+    return EXIT_OK if args.exit_zero else code
 
 
 def cmd_index(args: argparse.Namespace) -> int:
@@ -520,13 +528,15 @@ def cmd_report(args: argparse.Namespace) -> int:
     missing = [str(p) for p in paths if not p.exists()]
     if missing and len(missing) == len(paths) and args.paths:
         return _fail(f"no such file or folder: {', '.join(missing)}")
-    tasks = report.tasks_from_rows(report.load(paths), args.since)
+    rows = report.load(paths)
+    tasks = report.tasks_from_rows(rows, args.since)
+    lookups = report.unused_query_tools(rows, args.since)
     if args.json:
-        print(json.dumps(report.as_json(tasks, gate), indent=2, sort_keys=True))
+        print(json.dumps(report.as_json(tasks, gate, lookups), indent=2, sort_keys=True))
     elif any(t.bench for t in tasks):
         print(report.bench_text(tasks))
     else:
-        print(report.pilot_text(tasks, [str(p) for p in paths if p.exists()], gate))
+        print(report.pilot_text(tasks, [str(p) for p in paths if p.exists()], gate, lookups))
     return EXIT_OK
 
 

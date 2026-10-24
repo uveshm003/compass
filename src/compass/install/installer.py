@@ -11,7 +11,6 @@ from __future__ import annotations
 
 import os
 import re
-import shutil
 import subprocess
 import sys
 from collections.abc import Callable
@@ -20,6 +19,7 @@ from pathlib import Path
 from typing import Any
 
 from compass import __version__
+from compass.executables import which
 from compass.install import FILES, PLUGIN, SCOPES
 from compass.install import record as rec
 from compass.install import settings as js
@@ -28,6 +28,8 @@ from compass.install.targets import claude_code as cc
 
 MODULES = ("query", "prompt_gate", "context_pack", "spec_gate", "review", "delegation", "local_llm")
 PRESETS = ("full", "baseline", "custom")
+# tree-sitter, PyYAML and pydantic-core have no wheels, and building them needs a C compiler. 3.12 is what CI tests.
+TOOL_PYTHON = "3.12"  # the interpreter uv installs the compass tool with; uv downloads it when missing
 MCP_FILE = ".mcp.json"
 USER_MCP = "claude mcp (user)"
 
@@ -84,7 +86,7 @@ class Journal:
         if self.dry_run:
             self.out(f"  would run {shown}")
             return None
-        exe = shutil.which(command[0])
+        exe = which(command[0])
         if exe is None:
             raise InstallError(f"`{command[0]}` is not on PATH (needed for: {shown})")
         proc = subprocess.run([exe, *command[1:]], capture_output=True, text=True, encoding="utf-8", errors="replace")
@@ -138,7 +140,7 @@ def confirm(question: str, default: bool, interactive: bool, ask: Callable[[str]
 
 
 def find_uv() -> str | None:
-    found = shutil.which("uv")
+    found = which("uv")
     if found:
         return found
     exe = "uv.exe" if os.name == "nt" else "uv"
@@ -149,7 +151,7 @@ def find_uv() -> str | None:
 
 
 def tool_version(command: str) -> str | None:
-    exe = shutil.which(command)
+    exe = which(command)
     if exe is None:
         return None
     try:
@@ -169,7 +171,7 @@ def ephemeral() -> bool:
 def ensure_cli(opts: Options, journal: Journal, out: Out) -> None:
     on_path = tool_version("compass")
     if on_path == __version__ and not ephemeral():
-        out(f"  compass     {__version__} on PATH ({shutil.which('compass')})")
+        out(f"  compass     {__version__} on PATH ({which('compass')})")
         return
     uv = find_uv()
     if uv is None:
@@ -180,8 +182,8 @@ def ensure_cli(opts: Options, journal: Journal, out: Out) -> None:
         )
     spec = opts.source or source.package_source() or f"compass=={__version__}"
     out(f"  compass     installing {spec} with uv tool …")
-    journal.run([uv, "tool", "install", "--force", "--compile-bytecode", spec])
-    if not opts.dry_run and shutil.which("compass") is None:
+    journal.run([uv, "tool", "install", "--force", "--compile-bytecode", "--python", TOOL_PYTHON, spec])
+    if not opts.dry_run and which("compass") is None:
         journal.run([uv, "tool", "update-shell"], check=False)
         out("  PATH        added uv's tool folder; open a new terminal (and restart your IDE) before starting Claude Code")
 
@@ -320,7 +322,7 @@ def install(opts: Options, out: Out = print, ask: Callable[[str], str] = input) 
         record.init = {"modules": preset, "git_hooks": git_hooks}
         if preset == "custom":
             record.init["custom"] = {m: custom[m] for m in MODULES}
-        init_repo(repo, config_text(preset, custom), opts.reconfigure, git_hooks, opts.dry_run, out)
+        init_repo(repo, config_text(preset, custom), preset, opts.reconfigure, git_hooks, opts.dry_run, out)
     elif opts.init:
         out("  init        skipped: not in a git repository (run `compass init` in each repository)")
 
@@ -367,7 +369,7 @@ def install_files(base: Path, scope: str, previous: rec.Record | None, record: r
             kept.append(action.rel)
             if action.action == "keep-edited" and previous:
                 record.files[action.rel] = previous.files[action.rel]
-        elif action.action == "keep-deleted" and previous:
+        elif action.action in ("keep-current", "keep-deleted") and previous:
             record.files[action.rel] = previous.files[action.rel]
         elif action.action == "remove":
             journal.remove(path)
@@ -458,28 +460,37 @@ def lasting_bundle() -> Path:
     return here
 
 
-def init_repo(repo, text: str, reconfigure: bool, git_hooks: bool, dry_run: bool, out: Out) -> None:
+def init_repo(repo, text: str, preset: str, reconfigure: bool, git_hooks: bool, dry_run: bool, out: Out) -> None:
+    from compass.cli import INSTALL_PRESET_ENV
+
     config = repo.config_path
+    write = reconfigure or not config.exists()
     if dry_run:
-        out(f"  would write {config}" if reconfigure or not config.exists() else f"  config      {config} kept")
+        out(f"  would write {config} ({preset} preset)" if write else f"  config      {config} kept")
         out("  would run compass init" + ("" if git_hooks else " --no-git-hooks"))
         return
-    if reconfigure or not config.exists():
+    if write:
         repo.ensure_state_dir()
         config.write_text(text, encoding="utf-8", newline="\n")
+    told = {INSTALL_PRESET_ENV: preset} if write else {}
     args = ["-C", str(repo.root), "init", *([] if git_hooks else ["--no-git-hooks"])]
-    if ephemeral() and shutil.which("compass"):
+    if ephemeral() and which("compass"):
         # The git hooks name the interpreter that installs them, so let the
         # persistent compass write them, not this throwaway environment.
-        subprocess.run([shutil.which("compass") or "compass", *args], check=False)
+        env = {k: v for k, v in os.environ.items() if k != INSTALL_PRESET_ENV} | told
+        subprocess.run([which("compass") or "compass", *args], check=False, env=env)
     else:
         from compass.cli import main
 
-        cwd = os.getcwd()
+        cwd, before = os.getcwd(), os.environ.pop(INSTALL_PRESET_ENV, None)
+        os.environ.update(told)
         try:
             main(args)
         finally:
             os.chdir(cwd)
+            os.environ.pop(INSTALL_PRESET_ENV, None)
+            if before is not None:
+                os.environ[INSTALL_PRESET_ENV] = before
 
 
 # -- compass uninstall (IN-07) --------------------------------------------------------------
@@ -568,11 +579,11 @@ def upgrade(opts: Options, out: Out = print) -> int:
             raise InstallError("uv is not on PATH; upgrade the compass CLI with it, then run `compass upgrade --skip-cli`")
         spec = opts.source or source.package_source()
         out(f"  compass     upgrading {spec or 'compass'} with uv tool …")
-        journal.run([uv, "tool", "install", "--force", "--compile-bytecode", spec] if spec
+        journal.run([uv, "tool", "install", "--force", "--compile-bytecode", "--python", TOOL_PYTHON, spec] if spec
                     else [uv, "tool", "upgrade", "--compile-bytecode", "compass"])
         if opts.dry_run:
             return 0
-        new = shutil.which("compass")
+        new = which("compass")
         if new is None:
             raise InstallError("compass is not on PATH after the upgrade; open a new terminal and run `compass upgrade --skip-cli`")
         return subprocess.run([new, "upgrade", "--skip-cli", *(["--yes"] if opts.yes else [])], check=False).returncode

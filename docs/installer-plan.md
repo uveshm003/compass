@@ -37,7 +37,7 @@ Three ideas from GSD and BMAD are recorded for later review and are **not** part
 The transcripts below were written as the design target before M7 was built, and are not captured output. The real output is in `docs/setup-guide.md` and `docs/user-guide.md`, as their rule requires.
 
 ```text
-$ npx compass-cc install                      # or: uvx --from git+https://github.com/<owner>/<repo> compass install
+$ npx compass-cc install                      # or: uvx --python 3.12 --from git+https://github.com/<owner>/<repo> compass install
 Compass 0.3.0 installer
   uv          found (0.9.4)
   compass     installing 0.3.0 with uv tool … done (on PATH: ~/.local/bin/compass)
@@ -140,7 +140,7 @@ It lives at `.claude/compass/install.json` (project scope; committed with the re
 **Upgrade algorithm**, per recorded file:
 
 1. If the file on disk still matches the recorded hash, the team never edited it: write the new version.
-2. If it differs, keep it. Write the new version next to it as `<file>.compass-new` and list it in the summary.
+2. If it differs, keep it. If the new release also changed the file, write the new version next to it as `<file>.compass-new` and list it in the summary.
 3. If it is missing, the team deleted it on purpose: leave it missing and say so.
 4. A file new in this version is added.
 

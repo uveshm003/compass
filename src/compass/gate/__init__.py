@@ -110,6 +110,9 @@ REFERS_BACK = re.compile(
     r"|the\s+(?:bug|issue|problem|error|crash|failure|change|fix|one|other\s+one))\b",
     re.I,
 )
+# Claude Code's own messages, sent through UserPromptSubmit like a prompt: a background agent or
+# command finishing, an interrupted request. Telemetry leaves them out of the prompt count too.
+NOT_PROMPTS = ("[Request interrupted", "<task-notification>")
 
 _PATH_EXTENSIONS = frozenset(
     ".py .pyi .ts .tsx .js .jsx .mjs .cjs .go .rs .java .kt .kts .swift .dart .cs .c .h .cc .cpp .hpp .rb .php"
@@ -143,7 +146,7 @@ class ParsedPrompt:
     labels: dict[str, str]
     candidates: list[Candidate]
     verbs: list[str] = field(default_factory=list)  # task verbs opening a clause: "run the tests and fix …" -> [fix]
-    kind: str = "task"  # empty | command | bypass | question | reply | action | task
+    kind: str = "task"  # empty | notice | command | bypass | question | reply | action | task
     followup: bool = False  # the session has had earlier prompts, so "it" and "that" point somewhere
     resolved: dict[str, Any] = field(default_factory=dict)  # candidate text -> what the index knows
     stack: list[str] = field(default_factory=list)  # the project's frameworks and tools it names ("react 18.3.1")
@@ -164,6 +167,8 @@ def parse(text: str, bypass_prefix: str = "!quick") -> ParsedPrompt:
 def _kind(p: ParsedPrompt, bypass: bool) -> str:
     if not p.text:
         return "empty"
+    if p.text.startswith(NOT_PROMPTS):
+        return "notice"
     if p.text.startswith("/"):
         return "command"
     if bypass:
@@ -283,10 +288,15 @@ def ask_first(missing: list[str], hold: bool = False) -> str:
     return text + " Skip the question if the conversation already answers it."
 
 
-def developer_notice(missing: list[str], hold: bool = False) -> str:
+def developer_notice(missing: list[str], hold: bool = False, bypass_prefix: str = "!quick") -> str:
     """The one line the developer sees next to their prompt."""
     held = "; edits wait for your answer" if hold else ""
-    return f"[compass] Before changing code, Claude will check with you {missing_phrase(missing)}{held}. (!quick skips this check.)"
+    return f"[compass] Before changing code, Claude will check with you {missing_phrase(missing)}{held}.{skips(bypass_prefix, 'this check')}"
+
+
+def skips(bypass_prefix: str, what: str) -> str:
+    """The hint that the bypass prefix skips ``what``; nothing when no prefix is set."""
+    return f" ({bypass_prefix} skips {what}.)" if bypass_prefix else ""
 
 
 def missing_phrase(missing: list[str]) -> str:

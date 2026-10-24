@@ -76,6 +76,7 @@ def build_server(start: str | None = None) -> MCPServer:
     def answer(run: Callable[[Queries], Result], cursor: Cursor = None, query_tool: bool = True) -> str:
         try:
             queries = session.queries()
+            queries.sync_config()
             if query_tool and not queries.config.query.enabled:  # switched off since the server started
                 return QUERY_OFF
             if parse_cursor(cursor) is None:

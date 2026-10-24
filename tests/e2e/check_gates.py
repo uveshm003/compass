@@ -98,7 +98,8 @@ def main() -> int:
     if shutil.which("claude") is None:
         print("claude (Claude Code) is not on PATH", file=sys.stderr)
         return 2
-    work = Path(tempfile.mkdtemp(prefix="compass-e2e-gates-"))
+    # which a headless session cannot answer
+    work = Path(tempfile.mkdtemp(prefix="compass-e2e-gates-")).resolve()
     bin_dir = work / "bin"
     bin_dir.mkdir()
     shim = bin_dir / "compass"

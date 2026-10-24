@@ -18,6 +18,7 @@ class FakeLLM:
         self.models = list(models)
         self.reply = reply or (lambda body: "Does one thing well.")
         self.hold: threading.Event | None = None  # completions wait until it is set
+        self.redirect_to: str | None = None
         self.requests: list[tuple[str, str, Any]] = []
         self._server = ThreadingHTTPServer(("127.0.0.1", 0), _Handler)
         self._server.daemon_threads = True
@@ -63,7 +64,9 @@ class _Handler(BaseHTTPRequestHandler):
     def do_GET(self) -> None:  # noqa: N802 (http.server's naming)
         fake = self.server.fake
         fake.requests.append(("GET", self.path, None))
-        if self.path.rstrip("/") == "/v1/models":
+        if fake.redirect_to:
+            self._redirect(302, fake.redirect_to + self.path)
+        elif self.path.rstrip("/") == "/v1/models":
             self._send(200, {"object": "list", "data": [{"id": m, "object": "model"} for m in fake.models]})
         else:
             self._send(404, {"error": "not found"})
@@ -72,6 +75,9 @@ class _Handler(BaseHTTPRequestHandler):
         fake = self.server.fake
         body = json.loads(self.rfile.read(int(self.headers.get("Content-Length") or 0)) or b"null")
         fake.requests.append(("POST", self.path, body))
+        if fake.redirect_to:
+            self._redirect(302, fake.redirect_to + self.path)  # urllib would follow it as a GET
+            return
         if fake.hold is not None:
             fake.hold.wait(30)
         content = fake.reply(body) if self.path.rstrip("/") == "/v1/chat/completions" else None
@@ -80,6 +86,12 @@ class _Handler(BaseHTTPRequestHandler):
             return
         message = {"role": "assistant", "content": content}
         self._send(200, {"object": "chat.completion", "choices": [{"index": 0, "message": message, "finish_reason": "stop"}]})
+
+    def _redirect(self, status: int, location: str) -> None:
+        self.send_response(status)
+        self.send_header("Location", location)
+        self.send_header("Content-Length", "0")
+        self.end_headers()
 
     def _send(self, status: int, data: dict) -> None:
         payload = json.dumps(data).encode("utf-8")
