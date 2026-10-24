@@ -430,7 +430,7 @@ def test_a_large_task_edits_nothing_but_its_spec_until_approved(repo):
     hook("session-start", repo.root, source="startup")
     context, message = answer(hook("prompt", repo.root, prompt="Refactor src/transport so reconnect and socket share one backoff"))
     assert "Task T1 is large (keyword \"refactor\")" in context and ".compass/specs/T1.md" in context
-    assert "/compass:approve T1" in message
+    assert 'reply "approve"' in message  # a plain reply, no command to learn (UX-11)
     assert spec.front_matter(spec.spec_path(repo, "T1").read_text(encoding="utf-8"))["status"] == "draft"
 
     source = repo.root / "src/transport/reconnect.ts"

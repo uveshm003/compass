@@ -106,6 +106,10 @@ def build_parser() -> argparse.ArgumentParser:
     p = sub.add_parser("init", help="create .compass/, config and git hooks, then build the first index")
     p.add_argument("--no-git-hooks", action="store_true", help="do not install git hooks")
     p.add_argument("--no-index", action="store_true", help="do not build the index yet")
+    p.add_argument("--modules", choices=["full", "essentials", "baseline"], default="full",
+                   help="the preset for a new .compass/config.yaml (default: full); an existing one is kept")
+
+    sub.add_parser("status", help="where Compass stands here and what you can reply to Claude (/compass:status)")
 
     p = sub.add_parser(
         "uninstall",
@@ -121,8 +125,9 @@ def build_parser() -> argparse.ArgumentParser:
                         " local: this repository, just you (plugin mode only)")
     p.add_argument("--mode", choices=["plugin", "files"],
                    help="plugin: through Claude Code's plugin system; files: commands, agents and hooks in .claude/")
-    p.add_argument("--modules", choices=["full", "baseline", "custom"],
-                   help="config preset: every module (full), telemetry only (baseline), or ask about each (custom)")
+    p.add_argument("--modules", choices=["essentials", "full", "baseline", "custom"],
+                   help="config preset: everything that never holds work back (essentials, the default), every module"
+                        " (full), telemetry only (baseline), or ask about each (custom)")
     p.add_argument("--enable", default="", metavar="A,B", help="with --modules custom: the modules to switch on")
     p.add_argument("--no-git-hooks", action="store_true", help="do not install git hooks")
     p.add_argument("--no-init", action="store_true", help="do not run compass init in this repository")
@@ -266,9 +271,14 @@ def cmd_init(args: argparse.Namespace) -> int:
         lines.append(f"  config      wrote .compass/config.yaml, {preset} preset (commit it)")
     elif repo.config_path.exists():
         lines.append("  config      .compass/config.yaml exists; kept as is")
-    else:
+    elif args.modules == "full":
         repo.config_path.write_text(DEFAULT_CONFIG_TEXT, encoding="utf-8", newline="\n")
         lines.append("  config      wrote .compass/config.yaml (commit it)")
+    else:
+        from compass.install.installer import config_text
+
+        repo.config_path.write_text(config_text(args.modules, {}), encoding="utf-8", newline="\n")
+        lines.append(f"  config      wrote .compass/config.yaml, {args.modules} preset (commit it)")
     lines.append("  gitignore   .compass/.gitignore keeps derived files out of git")
     if not args.no_git_hooks:
         from compass.githooks import install
@@ -283,6 +293,14 @@ def cmd_init(args: argparse.Namespace) -> int:
         result = Indexer(repo, config).build()
         print(f"  index       {_describe(result)}")
         print("  map         .compass/map/_index.md")
+    return EXIT_OK
+
+
+def cmd_status(args: argparse.Namespace) -> int:
+    from compass import status
+    from compass.repo import find_repo
+
+    print(status.text(find_repo()))
     return EXIT_OK
 
 
@@ -679,14 +697,16 @@ def _pre_commit_check() -> int:
     if not found:
         return EXIT_OK
     tasks = sorted({a.task for a in found})
-    lines = [f"compass: commit refused: the staged changes still add {len(found)} AI anchor tag{'s' if len(found) != 1 else ''}:"]
+    # The first line is all some IDE git panes show, so it says what to do (UX-06).
+    lines = [
+        f"compass: commit refused: review tags are still in the code. Once you've reviewed .compass/changes/{tasks[0]}.md,"
+        f" reply \"accept\" to Claude (or run `compass accept {tasks[0]}`), then commit again.",
+        f"The staged changes add {len(found)} AI anchor tag{'s' if len(found) != 1 else ''}:",
+    ]
     lines += [f"  {a.path}:{a.line}  {a.kind} {a.task}" + (f" — {a.note}" if a.note else "") for a in found[:20]]
     if len(found) > 20:
         lines.append(f"  … and {len(found) - 20} more")
-    lines.append(
-        f"Review them (.compass/changes/{tasks[0]}.md), strip them with /compass:accept in Claude Code or"
-        f" `compass accept {tasks[0]}`, stage the result and commit again. To commit anyway: git commit --no-verify."
-    )
+    lines.append("To commit them anyway: git commit --no-verify.")
     print("\n".join(lines), file=sys.stderr)
     return EXIT_ERROR
 
@@ -739,6 +759,7 @@ def _cli_path(repo, arg: str) -> str:
 
 COMMANDS = {
     "init": cmd_init,
+    "status": cmd_status,
     "uninstall": cmd_uninstall,
     "install": cmd_install,
     "upgrade": cmd_upgrade,

@@ -51,7 +51,9 @@ def test_a_program_in_the_working_directory_is_never_found(planted_repo):
     repo, real = planted_repo
     found = which("git")
     assert found is not None and Path(found).parent == real
-    assert which("ctags") is None  # only the planted one exists
+    # Never the planted one; macOS also ships /usr/bin/ctags beside git.
+    ctags = which("ctags")
+    assert ctags is None or Path(ctags).parent == real
 
 
 def test_git_runs_from_path_even_inside_a_repository_that_carries_one(planted_repo):

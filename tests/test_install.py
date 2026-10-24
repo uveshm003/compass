@@ -336,6 +336,31 @@ def test_presets_set_the_module_switches():
     assert (custom["query"]["enabled"], custom["prompt_gate"]["enabled"], custom["local_llm"]["enabled"]) == (True, False, True)
 
 
+def test_essentials_is_the_default_and_never_holds_work_back(repo, capsys):
+    """Decision D16: new installs get essentials: nothing to approve, nothing to accept."""
+    import yaml
+
+    essentials = yaml.safe_load(config_text("essentials", {}))
+    assert all(essentials[m]["enabled"] for m in ("query", "prompt_gate", "context_pack", "delegation", "telemetry"))
+    assert not essentials["spec_gate"]["enabled"] and not essentials["review"]["enabled"]
+    assert essentials["prompt_gate"]["strictness"] == "ask"
+    quiet(files_opts(init=True, git_hooks=False))  # no --modules: the default
+    from compass.config import load_config
+
+    config = load_config(repo)
+    assert config.query.enabled and not config.review.enabled and not config.data["spec_gate"]["enabled"]
+    assert rec.load(repo, "project").init["modules"] == "essentials"
+
+
+def test_init_takes_a_preset_for_a_new_config(make_repo):
+    root = make_repo()
+    proc = run_compass("init", "--modules", "essentials", "--no-git-hooks", "--no-index", cwd=root)
+    assert proc.returncode == 0 and "wrote .compass/config.yaml, essentials preset" in proc.stdout
+    from compass.config import load_config
+
+    assert not load_config(root).review.enabled
+
+
 def test_install_runs_init_with_the_preset(repo, capsys):
     quiet(files_opts(init=True, modules="baseline", git_hooks=False))
     from compass.cli import INSTALL_PRESET_ENV

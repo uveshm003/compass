@@ -2,6 +2,9 @@ name: swift
 grammar: swift
 extensions: [.swift]
 shebangs: [swift]
+# The grammar loses a whole type around `#if a && !b` inside its body; when a
+# parse has errors, these lines are blanked and the file parsed again.
+reparse_without: ['^[ \t]*#(?:if|elseif|else|endif)\b[^\r\n]*']
 visibility:
   # The @visibility capture is the declaration's whole `modifiers` node, so the
   # rules match words: `private(set)` limits only the setter and never counts.

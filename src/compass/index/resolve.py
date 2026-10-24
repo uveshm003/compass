@@ -5,14 +5,16 @@ Each language picks a named strategy in its language.yaml ``imports`` section:
 - ``path`` (JS, TS): ``./`` and ``../`` specifiers, relative to the importing
   file, trying extensions and index files; bare specifiers through the
   ``compilerOptions.paths`` and ``baseUrl`` of the nearest ``alias_files``
-  (tsconfig.json, jsconfig.json). Other bare specifiers are packages.
+  (tsconfig.json, jsconfig.json), then the workspace packages the repo's
+  package.json files name. Other bare specifiers are packages.
 - ``module`` (Python, Rust): module paths split on a separator. Relative forms
   (Python's leading dots, Rust's ``self``/``super``) are anchored at the
   importing module; absolute ones are matched by path suffix, dropping trailing
   segments that name items rather than modules. A lone module file only
   matches from a directory the importer could have on its import path (the
   repo root, its own ancestors, a ``source_roots`` directory), so a stray
-  ``scripts/os.py`` does not capture every ``import os``.
+  ``scripts/os.py`` does not capture every ``import os``. What that misses is
+  tried under a crate the repo declares (Cargo.toml), by name or ``crate``.
 - ``package`` (Go): an import path under a module declared in ``go.mod``
   resolves to that package's directory.
 
@@ -94,6 +96,21 @@ class Resolver:
             hit = self._path_file(base, rules)
             if hit:
                 return hit
+        return self._declared_path(importer, rules, target)
+
+    def _declared_path(self, importer: str, rules: ImportRules, target: str) -> str | None:
+        """A bare specifier naming a package declared in the repo (a workspace
+        package's package.json ``name``): its subpath, or its index file, under
+        each ``module_source`` directory in turn."""
+        for name, directory in self._module_roots(self.langs.get(importer), rules):
+            if target != name and not target.startswith(name + "/"):
+                continue
+            rest = target[len(name) :].lstrip("/")
+            for source in rules.module_source or ("",):
+                hit = self._path_file(posixpath.join(directory, source, rest) or ".", rules)
+                if hit:
+                    return hit
+            return None
         return None
 
     def _path_file(self, joined: str, rules: ImportRules) -> str | None:
@@ -189,6 +206,7 @@ class Resolver:
 
     def _module(self, importer: str, lang: str | None, rules: ImportRules, target: str) -> str | None:
         anchor: str | None = None
+        stripped = False
         if rules.leading_dots and target.startswith("."):
             dots = len(target) - len(target.lstrip("."))
             anchor = posixpath.dirname(importer)
@@ -205,6 +223,7 @@ class Resolver:
                     anchor = posixpath.dirname(anchor)
                 segments = segments[1:]
             if anchor is None and segments and segments[0] in rules.strip_markers:
+                stripped = True
                 segments = segments[1:]
         names: list[str] = []
         for segment in segments:  # stop at `{a, b}` groups and `*` globs
@@ -213,11 +232,7 @@ class Resolver:
             names.append(segment)
 
         if anchor is not None:
-            for n in range(len(names), 0, -1):
-                hit = self._first_existing(posixpath.join(anchor, *names[:n]), rules)
-                if hit:
-                    return hit
-            return self._anchor_file(anchor, rules)
+            return self._under_anchor(anchor, names, rules)
 
         starts = [0] + (list(range(1, len(names) - 1)) if rules.drop_leading else [])
         for start in starts:
@@ -227,6 +242,39 @@ class Resolver:
                 hit = self._suffix_match("/".join(part[:n]), importer, lang, rules)
                 if hit:
                     return hit
+        return self._declared_module(importer, lang, rules, names, stripped)
+
+    def _under_anchor(self, anchor: str, names: list[str], rules: ImportRules) -> str | None:
+        for n in range(len(names), 0, -1):
+            hit = self._first_existing(posixpath.join(anchor, *names[:n]), rules)
+            if hit:
+                return hit
+        return self._anchor_file(anchor, rules)
+
+    def _declared_module(
+        self, importer: str, lang: str | None, rules: ImportRules, names: list[str], stripped: bool
+    ) -> str | None:
+        """What the path suffix could not find, under a module declared in a
+        ``module_files`` entry (Cargo.toml): ``crate::item`` in the importer's
+        own crate, ``my_crate::item`` in the crate of that name (hyphens read
+        as underscores). An item rather than a module lands on the crate root."""
+        if not rules.module_source:
+            return None
+        roots = self._module_roots(lang, rules)
+        directory = None
+        if stripped:
+            owners = [d for _, d in roots if not d or importer.startswith(d + "/")]
+            directory = max(owners, key=len) if owners else None
+        elif names:
+            wanted = names[0]
+            directory = next((d for name, d in roots if name.replace("-", "_") == wanted), None)
+            names = names[1:]
+        if directory is None:
+            return None
+        for source in rules.module_source:
+            hit = self._under_anchor(posixpath.join(directory, source), names, rules)
+            if hit:
+                return hit
         return None
 
     def _module_dir(self, importer: str, rules: ImportRules) -> str:

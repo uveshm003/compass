@@ -58,6 +58,7 @@ class ImportRules:
     drop_leading: bool = False
     source_roots: tuple[str, ...] = ()  # directories named like this are on the import path
     module_files: Mapping[str, str] = field(default_factory=dict)
+    module_source: tuple[str, ...] = ()  # where a declared module's code sits: Cargo.toml's src/
     alias_files: tuple[str, ...] = ()  # tsconfig-style files with compilerOptions.paths
 
 
@@ -87,6 +88,8 @@ class LanguageSpec:
     tests: TestConvention
     imports: ImportRules
     directory: Path = field(compare=False)
+    # Lines blanked for a second parse when the first has errors (Swift `#if`).
+    reparse_without: re.Pattern[bytes] | None = field(default=None, compare=False)
 
     def grammar_for(self, path: str) -> str:
         suffix = PurePosixPath(path).suffix.lower()
@@ -162,6 +165,13 @@ def queries_root() -> Path:
     return Path(str(resources.files("compass") / "queries"))
 
 
+def _line_patterns(patterns: list[str]) -> re.Pattern[bytes] | None:
+    """Several line regexes as one bytes pattern, ``^`` and ``$`` per line."""
+    if not patterns:
+        return None
+    return re.compile("|".join(f"(?:{p})" for p in patterns).encode(), re.MULTILINE)
+
+
 @functools.cache
 def load_registry() -> Registry:
     root = queries_root()
@@ -199,6 +209,7 @@ def _load_spec(directory: Path) -> LanguageSpec:
         shebangs=tuple(raw.get("shebangs", [])),
         wrappers=frozenset(raw.get("wrappers", [])),
         skip_before_doc=frozenset(raw.get("skip_before_doc", [])),
+        reparse_without=_line_patterns(raw.get("reparse_without", [])),
         docstring=docstring,
         visibility=VisibilityRule(
             modifiers=tuple((re.compile(p), v) for p, v in vis.get("modifiers", [])),
@@ -228,6 +239,7 @@ def _load_spec(directory: Path) -> LanguageSpec:
             drop_leading=bool(imports.get("drop_leading", False)),
             source_roots=tuple(imports.get("source_roots", [])),
             module_files=dict(imports.get("module_files") or {}),
+            module_source=tuple(imports.get("module_source", [])),
             alias_files=tuple(imports.get("alias_files", [])),
         ),
         directory=directory,

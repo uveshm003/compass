@@ -1,7 +1,7 @@
 # Compass adoption plan: nothing to learn
 
 
-Oct 16, 2026 · @Uvesh · Status: **proposed**, for the owner's review (decisions D14 to D17)
+Oct 16, 2026 · @Uvesh · Status: **D14 to D16 decided Oct 24** (yes, yes, `essentials`); D17 waits for the pilot's week-4 checkpoint. Built so far: UX-01, UX-04 to UX-07, UX-11, UX-12 (Requirements Spec, C11)
 
 The Proposal names adoption as the biggest risk: "If the gates feel slow or preachy, developers will bypass or disable them." There is a second way to lose developers, and it comes before any of that: **if using Compass means learning commands, concepts and docs first, most developers never start, and the rest drift off.** This plan makes Compass something a developer installs once and then simply works with, with nothing to learn.
 

@@ -128,7 +128,7 @@ v1 ships every Must item. Should items land if the pilot schedule allows, and Co
 | SG-02 | For large tasks, require `.compass/specs/<id>.md` with status draft or approved | Must |
 | SG-03 | Spec template includes an Open questions section that Claude must fill before implementing | Must |
 | SG-04 | Block Write and Edit tool calls while the active task's spec is not approved | Must |
-| SG-05 | `/approve <id>` sets status to approved and records approver and time | Must |
+| SG-05 | `/approve <id>`, or the developer's plain reply "approve" while the plan waits (UX-04, decision D14), sets status to approved and records approver and time | Must |
 
 ### C4 Code map indexer
 
@@ -179,7 +179,7 @@ v1 ships every Must item. Should items land if the pilot schedule allows, and Co
 | RO-02 | Anchor tags `@ai:change`, `@ai:assume`, `@ai:review`, `@ai:todo` with task id, in the file's native comment syntax | Must |
 | RO-03 | Script generates `.compass/changes/<id>.md` from anchors and git diff, grouped Review vs Mechanical, with file:line links | Must |
 | RO-04 | Stop hook fails the turn when touched files lack anchors or the manifest is missing | Should |
-| RO-05 | `/accept <id>` strips anchors; a pre-commit hook blocks commits containing `@ai:` tags | Must |
+| RO-05 | `/accept <id>`, or the developer's plain reply "accept" (UX-05, decision D14), strips anchors; a pre-commit hook blocks commits containing `@ai:` tags | Must |
 
 ### C8 Standards pack
 
@@ -224,7 +224,21 @@ M7, built in 0.3.0 (the release jobs publish nothing until the package names and
 | IN-12 | The npm package holds no logic: it finds uv (or installs it with the developer's consent), installs the CLI of its own version and passes every argument to `compass install`; it runs in PowerShell, cmd and POSIX shells without WSL | Must |
 | IN-13 | Both hosts distribute it (NF-16): PyPI or an Azure Artifacts Python feed, npmjs/GitHub Packages or an Azure Artifacts npm feed, and git URLs for either host | Must |
 | IN-14 | Telemetry rows record the install mode (`plugin` or `files`), so comparisons never mix modes | Should |
-| IN-15 | Module presets `full` (default), `baseline` (telemetry only, the pilot's baseline) and `custom`; an existing `config.yaml` is kept unless `--reconfigure` | Should |
+| IN-15 | Module presets `essentials` (default since decision D16: everything that never holds work back, without the spec gate and review), `full` (the pilot's Compass weeks), `baseline` (telemetry only, the pilot's baseline) and `custom`; an existing `config.yaml` is kept unless `--reconfigure` | Should |
+
+### C11 Ease of use
+
+From `docs/adoption-plan.md`: a developer installs once and then just talks to Claude, with no command to learn. Decided with the owner on Oct 24, 2026 (D14 to D16); the rest of the plan's items keep their proposed IDs there until built.
+
+| ID | Requirement | Priority |
+| --- | --- | --- |
+| UX-01 | In a git repository without `.compass/`, SessionStart has Claude offer Compass once (remembered in the git directory, never in the working tree); "set up Compass" or `/compass:setup` switches it on with the `essentials` preset (D15) | Should |
+| UX-04 | While a large task's plan waits, a short reply such as "approve" approves it exactly as `/compass:approve` does; only short replies with no negation or question count | Must |
+| UX-05 | While the active task has changes, a short reply such as "accept" (or "accept and commit") accepts it exactly as `/compass:accept` does, and tells Claude to commit when asked | Must |
+| UX-06 | A request to commit while review tags remain has Claude ask for "accept" first; the pre-commit refusal's first line says what to reply | Should |
+| UX-07 | `compass status` and `/compass:status` show the task, a waiting plan, changes waiting for review and the replies the developer can give | Should |
+| UX-11 | Every message that asks the developer to act names the plain reply, with the command as the alternative | Should |
+| UX-12 | The `essentials` preset (IN-15) is the default for new installs (D16) | Should |
 
 ### Deferred for review
 

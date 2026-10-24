@@ -87,7 +87,7 @@ def _text(node: Node) -> str:
 def parse_source(spec: LanguageSpec, path: str, src: bytes) -> FileParse:
     with _PARSE_LOCK:
         compiled = _compiled(spec, spec.grammar_for(path))
-        root = compiled.parser.parse(src).root_node
+        src, root = _parse(compiled.parser, spec, src)
     found_defs, refs = _collect(compiled.tags, root)
     ordered = sorted(
         found_defs,
@@ -174,6 +174,33 @@ def parse_source(spec: LanguageSpec, path: str, src: bytes) -> FileParse:
         doc=docs.file_header(root, src, spec, used_comments),
         refs=tuple(sorted(refs, key=lambda r: (r.line, r.name, r.kind))),
     )
+
+
+def _parse(parser: Parser, spec: LanguageSpec, src: bytes) -> tuple[bytes, Node]:
+    """Parse ``src``; when that leaves errors and the language names lines a
+    grammar trips over (``reparse_without``: Swift's ``#if a && !b`` inside a
+    type, which the pinned grammar turns into one error node swallowing the
+    type), parse again with those lines blanked to spaces, so every byte and
+    line keeps its place, and keep whichever parse has fewer bytes in errors."""
+    root = parser.parse(src).root_node
+    if spec.reparse_without is None or not root.has_error:
+        return src, root
+    blanked = spec.reparse_without.sub(lambda m: b" " * len(m.group(0)), src)
+    if blanked == src:
+        return src, root
+    other = parser.parse(blanked).root_node
+    return (blanked, other) if _error_bytes(other) < _error_bytes(root) else (src, root)
+
+
+def _error_bytes(root: Node) -> int:
+    total, stack = 0, [root]
+    while stack:
+        node = stack.pop()
+        if node.type == "ERROR":
+            total += node.end_byte - node.start_byte
+        elif node.has_error:
+            stack.extend(node.children)
+    return total
 
 
 def _collect(query: Query, root: Node) -> tuple[list[_Def], set[Ref]]:

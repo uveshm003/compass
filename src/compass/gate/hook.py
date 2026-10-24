@@ -59,7 +59,11 @@ def on_prompt(repo: Repo, payload: dict[str, Any]) -> Answer:
     quiet = state.quiet_turn(snapshot, session)
     pending = state.needs_approval(snapshot)
     idle = parsed.kind in ("reply", "question", "action") or (parsed.kind in ("task", "command") and not fresh)
-    if quiet and not pending and not parsed.candidates and idle:
+    from compass.gate import replies
+
+    reply = replies.match(text) if parsed.kind != "command" else None
+    committing = bool(task and state.touched(snapshot, task)) and replies.asks_to_commit(text)
+    if quiet and not pending and not parsed.candidates and idle and reply is None and not committing:
         _log(repo, session, parsed.kind, "pass")
         return Answer()  # the common prompt: nothing to check, announce or look up
 
@@ -77,6 +81,13 @@ def on_prompt(repo: Repo, payload: dict[str, Any]) -> Answer:
     notice = review.new_turn(repo, config.review, session)
     if notice:
         context.append(notice)
+    if reply is not None:  # "approve" or "accept": the developer's own act, done here (UX-04, UX-05)
+        outcome = _plain_reply(repo, config, reply, context, messages)
+        if outcome:
+            _log(repo, session, parsed.kind, outcome)
+            return Answer(stdout=_json(context, messages))
+    elif committing and config.review.enabled:
+        context.append(_commit_reminder(task))
     if parsed.kind in ("empty", "command"):
         _log(repo, session, parsed.kind, "pass")
         return Answer(stdout=_json(context, messages))
@@ -141,7 +152,7 @@ def _define_task(repo: Repo, config, task: str, parsed: ParsedPrompt, messages: 
 
     messages.append(
         f"[compass] {task} looks large ({reason}), so Claude writes a short plan first ({spec.spec_rel(task)}),"
-        f" with its open questions. Once you've answered them, /compass:approve {task} lets Claude implement it."
+        f" with its open questions. Once you've answered them, reply \"approve\" and Claude implements it."
         + skips(config.data["prompt_gate"]["bypass_prefix"], "the plan for one turn")
     )
     return [spec_instructions(task, reason)]
@@ -154,7 +165,7 @@ def spec_instructions(task: str, reason: str) -> str:
         f"[compass] Task {task} is large ({reason}), so it gets a short plan the developer approves before any code"
         f" changes. Compass created {spec_rel(task)} from the request: fill in its Goal, Scope, Non-goals and"
         " Acceptance, and list every open question as a checkbox under Open questions. Then stop: show the developer"
-        f" the questions, and ask them to answer and run /compass:approve {task}. Until then Compass holds edits to"
+        f" the questions, and ask them to answer and then reply \"approve\" (or run /compass:approve {task}). Until then Compass holds edits to"
         " every other file."
     )
 
@@ -164,7 +175,7 @@ def _waiting(task: str) -> str:
 
     return (
         f"[compass] {task}'s spec ({spec_rel(task)}) is not approved yet: change nothing but the spec until"
-        f" the developer runs /compass:approve {task}."
+        f" the developer replies \"approve\" (or runs /compass:approve {task})."
     )
 
 
@@ -212,8 +223,8 @@ def on_pre_edit(repo: Repo, payload: dict[str, Any]) -> Answer:
         code=2,
         stderr=(
             f"[compass] {task} is a large task and its spec is not approved yet, so Compass holds the edit to {rel}."
-            f" Finish {spec_rel(task)} (answer or list its open questions), then ask the developer to run"
-            f" /compass:approve {task}."
+            f" Finish {spec_rel(task)} (answer or list its open questions), then ask the developer to reply"
+            f" \"approve\" when the plan is right."
             + (f" The developer can also start a prompt with {prefix} to allow edits for one turn." if prefix else "")
         ),
     )
@@ -286,7 +297,7 @@ def start_task(repo: Repo, brief: str) -> str:
         record["size"], record["reason"] = size, reason or None
     lines = [f"[compass] Task {task} started from the brief ({size}{': ' + reason if reason else ''})."]
     if previous and previous != task and not state.is_fresh(current, previous):
-        lines.append(f"The previous task, {previous}, stays open: /compass:accept {previous} when it is reviewed.")
+        lines.append(f"The previous task, {previous}, stays open: reply \"accept {previous}\" when it is reviewed.")
     if size == "large":
         spec.create(repo, task, parsed, reason)
         lines.append(spec_instructions(task, reason))
@@ -296,6 +307,63 @@ def start_task(repo: Repo, brief: str) -> str:
     if missing:
         lines.append(ask_first(missing))
     return "\n".join(lines)
+
+
+def _plain_reply(repo: Repo, config, reply, context: list[str], messages: list[str]) -> str | None:
+    """Carry out "approve" or "accept" typed as a reply; None when there is
+    nothing it could mean (no plan waiting, nothing to accept), and the prompt
+    then goes on as any other."""
+    from compass import review, spec
+
+    current = state.read(repo)
+    if reply.command == "approve":
+        waiting = state.needs_approval(current)
+        task = reply.task or waiting
+        if not task or task != waiting:
+            return None
+        code, message = approve_task(repo, task)
+        messages.append(f"[compass] {message}")
+        if code:
+            context.append(f"[compass] The developer replied \"approve\", but: {message} Tell them in one line.")
+        else:
+            context.append(
+                f"[compass] The developer approved {task}'s plan by replying \"approve\"; Compass recorded it."
+                f" Go ahead and implement the plan in {spec.spec_rel(task)}, tagging each change as before."
+            )
+        return "approve"
+    if not config.review.enabled:
+        return None
+    task = reply.task or state.active_task(current)
+    try:
+        done = review.accept(repo, config, task)
+    except review.NothingToAccept:
+        return None
+    archived = done.archived.relative_to(repo.root).as_posix()
+    tags = f"{done.removed} review tag{'s' if done.removed != 1 else ''}"
+    messages.append(f"[compass] Accepted {done.task}: removed {tags} from {len(done.files)} file"
+                    f"{'s' if len(done.files) != 1 else ''}; the notes are kept in {archived}.")
+    note = (f"[compass] The developer reviewed {done.task} and accepted it by replying \"accept\": Compass removed"
+            f" its {tags} and archived the manifest at {archived}. Do not add them back.")
+    if done.leftover:
+        note += " Some tags could not be removed: " + ", ".join(f"{a.path}:{a.line}" for a in done.leftover[:5]) + "."
+    if reply.commit:
+        note += " They also asked you to commit: stage and commit the changes now, with a message that says what changed."
+    else:
+        note += " Confirm in one line."
+    context.append(note)
+    return "accept"
+
+
+def _commit_reminder(task: str) -> str:
+    """A commit request while the task's changes still carry review tags (UX-06)."""
+    from compass.review import manifest_rel
+
+    return (
+        f"[compass] Task {task}'s changes still carry review tags, and git refuses a commit that adds them. Before"
+        f" committing, point the developer to {manifest_rel(task)} and ask them to reply \"accept\" once they"
+        " have reviewed it (Compass then removes the tags), or \"accept and commit\". Never remove the tags"
+        " yourself or use --no-verify unless they ask."
+    )
 
 
 def approve_task(repo: Repo, task: str | None) -> tuple[int, str]:

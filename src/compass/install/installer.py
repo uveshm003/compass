@@ -27,7 +27,10 @@ from compass.install import source
 from compass.install.targets import claude_code as cc
 
 MODULES = ("query", "prompt_gate", "context_pack", "spec_gate", "review", "delegation", "local_llm")
-PRESETS = ("full", "baseline", "custom")
+PRESETS = ("essentials", "full", "baseline", "custom")
+# Never holds work back: no plan to approve, no tags to accept (UX-12, decision D16).
+ESSENTIALS_OFF = ("spec_gate", "review")
+DEFAULT_PRESET = "essentials"
 # tree-sitter, PyYAML and pydantic-core have no wheels, and building them needs a C compiler. 3.12 is what CI tests.
 TOOL_PYTHON = "3.12"  # the interpreter uv installs the compass tool with; uv downloads it when missing
 MCP_FILE = ".mcp.json"
@@ -196,6 +199,8 @@ def config_text(preset: str, custom: dict[str, bool]) -> str:
 
     if preset == "baseline":
         choices = {m: False for m in MODULES}
+    elif preset == "essentials":
+        choices = {m: False for m in ESSENTIALS_OFF}
     elif preset == "custom":
         choices = dict(custom)
     else:
@@ -282,11 +287,15 @@ def install(opts: Options, out: Out = print, ask: Callable[[str], str] = input) 
     if mode == FILES and scope == "local":
         raise InstallError("files mode has no local scope (Claude Code has no untracked commands folder); use --scope project or user")
     preset = opts.modules or (choose(
-        "Modules:", [("full", "full"), ("baseline", "baseline: telemetry only"), ("custom", "choose each")],
-        "full", interactive, out, ask,
-    ) if repo and opts.init else "full")
+        "Modules:", [
+            ("essentials", "essentials: code map, context, delegation; nothing to approve or accept"),
+            ("full", "full: also plans to approve for big tasks and review tags on every change"),
+            ("baseline", "baseline: telemetry only"), ("custom", "choose each"),
+        ],
+        DEFAULT_PRESET, interactive, out, ask,
+    ) if repo and opts.init else DEFAULT_PRESET)
     if preset not in PRESETS:
-        raise InstallError(f"unknown module preset {preset!r} (full, baseline or custom)")
+        raise InstallError(f"unknown module preset {preset!r} ({', '.join(PRESETS)})")
     custom = dict(opts.custom)
     if preset == "custom":
         for module in MODULES:

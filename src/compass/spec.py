@@ -42,7 +42,7 @@ created: {created}
 # {task}: {title}
 
 <!-- Drafted by Claude for the developer to review. Code edits wait until the
-developer approves it with /compass:approve {task}. -->
+developer replies "approve" (or runs /compass:approve {task}). -->
 
 ## Goal
 
