@@ -159,6 +159,19 @@ def test_proxy_settings_never_route_loopback_calls(fake, monkeypatch):
     assert LocalModel(settings(fake.base_url)).healthy(use_cache=False)
 
 
+def test_a_redirect_is_never_followed(fake):
+    elsewhere = FakeLLM().start()  # stands in for a host off the machine
+    try:
+        fake.redirect_to = elsewhere.base_url.removesuffix("/v1")
+        model = LocalModel(settings(fake.base_url))
+        assert not model.healthy(use_cache=False)
+        with pytest.raises(Unavailable):
+            model.complete("system", "user")
+        assert [r[0] for r in fake.requests] == ["GET", "POST"] and elsewhere.requests == []
+    finally:
+        elsewhere.stop()
+
+
 # -- the local query tools (DL-04) ------------------------------------------------------------
 
 

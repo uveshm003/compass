@@ -1,0 +1,789 @@
+{
+ "files": [
+  {
+   "path": ".swiftlint.yml",
+   "dir": "",
+   "lang": null,
+   "hash": "b81687eb3d9cf21a45329c03d46056bf",
+   "size": 64,
+   "doc": null,
+   "is_test": 0
+  },
+  {
+   "path": "Package.swift",
+   "dir": "",
+   "lang": "swift",
+   "hash": "a64ae1fca616d94dfc27e695c94124f0",
+   "size": 1064,
+   "doc": null,
+   "is_test": 0
+  },
+  {
+   "path": "README.md",
+   "dir": "",
+   "lang": null,
+   "hash": "78c6246da8bb6f0ee82c639f8ce5acf4",
+   "size": 139,
+   "doc": "Collects gas readings from field sensors and forwards alarms upstream.",
+   "is_test": 0
+  },
+  {
+   "path": "Sources/Gateway/Backoff.swift",
+   "dir": "Sources/Gateway",
+   "lang": "swift",
+   "hash": "df2580ad2e571c2515d156c1bad9ff86",
+   "size": 485,
+   "doc": null,
+   "is_test": 0
+  },
+  {
+   "path": "Sources/Gateway/Uploader.swift",
+   "dir": "Sources/Gateway",
+   "lang": "swift",
+   "hash": "b04ca14be5494ce07d169c928df3b33d",
+   "size": 850,
+   "doc": null,
+   "is_test": 0
+  },
+  {
+   "path": "Sources/Gateway/main.swift",
+   "dir": "Sources/Gateway",
+   "lang": "swift",
+   "hash": "cd878809e08abea5ea14d64aedb5ca17",
+   "size": 502,
+   "doc": "The gateway: reads sensors once, then uploads what it collected.",
+   "is_test": 0
+  },
+  {
+   "path": "Sources/Inventory/Reading.swift",
+   "dir": "Sources/Inventory",
+   "lang": "swift",
+   "hash": "ef9ee3eaf69696d00207877f2b9d41dd",
+   "size": 1742,
+   "doc": "Readings from gas sensors and the rule that turns one into an alarm.",
+   "is_test": 0
+  },
+  {
+   "path": "Sources/Inventory/ReadingStore.swift",
+   "dir": "Sources/Inventory",
+   "lang": "swift",
+   "hash": "b14ea83193aebdc2fbaf7508fe844fa8",
+   "size": 784,
+   "doc": null,
+   "is_test": 0
+  },
+  {
+   "path": "Tests/InventoryTests/ReadingTests.swift",
+   "dir": "Tests/InventoryTests",
+   "lang": "swift",
+   "hash": "21538a15df0ecb2e0b84dfb503407ebd",
+   "size": 555,
+   "doc": null,
+   "is_test": 1
+  }
+ ],
+ "symbols": [
+  {
+   "path": "Package.swift",
+   "name": "package",
+   "kind": "constant",
+   "parent": null,
+   "signature": "package = Package(",
+   "start_line": 4,
+   "end_line": 33,
+   "visibility": "internal",
+   "doc": null,
+   "doc_source": null
+  },
+  {
+   "path": "Sources/Gateway/Backoff.swift",
+   "name": "maxRetries",
+   "kind": "constant",
+   "parent": null,
+   "signature": "maxRetries = 5",
+   "start_line": 4,
+   "end_line": 4,
+   "visibility": "internal",
+   "doc": "Retries allowed before an upload gives up.",
+   "doc_source": "author"
+  },
+  {
+   "path": "Sources/Gateway/Backoff.swift",
+   "name": "Backoff",
+   "kind": "struct",
+   "parent": null,
+   "signature": "Backoff",
+   "start_line": 7,
+   "end_line": 20,
+   "visibility": "internal",
+   "doc": "Exponential backoff with a cap, for retrying uploads.",
+   "doc_source": "author"
+  },
+  {
+   "path": "Sources/Gateway/Backoff.swift",
+   "name": "nextDelay",
+   "kind": "method",
+   "parent": "Backoff",
+   "signature": "nextDelay() -> TimeInterval",
+   "start_line": 11,
+   "end_line": 14,
+   "visibility": "internal",
+   "doc": "Seconds to wait before the next attempt.",
+   "doc_source": "author"
+  },
+  {
+   "path": "Sources/Gateway/Backoff.swift",
+   "name": "shouldRetry",
+   "kind": "method",
+   "parent": "Backoff",
+   "signature": "shouldRetry() -> Bool",
+   "start_line": 17,
+   "end_line": 19,
+   "visibility": "internal",
+   "doc": "Whether another attempt is allowed.",
+   "doc_source": "author"
+  },
+  {
+   "path": "Sources/Gateway/Uploader.swift",
+   "name": "Uploader",
+   "kind": "class",
+   "parent": null,
+   "signature": "Uploader",
+   "start_line": 5,
+   "end_line": 30,
+   "visibility": "internal",
+   "doc": "Sends pending readings upstream, retrying with backoff.",
+   "doc_source": "author"
+  },
+  {
+   "path": "Sources/Gateway/Uploader.swift",
+   "name": "init",
+   "kind": "method",
+   "parent": "Uploader",
+   "signature": "init(store: ReadingStore)",
+   "start_line": 9,
+   "end_line": 11,
+   "visibility": "internal",
+   "doc": null,
+   "doc_source": null
+  },
+  {
+   "path": "Sources/Gateway/Uploader.swift",
+   "name": "flush",
+   "kind": "method",
+   "parent": "Uploader",
+   "signature": "flush(send: (Reading) async throws -> Void) async -> Int",
+   "start_line": 14,
+   "end_line": 29,
+   "visibility": "internal",
+   "doc": "Uploads every pending reading; returns how many were sent.",
+   "doc_source": "author"
+  },
+  {
+   "path": "Sources/Gateway/main.swift",
+   "name": "Gateway",
+   "kind": "struct",
+   "parent": null,
+   "signature": "Gateway: AsyncParsableCommand",
+   "start_line": 5,
+   "end_line": 17,
+   "visibility": "internal",
+   "doc": null,
+   "doc_source": null
+  },
+  {
+   "path": "Sources/Gateway/main.swift",
+   "name": "run",
+   "kind": "method",
+   "parent": "Gateway",
+   "signature": "run() async throws",
+   "start_line": 9,
+   "end_line": 16,
+   "visibility": "internal",
+   "doc": null,
+   "doc_source": null
+  },
+  {
+   "path": "Sources/Inventory/Reading.swift",
+   "name": "defaultThreshold",
+   "kind": "constant",
+   "parent": null,
+   "signature": "defaultThreshold: Double = 40.0",
+   "start_line": 5,
+   "end_line": 5,
+   "visibility": "public",
+   "doc": "Concentration in ppm at which a reading counts as an alarm.",
+   "doc_source": "author"
+  },
+  {
+   "path": "Sources/Inventory/Reading.swift",
+   "name": "Severity",
+   "kind": "enum",
+   "parent": null,
+   "signature": "Severity: String, Codable",
+   "start_line": 8,
+   "end_line": 19,
+   "visibility": "public",
+   "doc": "How serious an alarm is.",
+   "doc_source": "author"
+  },
+  {
+   "path": "Sources/Inventory/Reading.swift",
+   "name": "criticalLevel",
+   "kind": "constant",
+   "parent": "Severity",
+   "signature": "criticalLevel: Double = 200.0",
+   "start_line": 13,
+   "end_line": 13,
+   "visibility": "public",
+   "doc": "Readings above this many ppm are critical.",
+   "doc_source": "author"
+  },
+  {
+   "path": "Sources/Inventory/Reading.swift",
+   "name": "of",
+   "kind": "method",
+   "parent": "Severity",
+   "signature": "of(ppm: Double) -> Severity",
+   "start_line": 16,
+   "end_line": 18,
+   "visibility": "public",
+   "doc": "The severity of a concentration that already counts as an alarm.",
+   "doc_source": "author"
+  },
+  {
+   "path": "Sources/Inventory/Reading.swift",
+   "name": "Reading",
+   "kind": "struct",
+   "parent": null,
+   "signature": "Reading: Codable, Equatable",
+   "start_line": 22,
+   "end_line": 48,
+   "visibility": "public",
+   "doc": "A reading from one sensor.",
+   "doc_source": "author"
+  },
+  {
+   "path": "Sources/Inventory/Reading.swift",
+   "name": "init",
+   "kind": "method",
+   "parent": "Reading",
+   "signature": "init(sensorId: String, ppm: Double)",
+   "start_line": 29,
+   "end_line": 33,
+   "visibility": "public",
+   "doc": "Creates a reading taken now.",
+   "doc_source": "author"
+  },
+  {
+   "path": "Sources/Inventory/Reading.swift",
+   "name": "isAlarm",
+   "kind": "method",
+   "parent": "Reading",
+   "signature": "isAlarm(threshold: Double = defaultThreshold) -> Bool",
+   "start_line": 36,
+   "end_line": 38,
+   "visibility": "public",
+   "doc": "True when the reading crosses the alarm threshold.",
+   "doc_source": "author"
+  },
+  {
+   "path": "Sources/Inventory/Reading.swift",
+   "name": "severity",
+   "kind": "method",
+   "parent": "Reading",
+   "signature": "severity() -> Severity?",
+   "start_line": 41,
+   "end_line": 43,
+   "visibility": "public",
+   "doc": "The alarm's severity, or nil when the reading is not an alarm.",
+   "doc_source": "author"
+  },
+  {
+   "path": "Sources/Inventory/Reading.swift",
+   "name": "age",
+   "kind": "method",
+   "parent": "Reading",
+   "signature": "age(now: Date) -> TimeInterval",
+   "start_line": 45,
+   "end_line": 47,
+   "visibility": "private",
+   "doc": null,
+   "doc_source": null
+  },
+  {
+   "path": "Sources/Inventory/Reading.swift",
+   "name": "Reading",
+   "kind": "impl",
+   "parent": null,
+   "signature": "Reading: CustomStringConvertible",
+   "start_line": 50,
+   "end_line": 57,
+   "visibility": null,
+   "doc": null,
+   "doc_source": null
+  },
+  {
+   "path": "Sources/Inventory/Reading.swift",
+   "name": "isStale",
+   "kind": "method",
+   "parent": "Reading",
+   "signature": "isStale(after seconds: TimeInterval, now: Date = Date()) -> Bool",
+   "start_line": 54,
+   "end_line": 56,
+   "visibility": "internal",
+   "doc": "Whether the reading is older than `seconds`.",
+   "doc_source": "author"
+  },
+  {
+   "path": "Sources/Inventory/ReadingStore.swift",
+   "name": "ReadingStore",
+   "kind": "interface",
+   "parent": null,
+   "signature": "ReadingStore",
+   "start_line": 7,
+   "end_line": 12,
+   "visibility": "public",
+   "doc": "Somewhere readings are kept until they are uploaded.",
+   "doc_source": "author"
+  },
+  {
+   "path": "Sources/Inventory/ReadingStore.swift",
+   "name": "save",
+   "kind": "method",
+   "parent": "ReadingStore",
+   "signature": "save(_ reading: Reading) throws",
+   "start_line": 9,
+   "end_line": 9,
+   "visibility": "public",
+   "doc": "Keeps one reading.",
+   "doc_source": "author"
+  },
+  {
+   "path": "Sources/Inventory/ReadingStore.swift",
+   "name": "pending",
+   "kind": "method",
+   "parent": "ReadingStore",
+   "signature": "pending() -> [Reading]",
+   "start_line": 11,
+   "end_line": 11,
+   "visibility": "public",
+   "doc": "Readings not yet uploaded, oldest first.",
+   "doc_source": "author"
+  },
+  {
+   "path": "Sources/Inventory/ReadingStore.swift",
+   "name": "MemoryStore",
+   "kind": "class",
+   "parent": null,
+   "signature": "MemoryStore: ReadingStore",
+   "start_line": 15,
+   "end_line": 31,
+   "visibility": "public",
+   "doc": "A store that keeps readings in memory; used by tests and the simulator.",
+   "doc_source": "author"
+  },
+  {
+   "path": "Sources/Inventory/ReadingStore.swift",
+   "name": "init",
+   "kind": "method",
+   "parent": "MemoryStore",
+   "signature": "init()",
+   "start_line": 19,
+   "end_line": 19,
+   "visibility": "public",
+   "doc": null,
+   "doc_source": null
+  },
+  {
+   "path": "Sources/Inventory/ReadingStore.swift",
+   "name": "save",
+   "kind": "method",
+   "parent": "MemoryStore",
+   "signature": "save(_ reading: Reading) throws",
+   "start_line": 21,
+   "end_line": 26,
+   "visibility": "public",
+   "doc": null,
+   "doc_source": null
+  },
+  {
+   "path": "Sources/Inventory/ReadingStore.swift",
+   "name": "pending",
+   "kind": "method",
+   "parent": "MemoryStore",
+   "signature": "pending() -> [Reading]",
+   "start_line": 28,
+   "end_line": 30,
+   "visibility": "public",
+   "doc": null,
+   "doc_source": null
+  },
+  {
+   "path": "Tests/InventoryTests/ReadingTests.swift",
+   "name": "ReadingTests",
+   "kind": "class",
+   "parent": null,
+   "signature": "ReadingTests: XCTestCase",
+   "start_line": 4,
+   "end_line": 19,
+   "visibility": "internal",
+   "doc": null,
+   "doc_source": null
+  },
+  {
+   "path": "Tests/InventoryTests/ReadingTests.swift",
+   "name": "testAlarm",
+   "kind": "method",
+   "parent": "ReadingTests",
+   "signature": "testAlarm()",
+   "start_line": 5,
+   "end_line": 8,
+   "visibility": "internal",
+   "doc": null,
+   "doc_source": null
+  },
+  {
+   "path": "Tests/InventoryTests/ReadingTests.swift",
+   "name": "testSeverity",
+   "kind": "method",
+   "parent": "ReadingTests",
+   "signature": "testSeverity()",
+   "start_line": 10,
+   "end_line": 12,
+   "visibility": "internal",
+   "doc": null,
+   "doc_source": null
+  },
+  {
+   "path": "Tests/InventoryTests/ReadingTests.swift",
+   "name": "testStoreKeepsReadings",
+   "kind": "method",
+   "parent": "ReadingTests",
+   "signature": "testStoreKeepsReadings() throws",
+   "start_line": 14,
+   "end_line": 18,
+   "visibility": "internal",
+   "doc": null,
+   "doc_source": null
+  }
+ ],
+ "imports": [
+  {
+   "path": "Package.swift",
+   "target": "PackageDescription",
+   "resolved": null
+  },
+  {
+   "path": "Sources/Gateway/Backoff.swift",
+   "target": "Foundation",
+   "resolved": null
+  },
+  {
+   "path": "Sources/Gateway/Uploader.swift",
+   "target": "Foundation",
+   "resolved": null
+  },
+  {
+   "path": "Sources/Gateway/Uploader.swift",
+   "target": "Inventory",
+   "resolved": null
+  },
+  {
+   "path": "Sources/Gateway/main.swift",
+   "target": "ArgumentParser",
+   "resolved": null
+  },
+  {
+   "path": "Sources/Gateway/main.swift",
+   "target": "Inventory",
+   "resolved": null
+  },
+  {
+   "path": "Sources/Inventory/Reading.swift",
+   "target": "Foundation",
+   "resolved": null
+  },
+  {
+   "path": "Sources/Inventory/ReadingStore.swift",
+   "target": "Foundation",
+   "resolved": null
+  },
+  {
+   "path": "Sources/Inventory/ReadingStore.swift",
+   "target": "Logging",
+   "resolved": null
+  },
+  {
+   "path": "Tests/InventoryTests/ReadingTests.swift",
+   "target": "Inventory",
+   "resolved": null
+  },
+  {
+   "path": "Tests/InventoryTests/ReadingTests.swift",
+   "target": "XCTest",
+   "resolved": null
+  }
+ ],
+ "refs": [
+  {
+   "path": "Package.swift",
+   "line": 4,
+   "name": "Package",
+   "kind": "call"
+  },
+  {
+   "path": "Sources/Gateway/Backoff.swift",
+   "line": 13,
+   "name": "Double",
+   "kind": "call"
+  },
+  {
+   "path": "Sources/Gateway/Backoff.swift",
+   "line": 13,
+   "name": "min",
+   "kind": "call"
+  },
+  {
+   "path": "Sources/Gateway/Backoff.swift",
+   "line": 13,
+   "name": "pow",
+   "kind": "call"
+  },
+  {
+   "path": "Sources/Gateway/Uploader.swift",
+   "line": 7,
+   "name": "Backoff",
+   "kind": "call"
+  },
+  {
+   "path": "Sources/Gateway/Uploader.swift",
+   "line": 16,
+   "name": "pending",
+   "kind": "call"
+  },
+  {
+   "path": "Sources/Gateway/Uploader.swift",
+   "line": 19,
+   "name": "send",
+   "kind": "call"
+  },
+  {
+   "path": "Sources/Gateway/Uploader.swift",
+   "line": 23,
+   "name": "shouldRetry",
+   "kind": "call"
+  },
+  {
+   "path": "Sources/Gateway/Uploader.swift",
+   "line": 24,
+   "name": "UInt64",
+   "kind": "call"
+  },
+  {
+   "path": "Sources/Gateway/Uploader.swift",
+   "line": 24,
+   "name": "nextDelay",
+   "kind": "call"
+  },
+  {
+   "path": "Sources/Gateway/Uploader.swift",
+   "line": 24,
+   "name": "sleep",
+   "kind": "call"
+  },
+  {
+   "path": "Sources/Gateway/main.swift",
+   "line": 10,
+   "name": "MemoryStore",
+   "kind": "call"
+  },
+  {
+   "path": "Sources/Gateway/main.swift",
+   "line": 11,
+   "name": "Reading",
+   "kind": "call"
+  },
+  {
+   "path": "Sources/Gateway/main.swift",
+   "line": 11,
+   "name": "save",
+   "kind": "call"
+  },
+  {
+   "path": "Sources/Gateway/main.swift",
+   "line": 12,
+   "name": "Uploader",
+   "kind": "call"
+  },
+  {
+   "path": "Sources/Gateway/main.swift",
+   "line": 12,
+   "name": "flush",
+   "kind": "call"
+  },
+  {
+   "path": "Sources/Gateway/main.swift",
+   "line": 13,
+   "name": "print",
+   "kind": "call"
+  },
+  {
+   "path": "Sources/Gateway/main.swift",
+   "line": 15,
+   "name": "print",
+   "kind": "call"
+  },
+  {
+   "path": "Sources/Gateway/main.swift",
+   "line": 19,
+   "name": "main",
+   "kind": "call"
+  },
+  {
+   "path": "Sources/Inventory/Reading.swift",
+   "line": 32,
+   "name": "Date",
+   "kind": "call"
+  },
+  {
+   "path": "Sources/Inventory/Reading.swift",
+   "line": 42,
+   "name": "isAlarm",
+   "kind": "call"
+  },
+  {
+   "path": "Sources/Inventory/Reading.swift",
+   "line": 42,
+   "name": "of",
+   "kind": "call"
+  },
+  {
+   "path": "Sources/Inventory/Reading.swift",
+   "line": 46,
+   "name": "timeIntervalSince",
+   "kind": "call"
+  },
+  {
+   "path": "Sources/Inventory/Reading.swift",
+   "line": 54,
+   "name": "Date",
+   "kind": "call"
+  },
+  {
+   "path": "Sources/Inventory/Reading.swift",
+   "line": 55,
+   "name": "age",
+   "kind": "call"
+  },
+  {
+   "path": "Sources/Inventory/ReadingStore.swift",
+   "line": 17,
+   "name": "Logger",
+   "kind": "call"
+  },
+  {
+   "path": "Sources/Inventory/ReadingStore.swift",
+   "line": 22,
+   "name": "isAlarm",
+   "kind": "call"
+  },
+  {
+   "path": "Sources/Inventory/ReadingStore.swift",
+   "line": 23,
+   "name": "warning",
+   "kind": "call"
+  },
+  {
+   "path": "Sources/Inventory/ReadingStore.swift",
+   "line": 25,
+   "name": "append",
+   "kind": "call"
+  },
+  {
+   "path": "Tests/InventoryTests/ReadingTests.swift",
+   "line": 6,
+   "name": "Reading",
+   "kind": "call"
+  },
+  {
+   "path": "Tests/InventoryTests/ReadingTests.swift",
+   "line": 6,
+   "name": "XCTAssertTrue",
+   "kind": "call"
+  },
+  {
+   "path": "Tests/InventoryTests/ReadingTests.swift",
+   "line": 6,
+   "name": "isAlarm",
+   "kind": "call"
+  },
+  {
+   "path": "Tests/InventoryTests/ReadingTests.swift",
+   "line": 7,
+   "name": "Reading",
+   "kind": "call"
+  },
+  {
+   "path": "Tests/InventoryTests/ReadingTests.swift",
+   "line": 7,
+   "name": "XCTAssertFalse",
+   "kind": "call"
+  },
+  {
+   "path": "Tests/InventoryTests/ReadingTests.swift",
+   "line": 7,
+   "name": "isAlarm",
+   "kind": "call"
+  },
+  {
+   "path": "Tests/InventoryTests/ReadingTests.swift",
+   "line": 11,
+   "name": "Reading",
+   "kind": "call"
+  },
+  {
+   "path": "Tests/InventoryTests/ReadingTests.swift",
+   "line": 11,
+   "name": "XCTAssertEqual",
+   "kind": "call"
+  },
+  {
+   "path": "Tests/InventoryTests/ReadingTests.swift",
+   "line": 11,
+   "name": "severity",
+   "kind": "call"
+  },
+  {
+   "path": "Tests/InventoryTests/ReadingTests.swift",
+   "line": 15,
+   "name": "MemoryStore",
+   "kind": "call"
+  },
+  {
+   "path": "Tests/InventoryTests/ReadingTests.swift",
+   "line": 16,
+   "name": "Reading",
+   "kind": "call"
+  },
+  {
+   "path": "Tests/InventoryTests/ReadingTests.swift",
+   "line": 16,
+   "name": "save",
+   "kind": "call"
+  },
+  {
+   "path": "Tests/InventoryTests/ReadingTests.swift",
+   "line": 17,
+   "name": "XCTAssertEqual",
+   "kind": "call"
+  },
+  {
+   "path": "Tests/InventoryTests/ReadingTests.swift",
+   "line": 17,
+   "name": "pending",
+   "kind": "call"
+  }
+ ],
+ "skipped": []
+}

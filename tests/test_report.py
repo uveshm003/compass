@@ -90,6 +90,25 @@ def test_without_a_baseline_the_report_says_how_to_get_one():
     assert "No tasks with Compass off yet" in text and "Off (n=0)" in text
 
 
+def test_sessions_that_never_called_a_compass_tool_are_flagged():
+    rows = [
+        turn("T1", 100, session="looked-up", tools={"Read": 3, "Grep": 1}),  # read code, never through Compass
+        turn("T1", 100, session="used-it", tools={"Read": 1, "compass:find_symbol": 2}),
+        turn("T2", 100, session="just-talked"),  # no lookups at all: says nothing about the server
+        {**turn("T3", 100, session="sub"), "kind": "subagent", "tools": {"Read": 9}},  # subagents never have the tools
+        turn("T4", 100, on=False, session="stock", tools={"Read": 4}),  # Compass off: nothing to flag
+        {**turn("T5", 100, session="no-query", tools={"Glob": 2}), "modules": ["review"]},  # query switched off
+    ]
+    lookups = report.unused_query_tools(rows)
+    assert lookups == {"sessions": 3, "without_compass_tools": 1}
+    text = report.pilot_text(report.tasks_from_rows(rows), ["t.jsonl"], lookups=lookups)
+    assert "Query tools unused: in 1 of 3 sessions" in text and "compass doctor" in text
+    assert report.as_json(report.tasks_from_rows(rows), lookups=lookups)["query_tools"] == lookups
+    assert report.unused_query_tools(rows, since="2026-10-01") is None
+    quiet = report.pilot_text(report.tasks_from_rows(rows[1:3]), ["t.jsonl"], lookups=report.unused_query_tools(rows[1:3]))
+    assert "Query tools unused" not in quiet
+
+
 def test_since_filters_by_date():
     rows = [turn("T1", 100, at="2026-09-01T00:00:00Z"), turn("T2", 100, at="2026-09-15T00:00:00Z")]
     assert [t.task for t in report.tasks_from_rows(rows, since="2026-09-10")] == ["T2"]

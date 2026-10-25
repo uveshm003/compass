@@ -22,7 +22,7 @@ import time
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
-CHECKS = ("check_query_tools.py", "check_review_loop.py", "check_gates.py", "check_delegation.py")
+CHECKS = ("check_query_tools.py", "check_review_loop.py", "check_gates.py", "check_delegation.py", "check_install.py")
 
 
 def main() -> int:

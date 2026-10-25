@@ -124,12 +124,24 @@ class Repo:
         return "" if posix == "." else posix
 
 
+_GIT: dict[str, str | None] = {}  # PATH -> git, resolved once per process
+
+
 def run_git(cwd: Path, *args: str, input: bytes | None = None) -> subprocess.CompletedProcess[bytes]:
-    """Run git without raising; callers inspect ``returncode``."""
+    """Run git without raising; callers inspect ``returncode``. Raises
+    FileNotFoundError when git is not on PATH, as starting it would."""
     import subprocess  # on first use: hooks that never run git skip its import
 
+    path = os.environ.get("PATH", "")
+    if path not in _GIT:
+        from compass.executables import which
+
+        _GIT[path] = which("git")
+    git = _GIT[path]
+    if git is None:
+        raise FileNotFoundError("git is not on PATH")
     return subprocess.run(
-        ["git", *args],
+        [git, *args],
         cwd=cwd,
         input=input,
         capture_output=True,

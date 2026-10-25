@@ -186,6 +186,27 @@ def pilot(tasks: list[Task]) -> dict[str, Any]:
     return summary
 
 
+# (a reply, a commit) says nothing about the server, so it is not counted against it
+def unused_query_tools(rows: list[dict[str, Any]], since: str | None = None) -> dict[str, Any] | None:
+    """Sessions with the query tools on whose main conversation used Read,
+    Grep or Glob but never a Compass tool: most likely the MCP server never
+    connected, and Claude worked as stock without saying so. None when no
+    session had the query tools on."""
+    sessions: dict[tuple[str, str], Counter] = {}
+    for row in rows:
+        if since and str(row.get("at") or "")[:10] < since:
+            continue
+        if row.get("kind") != "turn" or row.get("compass") is not True or "query" not in (row.get("modules") or []):
+            continue  # subagents never get the query tools, so only the main conversation counts
+        tools = sessions.setdefault((str(row.get("source") or ""), str(row.get("session") or "")), Counter())
+        tools.update({k: _int(v) for k, v in (row.get("tools") or {}).items()})
+    if not sessions:
+        return None
+    quiet = [tools for tools in sessions.values()
+             if not any(name.startswith("compass:") for name in tools) and any(tools[n] for n in READ_TOOLS)]
+    return {"sessions": len(sessions), "without_compass_tools": len(quiet)}
+
+
 def gate_summary(path: Path, since: str | None = None) -> dict[str, Any] | None:
     """The prompt gate's decisions from ``logs/gate.jsonl``: the bypass rate
     (``!quick`` prompts over all prompts) the plan's adoption target uses."""
@@ -211,7 +232,8 @@ def gate_summary(path: Path, since: str | None = None) -> dict[str, Any] | None:
     return {"prompts": total, "bypass": outcomes["bypass"], "asked": asked, "rate": outcomes["bypass"] / total}
 
 
-def pilot_text(tasks: list[Task], sources: list[str], gate: dict[str, Any] | None = None) -> str:
+def pilot_text(tasks: list[Task], sources: list[str], gate: dict[str, Any] | None = None,
+               lookups: dict[str, Any] | None = None) -> str:
     s = pilot(tasks)
     if not tasks:
         return (
@@ -250,6 +272,11 @@ def pilot_text(tasks: list[Task], sources: list[str], gate: dict[str, Any] | Non
         lines += ["", f"Prompt gate: {_plural(gate['prompts'], 'prompt')}, {gate['bypass']} with !quick"
                       f" ({gate['rate'] * 100:.1f}%; the target is under 20%), {gate['asked']} where Claude checked"
                       " with the developer first"]
+    if lookups and lookups["without_compass_tools"]:
+        lines += ["", f"Query tools unused: in {lookups['without_compass_tools']} of"
+                      f" {_plural(lookups['sessions'], 'session')} with the query tools on, Claude looked code up"
+                      " with Read, Grep or Glob and never called a Compass tool. The MCP server most likely did not"
+                      " connect there: check /mcp in Claude Code, or run compass doctor."]
     if not s["off"]:
         lines += ["", "No tasks with Compass off yet: the baseline comes from a run with every module off"
                       " but telemetry (see the Evaluation Plan's pilot weeks 1-2)."]
@@ -463,10 +490,11 @@ def _pass_pair(passes: dict[str, Any]) -> str:
     return f"ON {_frac(passes.get('on'))} vs OFF {_frac(passes.get('off'))}"
 
 
-def as_json(tasks: list[Task], gate: dict[str, Any] | None = None) -> dict[str, Any]:
+def as_json(tasks: list[Task], gate: dict[str, Any] | None = None,
+            lookups: dict[str, Any] | None = None) -> dict[str, Any]:
     if any(t.bench for t in tasks):
         return {"benchmark": bench(tasks)}
-    return {"pilot": pilot(tasks), "gate": gate, "tasks": [
+    return {"pilot": pilot(tasks), "gate": gate, "query_tools": lookups, "tasks": [
         {"task": t.task, "source": t.source, "category": t.category, "size": t.size, "compass": t.on,
          "modules": sorted(t.modules), "tokens": t.tokens, "main": t.main, "delegated": dict(t.delegated),
          "active_s": round(t.active_s, 3), "prompts": t.prompts, "reads": t.reads, "compass_calls": t.compass_calls,

@@ -39,7 +39,8 @@ def main() -> int:
         print("claude (Claude Code) is not on PATH", file=sys.stderr)
         return 2
 
-    work = Path(tempfile.mkdtemp(prefix="compass-e2e-"))
+    # which a headless session cannot answer
+    work = Path(tempfile.mkdtemp(prefix="compass-e2e-")).resolve()
     repo = work / args.fixture
     shutil.copytree(FIXTURES / args.fixture, repo)
     subprocess.run(["git", "init", "-q"], cwd=repo, check=True)

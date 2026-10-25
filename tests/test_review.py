@@ -290,7 +290,9 @@ def test_pre_commit_refuses_leftover_anchors_until_accepted(hooked):
     git(hooked.root, "add", "-A")
     refused = commit(hooked.root)
     assert refused.returncode != 0
-    assert "commit refused: the staged changes still add 1 AI anchor tag:" in refused.stderr
+    first = refused.stderr.splitlines()[0]  # IDE git panes often show only this line (UX-06)
+    assert first.startswith("compass: commit refused") and 'reply "accept"' in first
+    assert "The staged changes add 1 AI anchor tag:" in refused.stderr
     assert "src/inventory/api.py:1  review T1 — check me" in refused.stderr
     assert run_compass("-C", str(hooked.root), "accept").returncode == 0
     git(hooked.root, "add", "-A")

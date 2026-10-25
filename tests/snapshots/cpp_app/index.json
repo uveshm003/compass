@@ -1,0 +1,783 @@
+{
+ "files": [
+  {
+   "path": "CMakeLists.txt",
+   "dir": "",
+   "lang": null,
+   "hash": "e1e95b929f08c177d27b51b1cf0b1d57",
+   "size": 987,
+   "doc": null,
+   "is_test": 0
+  },
+  {
+   "path": "README.md",
+   "dir": "",
+   "lang": null,
+   "hash": "5a2bf0128c58c143dbd06bfe01ccaa5f",
+   "size": 188,
+   "doc": "Reads gas sensors and raises alarms when a reading crosses its threshold.",
+   "is_test": 0
+  },
+  {
+   "path": "include/retry.h",
+   "dir": "include",
+   "lang": "cpp",
+   "hash": "b90899762502540486731eec48430798",
+   "size": 972,
+   "doc": "Retry with exponential backoff, shared by the C and C++ code.",
+   "is_test": 0
+  },
+  {
+   "path": "include/sensors/alarm.hpp",
+   "dir": "include/sensors",
+   "lang": "cpp",
+   "hash": "8ff7ae07359f06ffdba6752e0329a46e",
+   "size": 1098,
+   "doc": "Alarm thresholds and the monitor that applies them.",
+   "is_test": 0
+  },
+  {
+   "path": "src/alarm.cpp",
+   "dir": "src",
+   "lang": "cpp",
+   "hash": "1c35e99cbf66db03cb97981ed118b83a",
+   "size": 1002,
+   "doc": null,
+   "is_test": 0
+  },
+  {
+   "path": "src/main.cpp",
+   "dir": "src",
+   "lang": "cpp",
+   "hash": "696891795178edd4c2d0b591753a901b",
+   "size": 535,
+   "doc": "Gateway entry point: polls the sensors and reports alarms.",
+   "is_test": 0
+  },
+  {
+   "path": "src/retry.c",
+   "dir": "src",
+   "lang": "c",
+   "hash": "ab07033a0f46a18a9c8a6f25f9bb7c02",
+   "size": 732,
+   "doc": null,
+   "is_test": 0
+  },
+  {
+   "path": "tests/alarm_test.cpp",
+   "dir": "tests",
+   "lang": "cpp",
+   "hash": "79bd3583032349ff01b529a6cf2d72da",
+   "size": 350,
+   "doc": null,
+   "is_test": 1
+  },
+  {
+   "path": "tests/test_retry.c",
+   "dir": "tests",
+   "lang": "c",
+   "hash": "cf53e190543a107cb448bb3cf3e4d7cb",
+   "size": 406,
+   "doc": null,
+   "is_test": 1
+  },
+  {
+   "path": "vcpkg.json",
+   "dir": "",
+   "lang": null,
+   "hash": "c42428b454c2dd34fc9a0a50b914028b",
+   "size": 352,
+   "doc": null,
+   "is_test": 0
+  }
+ ],
+ "symbols": [
+  {
+   "path": "include/retry.h",
+   "name": "RETRY_MAX_ATTEMPTS",
+   "kind": "macro",
+   "parent": null,
+   "signature": "RETRY_MAX_ATTEMPTS 5",
+   "start_line": 10,
+   "end_line": 10,
+   "visibility": "public",
+   "doc": "Attempts allowed before a sensor is marked offline.",
+   "doc_source": "author"
+  },
+  {
+   "path": "include/retry.h",
+   "name": "RETRY_CLAMP",
+   "kind": "macro",
+   "parent": null,
+   "signature": "RETRY_CLAMP(x, lo, hi)",
+   "start_line": 13,
+   "end_line": 13,
+   "visibility": "public",
+   "doc": "Clamp x between lo and hi.",
+   "doc_source": "author"
+  },
+  {
+   "path": "include/retry.h",
+   "name": "backoff_t",
+   "kind": "struct",
+   "parent": null,
+   "signature": "backoff_t",
+   "start_line": 16,
+   "end_line": 19,
+   "visibility": "public",
+   "doc": "Backoff state for one sensor connection.",
+   "doc_source": "author"
+  },
+  {
+   "path": "include/retry.h",
+   "name": "retry_result",
+   "kind": "enum",
+   "parent": null,
+   "signature": "retry_result",
+   "start_line": 22,
+   "end_line": 22,
+   "visibility": "public",
+   "doc": "Outcome of one read attempt.",
+   "doc_source": "author"
+  },
+  {
+   "path": "include/retry.h",
+   "name": "millis_t",
+   "kind": "type",
+   "parent": null,
+   "signature": "millis_t",
+   "start_line": 24,
+   "end_line": 24,
+   "visibility": "public",
+   "doc": null,
+   "doc_source": null
+  },
+  {
+   "path": "include/retry.h",
+   "name": "backoff_next_delay",
+   "kind": "function",
+   "parent": null,
+   "signature": "millis_t backoff_next_delay(struct backoff *b)",
+   "start_line": 31,
+   "end_line": 31,
+   "visibility": "public",
+   "doc": "Delay before the next attempt, in milliseconds.\n\n@param b backoff state, advanced by one attempt",
+   "doc_source": "author"
+  },
+  {
+   "path": "include/retry.h",
+   "name": "backoff_reset",
+   "kind": "function",
+   "parent": null,
+   "signature": "void backoff_reset(backoff_t *b)",
+   "start_line": 34,
+   "end_line": 34,
+   "visibility": "public",
+   "doc": "Start counting attempts again after a good read.",
+   "doc_source": "author"
+  },
+  {
+   "path": "include/retry.h",
+   "name": "retry_step",
+   "kind": "function",
+   "parent": null,
+   "signature": "retry_result retry_step(backoff_t *b, int ok)",
+   "start_line": 36,
+   "end_line": 36,
+   "visibility": "public",
+   "doc": null,
+   "doc_source": null
+  },
+  {
+   "path": "include/sensors/alarm.hpp",
+   "name": "sensors",
+   "kind": "namespace",
+   "parent": null,
+   "signature": "sensors",
+   "start_line": 8,
+   "end_line": 8,
+   "visibility": "public",
+   "doc": null,
+   "doc_source": null
+  },
+  {
+   "path": "include/sensors/alarm.hpp",
+   "name": "Level",
+   "kind": "enum",
+   "parent": null,
+   "signature": "Level",
+   "start_line": 11,
+   "end_line": 11,
+   "visibility": "public",
+   "doc": "Severity of a reading against its threshold.",
+   "doc_source": "author"
+  },
+  {
+   "path": "include/sensors/alarm.hpp",
+   "name": "kDefaultThreshold",
+   "kind": "constant",
+   "parent": null,
+   "signature": "double kDefaultThreshold = 50.0",
+   "start_line": 14,
+   "end_line": 14,
+   "visibility": "public",
+   "doc": "Default alarm threshold, in ppm.",
+   "doc_source": "author"
+  },
+  {
+   "path": "include/sensors/alarm.hpp",
+   "name": "Reading",
+   "kind": "struct",
+   "parent": null,
+   "signature": "Reading",
+   "start_line": 17,
+   "end_line": 23,
+   "visibility": "public",
+   "doc": "A reading from one gas sensor.",
+   "doc_source": "author"
+  },
+  {
+   "path": "include/sensors/alarm.hpp",
+   "name": "is_alarm",
+   "kind": "method",
+   "parent": "Reading",
+   "signature": "bool is_alarm(double threshold = kDefaultThreshold) const",
+   "start_line": 22,
+   "end_line": 22,
+   "visibility": "public",
+   "doc": "True when the reading crosses the alarm threshold.",
+   "doc_source": "author"
+  },
+  {
+   "path": "include/sensors/alarm.hpp",
+   "name": "AlarmMonitor",
+   "kind": "class",
+   "parent": null,
+   "signature": "AlarmMonitor",
+   "start_line": 26,
+   "end_line": 44,
+   "visibility": "public",
+   "doc": "Watches readings and counts the alarms they raise.",
+   "doc_source": "author"
+  },
+  {
+   "path": "include/sensors/alarm.hpp",
+   "name": "AlarmMonitor",
+   "kind": "method",
+   "parent": "AlarmMonitor",
+   "signature": "AlarmMonitor(double threshold)",
+   "start_line": 28,
+   "end_line": 28,
+   "visibility": "public",
+   "doc": null,
+   "doc_source": null
+  },
+  {
+   "path": "include/sensors/alarm.hpp",
+   "name": "classify",
+   "kind": "method",
+   "parent": "AlarmMonitor",
+   "signature": "Level classify(const Reading& reading)",
+   "start_line": 31,
+   "end_line": 31,
+   "visibility": "public",
+   "doc": "Classify a reading and record any alarm.",
+   "doc_source": "author"
+  },
+  {
+   "path": "include/sensors/alarm.hpp",
+   "name": "alarms",
+   "kind": "method",
+   "parent": "AlarmMonitor",
+   "signature": "int alarms() const",
+   "start_line": 34,
+   "end_line": 34,
+   "visibility": "public",
+   "doc": "Alarms raised so far.",
+   "doc_source": "author"
+  },
+  {
+   "path": "include/sensors/alarm.hpp",
+   "name": "on_alarm",
+   "kind": "method",
+   "parent": "AlarmMonitor",
+   "signature": "void on_alarm(const Reading& reading)",
+   "start_line": 37,
+   "end_line": 37,
+   "visibility": "protected",
+   "doc": null,
+   "doc_source": null
+  },
+  {
+   "path": "include/sensors/alarm.hpp",
+   "name": "record",
+   "kind": "method",
+   "parent": "AlarmMonitor",
+   "signature": "void record(Level level)",
+   "start_line": 40,
+   "end_line": 40,
+   "visibility": "private",
+   "doc": null,
+   "doc_source": null
+  },
+  {
+   "path": "include/sensors/alarm.hpp",
+   "name": "clamp_ppm",
+   "kind": "function",
+   "parent": null,
+   "signature": "T clamp_ppm(T value, T limit)",
+   "start_line": 46,
+   "end_line": 50,
+   "visibility": "public",
+   "doc": null,
+   "doc_source": null
+  },
+  {
+   "path": "src/alarm.cpp",
+   "name": "sensors",
+   "kind": "namespace",
+   "parent": null,
+   "signature": "sensors",
+   "start_line": 5,
+   "end_line": 5,
+   "visibility": "public",
+   "doc": null,
+   "doc_source": null
+  },
+  {
+   "path": "src/alarm.cpp",
+   "name": "label",
+   "kind": "function",
+   "parent": null,
+   "signature": "const char* label(Level level)",
+   "start_line": 9,
+   "end_line": 19,
+   "visibility": "private",
+   "doc": "Label used in log lines.",
+   "doc_source": "author"
+  },
+  {
+   "path": "src/alarm.cpp",
+   "name": "is_alarm",
+   "kind": "method",
+   "parent": "Reading",
+   "signature": "bool Reading::is_alarm(double threshold) const",
+   "start_line": 23,
+   "end_line": 26,
+   "visibility": "public",
+   "doc": null,
+   "doc_source": null
+  },
+  {
+   "path": "src/alarm.cpp",
+   "name": "AlarmMonitor",
+   "kind": "method",
+   "parent": "AlarmMonitor",
+   "signature": "AlarmMonitor(double threshold) : threshold_(threshold)",
+   "start_line": 28,
+   "end_line": 28,
+   "visibility": "public",
+   "doc": null,
+   "doc_source": null
+  },
+  {
+   "path": "src/alarm.cpp",
+   "name": "classify",
+   "kind": "method",
+   "parent": "AlarmMonitor",
+   "signature": "Level AlarmMonitor::classify(const Reading& reading)",
+   "start_line": 30,
+   "end_line": 38,
+   "visibility": "public",
+   "doc": null,
+   "doc_source": null
+  },
+  {
+   "path": "src/alarm.cpp",
+   "name": "on_alarm",
+   "kind": "method",
+   "parent": "AlarmMonitor",
+   "signature": "void AlarmMonitor::on_alarm(const Reading& reading)",
+   "start_line": 40,
+   "end_line": 43,
+   "visibility": "public",
+   "doc": null,
+   "doc_source": null
+  },
+  {
+   "path": "src/alarm.cpp",
+   "name": "record",
+   "kind": "method",
+   "parent": "AlarmMonitor",
+   "signature": "void AlarmMonitor::record(Level level)",
+   "start_line": 45,
+   "end_line": 50,
+   "visibility": "public",
+   "doc": null,
+   "doc_source": null
+  },
+  {
+   "path": "src/main.cpp",
+   "name": "main",
+   "kind": "function",
+   "parent": null,
+   "signature": "int main()",
+   "start_line": 8,
+   "end_line": 18,
+   "visibility": "public",
+   "doc": null,
+   "doc_source": null
+  },
+  {
+   "path": "src/retry.c",
+   "name": "max_delay_ms",
+   "kind": "constant",
+   "parent": null,
+   "signature": "millis_t max_delay_ms = 30000",
+   "start_line": 6,
+   "end_line": 6,
+   "visibility": "private",
+   "doc": "Upper bound for a single delay.",
+   "doc_source": "author"
+  },
+  {
+   "path": "src/retry.c",
+   "name": "clamp_delay",
+   "kind": "function",
+   "parent": null,
+   "signature": "millis_t clamp_delay(millis_t delay)",
+   "start_line": 11,
+   "end_line": 14,
+   "visibility": "private",
+   "doc": "Never wait longer than max_delay_ms.",
+   "doc_source": "author"
+  },
+  {
+   "path": "src/retry.c",
+   "name": "backoff_next_delay",
+   "kind": "function",
+   "parent": null,
+   "signature": "millis_t backoff_next_delay(struct backoff *b)",
+   "start_line": 16,
+   "end_line": 20,
+   "visibility": "public",
+   "doc": null,
+   "doc_source": null
+  },
+  {
+   "path": "src/retry.c",
+   "name": "backoff_reset",
+   "kind": "function",
+   "parent": null,
+   "signature": "void backoff_reset(backoff_t *b)",
+   "start_line": 22,
+   "end_line": 27,
+   "visibility": "public",
+   "doc": null,
+   "doc_source": null
+  },
+  {
+   "path": "src/retry.c",
+   "name": "retry_step",
+   "kind": "function",
+   "parent": null,
+   "signature": "retry_result retry_step(backoff_t *b, int ok)",
+   "start_line": 29,
+   "end_line": 36,
+   "visibility": "public",
+   "doc": null,
+   "doc_source": null
+  },
+  {
+   "path": "tests/alarm_test.cpp",
+   "name": "ClassifiesAlarm",
+   "kind": "function",
+   "parent": "AlarmMonitor",
+   "signature": "ClassifiesAlarm",
+   "start_line": 5,
+   "end_line": 10,
+   "visibility": "public",
+   "doc": null,
+   "doc_source": null
+  },
+  {
+   "path": "tests/alarm_test.cpp",
+   "name": "IsAlarm",
+   "kind": "function",
+   "parent": "Reading",
+   "signature": "IsAlarm",
+   "start_line": 12,
+   "end_line": 16,
+   "visibility": "public",
+   "doc": null,
+   "doc_source": null
+  },
+  {
+   "path": "tests/test_retry.c",
+   "name": "test_delay_grows",
+   "kind": "function",
+   "parent": null,
+   "signature": "void test_delay_grows(void)",
+   "start_line": 5,
+   "end_line": 10,
+   "visibility": "private",
+   "doc": null,
+   "doc_source": null
+  },
+  {
+   "path": "tests/test_retry.c",
+   "name": "test_gives_up",
+   "kind": "function",
+   "parent": null,
+   "signature": "void test_gives_up(void)",
+   "start_line": 12,
+   "end_line": 16,
+   "visibility": "private",
+   "doc": null,
+   "doc_source": null
+  },
+  {
+   "path": "tests/test_retry.c",
+   "name": "main",
+   "kind": "function",
+   "parent": null,
+   "signature": "int main(void)",
+   "start_line": 18,
+   "end_line": 23,
+   "visibility": "public",
+   "doc": null,
+   "doc_source": null
+  }
+ ],
+ "imports": [
+  {
+   "path": "include/sensors/alarm.hpp",
+   "target": "<string>",
+   "resolved": null
+  },
+  {
+   "path": "include/sensors/alarm.hpp",
+   "target": "retry.h",
+   "resolved": null
+  },
+  {
+   "path": "src/alarm.cpp",
+   "target": "<fmt/core.h>",
+   "resolved": null
+  },
+  {
+   "path": "src/alarm.cpp",
+   "target": "sensors/alarm.hpp",
+   "resolved": null
+  },
+  {
+   "path": "src/main.cpp",
+   "target": "<chrono>",
+   "resolved": null
+  },
+  {
+   "path": "src/main.cpp",
+   "target": "<thread>",
+   "resolved": null
+  },
+  {
+   "path": "src/main.cpp",
+   "target": "retry.h",
+   "resolved": null
+  },
+  {
+   "path": "src/main.cpp",
+   "target": "sensors/alarm.hpp",
+   "resolved": null
+  },
+  {
+   "path": "src/retry.c",
+   "target": "<stddef.h>",
+   "resolved": null
+  },
+  {
+   "path": "src/retry.c",
+   "target": "retry.h",
+   "resolved": null
+  },
+  {
+   "path": "tests/alarm_test.cpp",
+   "target": "<gtest/gtest.h>",
+   "resolved": null
+  },
+  {
+   "path": "tests/alarm_test.cpp",
+   "target": "sensors/alarm.hpp",
+   "resolved": null
+  },
+  {
+   "path": "tests/test_retry.c",
+   "target": "<assert.h>",
+   "resolved": null
+  },
+  {
+   "path": "tests/test_retry.c",
+   "target": "retry.h",
+   "resolved": null
+  }
+ ],
+ "refs": [
+  {
+   "path": "src/alarm.cpp",
+   "line": 32,
+   "name": "is_alarm",
+   "kind": "call"
+  },
+  {
+   "path": "src/alarm.cpp",
+   "line": 33,
+   "name": "record",
+   "kind": "call"
+  },
+  {
+   "path": "src/alarm.cpp",
+   "line": 34,
+   "name": "on_alarm",
+   "kind": "call"
+  },
+  {
+   "path": "src/alarm.cpp",
+   "line": 42,
+   "name": "label",
+   "kind": "call"
+  },
+  {
+   "path": "src/alarm.cpp",
+   "line": 42,
+   "name": "print",
+   "kind": "call"
+  },
+  {
+   "path": "src/main.cpp",
+   "line": 13,
+   "name": "classify",
+   "kind": "call"
+  },
+  {
+   "path": "src/main.cpp",
+   "line": 14,
+   "name": "backoff_next_delay",
+   "kind": "call"
+  },
+  {
+   "path": "src/main.cpp",
+   "line": 15,
+   "name": "milliseconds",
+   "kind": "call"
+  },
+  {
+   "path": "src/main.cpp",
+   "line": 15,
+   "name": "sleep_for",
+   "kind": "call"
+  },
+  {
+   "path": "src/main.cpp",
+   "line": 17,
+   "name": "alarms",
+   "kind": "call"
+  },
+  {
+   "path": "src/retry.c",
+   "line": 13,
+   "name": "RETRY_CLAMP",
+   "kind": "call"
+  },
+  {
+   "path": "src/retry.c",
+   "line": 19,
+   "name": "clamp_delay",
+   "kind": "call"
+  },
+  {
+   "path": "src/retry.c",
+   "line": 32,
+   "name": "backoff_reset",
+   "kind": "call"
+  },
+  {
+   "path": "tests/alarm_test.cpp",
+   "line": 8,
+   "name": "EXPECT_EQ",
+   "kind": "call"
+  },
+  {
+   "path": "tests/alarm_test.cpp",
+   "line": 8,
+   "name": "classify",
+   "kind": "call"
+  },
+  {
+   "path": "tests/alarm_test.cpp",
+   "line": 9,
+   "name": "EXPECT_EQ",
+   "kind": "call"
+  },
+  {
+   "path": "tests/alarm_test.cpp",
+   "line": 9,
+   "name": "alarms",
+   "kind": "call"
+  },
+  {
+   "path": "tests/alarm_test.cpp",
+   "line": 15,
+   "name": "EXPECT_TRUE",
+   "kind": "call"
+  },
+  {
+   "path": "tests/alarm_test.cpp",
+   "line": 15,
+   "name": "is_alarm",
+   "kind": "call"
+  },
+  {
+   "path": "tests/test_retry.c",
+   "line": 8,
+   "name": "backoff_next_delay",
+   "kind": "call"
+  },
+  {
+   "path": "tests/test_retry.c",
+   "line": 9,
+   "name": "assert",
+   "kind": "call"
+  },
+  {
+   "path": "tests/test_retry.c",
+   "line": 9,
+   "name": "backoff_next_delay",
+   "kind": "call"
+  },
+  {
+   "path": "tests/test_retry.c",
+   "line": 15,
+   "name": "assert",
+   "kind": "call"
+  },
+  {
+   "path": "tests/test_retry.c",
+   "line": 15,
+   "name": "retry_step",
+   "kind": "call"
+  },
+  {
+   "path": "tests/test_retry.c",
+   "line": 20,
+   "name": "test_delay_grows",
+   "kind": "call"
+  },
+  {
+   "path": "tests/test_retry.c",
+   "line": 21,
+   "name": "test_gives_up",
+   "kind": "call"
+  }
+ ],
+ "skipped": []
+}

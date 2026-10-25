@@ -1,0 +1,592 @@
+{
+ "files": [
+  {
+   "path": "README.md",
+   "dir": "",
+   "lang": null,
+   "hash": "aefcc2574a47abe6cb000f2678fa8f48",
+   "size": 96,
+   "doc": "Reads gas sensors, raises alarms and forwards readings upstream with retries.",
+   "is_test": 0
+  },
+  {
+   "path": "pom.xml",
+   "dir": "",
+   "lang": null,
+   "hash": "5ab28a889551f1592439796b14ec1c96",
+   "size": 1634,
+   "doc": null,
+   "is_test": 0
+  },
+  {
+   "path": "src/main/java/com/example/sensors/AlarmLevel.java",
+   "dir": "src/main/java/com/example/sensors",
+   "lang": "java",
+   "hash": "02c2e12e2861a900068c54498139286c",
+   "size": 365,
+   "doc": null,
+   "is_test": 0
+  },
+  {
+   "path": "src/main/java/com/example/sensors/AlarmListener.java",
+   "dir": "src/main/java/com/example/sensors",
+   "lang": "java",
+   "hash": "b49ca8af717e9ac134e17f117f8994a7",
+   "size": 252,
+   "doc": null,
+   "is_test": 0
+  },
+  {
+   "path": "src/main/java/com/example/sensors/App.java",
+   "dir": "src/main/java/com/example/sensors",
+   "lang": "java",
+   "hash": "5d1dc25c9d5c561067478d531068a867",
+   "size": 806,
+   "doc": null,
+   "is_test": 0
+  },
+  {
+   "path": "src/main/java/com/example/sensors/Reading.java",
+   "dir": "src/main/java/com/example/sensors",
+   "lang": "java",
+   "hash": "7c79dee26a69c3d852487274a0ac22f5",
+   "size": 911,
+   "doc": null,
+   "is_test": 0
+  },
+  {
+   "path": "src/main/java/com/example/sensors/package-info.java",
+   "dir": "src/main/java/com/example/sensors",
+   "lang": "java",
+   "hash": "b4dc3e6150bba9720d61cb9830f71642",
+   "size": 83,
+   "doc": "Sensor readings and the alarms they raise.",
+   "is_test": 0
+  },
+  {
+   "path": "src/main/java/com/example/sensors/transport/RetryPolicy.java",
+   "dir": "src/main/java/com/example/sensors/transport",
+   "lang": "java",
+   "hash": "bc3f54afa1b3e2f357ceb2f0d8a7cd99",
+   "size": 699,
+   "doc": null,
+   "is_test": 0
+  },
+  {
+   "path": "src/test/java/com/example/sensors/ReadingTest.java",
+   "dir": "src/test/java/com/example/sensors",
+   "lang": "java",
+   "hash": "35684b59964f56a7f6d5a63a8fafe156",
+   "size": 519,
+   "doc": null,
+   "is_test": 1
+  },
+  {
+   "path": "src/test/java/com/example/sensors/transport/RetryPolicyTest.java",
+   "dir": "src/test/java/com/example/sensors/transport",
+   "lang": "java",
+   "hash": "5e4055907ecfd79ee5127d3d8a1f1d90",
+   "size": 339,
+   "doc": null,
+   "is_test": 1
+  }
+ ],
+ "symbols": [
+  {
+   "path": "src/main/java/com/example/sensors/AlarmLevel.java",
+   "name": "AlarmLevel",
+   "kind": "enum",
+   "parent": null,
+   "signature": "AlarmLevel",
+   "start_line": 4,
+   "end_line": 16,
+   "visibility": "public",
+   "doc": "How serious an alarm is.",
+   "doc_source": "author"
+  },
+  {
+   "path": "src/main/java/com/example/sensors/AlarmLevel.java",
+   "name": "forPpm",
+   "kind": "method",
+   "parent": "AlarmLevel",
+   "signature": "AlarmLevel forPpm(double ppm)",
+   "start_line": 10,
+   "end_line": 15,
+   "visibility": "public",
+   "doc": "The level for a concentration in ppm.",
+   "doc_source": "author"
+  },
+  {
+   "path": "src/main/java/com/example/sensors/AlarmListener.java",
+   "name": "AlarmListener",
+   "kind": "interface",
+   "parent": null,
+   "signature": "AlarmListener",
+   "start_line": 4,
+   "end_line": 8,
+   "visibility": "public",
+   "doc": "Something that wants to hear about alarms.",
+   "doc_source": "author"
+  },
+  {
+   "path": "src/main/java/com/example/sensors/AlarmListener.java",
+   "name": "onAlarm",
+   "kind": "method",
+   "parent": "AlarmListener",
+   "signature": "void onAlarm(Reading reading, AlarmLevel level)",
+   "start_line": 7,
+   "end_line": 7,
+   "visibility": "public",
+   "doc": "Called once for every reading that raises an alarm.",
+   "doc_source": "author"
+  },
+  {
+   "path": "src/main/java/com/example/sensors/App.java",
+   "name": "App",
+   "kind": "class",
+   "parent": null,
+   "signature": "App",
+   "start_line": 10,
+   "end_line": 20,
+   "visibility": "public",
+   "doc": "Entry point: checks one reading and reports an alarm.",
+   "doc_source": "author"
+  },
+  {
+   "path": "src/main/java/com/example/sensors/App.java",
+   "name": "main",
+   "kind": "method",
+   "parent": "App",
+   "signature": "void main(String[] args)",
+   "start_line": 11,
+   "end_line": 19,
+   "visibility": "public",
+   "doc": null,
+   "doc_source": null
+  },
+  {
+   "path": "src/main/java/com/example/sensors/Reading.java",
+   "name": "Reading",
+   "kind": "class",
+   "parent": null,
+   "signature": "Reading",
+   "start_line": 8,
+   "end_line": 39,
+   "visibility": "public",
+   "doc": "One reading from a gas sensor, in parts per million.",
+   "doc_source": "author"
+  },
+  {
+   "path": "src/main/java/com/example/sensors/Reading.java",
+   "name": "DEFAULT_THRESHOLD",
+   "kind": "constant",
+   "parent": "Reading",
+   "signature": "double DEFAULT_THRESHOLD = 40.0",
+   "start_line": 10,
+   "end_line": 10,
+   "visibility": "public",
+   "doc": "Readings above this many ppm raise an alarm.",
+   "doc_source": "author"
+  },
+  {
+   "path": "src/main/java/com/example/sensors/Reading.java",
+   "name": "Reading",
+   "kind": "method",
+   "parent": "Reading",
+   "signature": "Reading(String sensorId, double ppm, Instant takenAt)",
+   "start_line": 16,
+   "end_line": 20,
+   "visibility": "public",
+   "doc": null,
+   "doc_source": null
+  },
+  {
+   "path": "src/main/java/com/example/sensors/Reading.java",
+   "name": "isAlarm",
+   "kind": "method",
+   "parent": "Reading",
+   "signature": "boolean isAlarm(double threshold)",
+   "start_line": 23,
+   "end_line": 25,
+   "visibility": "public",
+   "doc": "True when the reading crosses the alarm threshold.",
+   "doc_source": "author"
+  },
+  {
+   "path": "src/main/java/com/example/sensors/Reading.java",
+   "name": "level",
+   "kind": "method",
+   "parent": "Reading",
+   "signature": "AlarmLevel level()",
+   "start_line": 28,
+   "end_line": 30,
+   "visibility": "public",
+   "doc": "The alarm level for this reading.",
+   "doc_source": "author"
+  },
+  {
+   "path": "src/main/java/com/example/sensors/Reading.java",
+   "name": "sensorId",
+   "kind": "method",
+   "parent": "Reading",
+   "signature": "String sensorId()",
+   "start_line": 32,
+   "end_line": 34,
+   "visibility": "public",
+   "doc": null,
+   "doc_source": null
+  },
+  {
+   "path": "src/main/java/com/example/sensors/Reading.java",
+   "name": "ppm",
+   "kind": "method",
+   "parent": "Reading",
+   "signature": "double ppm()",
+   "start_line": 36,
+   "end_line": 38,
+   "visibility": "internal",
+   "doc": null,
+   "doc_source": null
+  },
+  {
+   "path": "src/main/java/com/example/sensors/transport/RetryPolicy.java",
+   "name": "RetryPolicy",
+   "kind": "class",
+   "parent": null,
+   "signature": "RetryPolicy",
+   "start_line": 8,
+   "end_line": 27,
+   "visibility": "public",
+   "doc": "Exponential backoff for forwarding readings upstream.",
+   "doc_source": "author"
+  },
+  {
+   "path": "src/main/java/com/example/sensors/transport/RetryPolicy.java",
+   "name": "MAX_ATTEMPTS",
+   "kind": "constant",
+   "parent": "RetryPolicy",
+   "signature": "int MAX_ATTEMPTS = 5",
+   "start_line": 10,
+   "end_line": 10,
+   "visibility": "public",
+   "doc": "Attempts allowed before a reading is dropped.",
+   "doc_source": "author"
+  },
+  {
+   "path": "src/main/java/com/example/sensors/transport/RetryPolicy.java",
+   "name": "RetryPolicy",
+   "kind": "method",
+   "parent": "RetryPolicy",
+   "signature": "RetryPolicy(Duration base)",
+   "start_line": 14,
+   "end_line": 16,
+   "visibility": "public",
+   "doc": null,
+   "doc_source": null
+  },
+  {
+   "path": "src/main/java/com/example/sensors/transport/RetryPolicy.java",
+   "name": "nextDelay",
+   "kind": "method",
+   "parent": "RetryPolicy",
+   "signature": "Duration nextDelay(int attempt)",
+   "start_line": 19,
+   "end_line": 21,
+   "visibility": "public",
+   "doc": "Delay before the given attempt, doubling each time and capped.",
+   "doc_source": "author"
+  },
+  {
+   "path": "src/main/java/com/example/sensors/transport/RetryPolicy.java",
+   "name": "shouldRetry",
+   "kind": "method",
+   "parent": "RetryPolicy",
+   "signature": "boolean shouldRetry(int attempt)",
+   "start_line": 24,
+   "end_line": 26,
+   "visibility": "public",
+   "doc": "Whether another attempt is allowed.",
+   "doc_source": "author"
+  },
+  {
+   "path": "src/test/java/com/example/sensors/ReadingTest.java",
+   "name": "ReadingTest",
+   "kind": "class",
+   "parent": null,
+   "signature": "ReadingTest",
+   "start_line": 9,
+   "end_line": 19,
+   "visibility": "internal",
+   "doc": null,
+   "doc_source": null
+  },
+  {
+   "path": "src/test/java/com/example/sensors/ReadingTest.java",
+   "name": "alarmAtThreshold",
+   "kind": "method",
+   "parent": "ReadingTest",
+   "signature": "void alarmAtThreshold()",
+   "start_line": 10,
+   "end_line": 13,
+   "visibility": "internal",
+   "doc": null,
+   "doc_source": null
+  },
+  {
+   "path": "src/test/java/com/example/sensors/ReadingTest.java",
+   "name": "criticalAboveHundred",
+   "kind": "method",
+   "parent": "ReadingTest",
+   "signature": "void criticalAboveHundred()",
+   "start_line": 15,
+   "end_line": 18,
+   "visibility": "internal",
+   "doc": null,
+   "doc_source": null
+  },
+  {
+   "path": "src/test/java/com/example/sensors/transport/RetryPolicyTest.java",
+   "name": "RetryPolicyTest",
+   "kind": "class",
+   "parent": null,
+   "signature": "RetryPolicyTest",
+   "start_line": 8,
+   "end_line": 13,
+   "visibility": "internal",
+   "doc": null,
+   "doc_source": null
+  },
+  {
+   "path": "src/test/java/com/example/sensors/transport/RetryPolicyTest.java",
+   "name": "stopsAfterMaxAttempts",
+   "kind": "method",
+   "parent": "RetryPolicyTest",
+   "signature": "void stopsAfterMaxAttempts()",
+   "start_line": 9,
+   "end_line": 12,
+   "visibility": "internal",
+   "doc": null,
+   "doc_source": null
+  }
+ ],
+ "imports": [
+  {
+   "path": "src/main/java/com/example/sensors/App.java",
+   "target": "com.example.sensors.transport.RetryPolicy",
+   "resolved": "src/main/java/com/example/sensors/transport/RetryPolicy.java"
+  },
+  {
+   "path": "src/main/java/com/example/sensors/App.java",
+   "target": "com.example.sensors.transport.RetryPolicy.MAX_ATTEMPTS",
+   "resolved": "src/main/java/com/example/sensors/transport/RetryPolicy.java"
+  },
+  {
+   "path": "src/main/java/com/example/sensors/App.java",
+   "target": "java.time.Duration",
+   "resolved": null
+  },
+  {
+   "path": "src/main/java/com/example/sensors/App.java",
+   "target": "java.time.Instant",
+   "resolved": null
+  },
+  {
+   "path": "src/main/java/com/example/sensors/Reading.java",
+   "target": "java.time.Instant",
+   "resolved": null
+  },
+  {
+   "path": "src/main/java/com/example/sensors/transport/RetryPolicy.java",
+   "target": "java.time.Duration",
+   "resolved": null
+  },
+  {
+   "path": "src/test/java/com/example/sensors/ReadingTest.java",
+   "target": "java.time.Instant",
+   "resolved": null
+  },
+  {
+   "path": "src/test/java/com/example/sensors/ReadingTest.java",
+   "target": "org.junit.jupiter.api.Assertions.assertEquals",
+   "resolved": null
+  },
+  {
+   "path": "src/test/java/com/example/sensors/ReadingTest.java",
+   "target": "org.junit.jupiter.api.Assertions.assertTrue",
+   "resolved": null
+  },
+  {
+   "path": "src/test/java/com/example/sensors/ReadingTest.java",
+   "target": "org.junit.jupiter.api.Test",
+   "resolved": null
+  },
+  {
+   "path": "src/test/java/com/example/sensors/transport/RetryPolicyTest.java",
+   "target": "java.time.Duration",
+   "resolved": null
+  },
+  {
+   "path": "src/test/java/com/example/sensors/transport/RetryPolicyTest.java",
+   "target": "org.junit.jupiter.api.Assertions.assertFalse",
+   "resolved": null
+  },
+  {
+   "path": "src/test/java/com/example/sensors/transport/RetryPolicyTest.java",
+   "target": "org.junit.jupiter.api.Test",
+   "resolved": null
+  }
+ ],
+ "refs": [
+  {
+   "path": "src/main/java/com/example/sensors/App.java",
+   "line": 12,
+   "name": "RetryPolicy",
+   "kind": "call"
+  },
+  {
+   "path": "src/main/java/com/example/sensors/App.java",
+   "line": 12,
+   "name": "ofMillis",
+   "kind": "call"
+  },
+  {
+   "path": "src/main/java/com/example/sensors/App.java",
+   "line": 13,
+   "name": "Reading",
+   "kind": "call"
+  },
+  {
+   "path": "src/main/java/com/example/sensors/App.java",
+   "line": 13,
+   "name": "now",
+   "kind": "call"
+  },
+  {
+   "path": "src/main/java/com/example/sensors/App.java",
+   "line": 13,
+   "name": "parseDouble",
+   "kind": "call"
+  },
+  {
+   "path": "src/main/java/com/example/sensors/App.java",
+   "line": 14,
+   "name": "println",
+   "kind": "call"
+  },
+  {
+   "path": "src/main/java/com/example/sensors/App.java",
+   "line": 14,
+   "name": "sensorId",
+   "kind": "call"
+  },
+  {
+   "path": "src/main/java/com/example/sensors/App.java",
+   "line": 15,
+   "name": "isAlarm",
+   "kind": "call"
+  },
+  {
+   "path": "src/main/java/com/example/sensors/App.java",
+   "line": 16,
+   "name": "level",
+   "kind": "call"
+  },
+  {
+   "path": "src/main/java/com/example/sensors/App.java",
+   "line": 16,
+   "name": "onAlarm",
+   "kind": "call"
+  },
+  {
+   "path": "src/main/java/com/example/sensors/App.java",
+   "line": 18,
+   "name": "nextDelay",
+   "kind": "call"
+  },
+  {
+   "path": "src/main/java/com/example/sensors/App.java",
+   "line": 18,
+   "name": "println",
+   "kind": "call"
+  },
+  {
+   "path": "src/main/java/com/example/sensors/Reading.java",
+   "line": 29,
+   "name": "forPpm",
+   "kind": "call"
+  },
+  {
+   "path": "src/main/java/com/example/sensors/transport/RetryPolicy.java",
+   "line": 20,
+   "name": "min",
+   "kind": "call"
+  },
+  {
+   "path": "src/main/java/com/example/sensors/transport/RetryPolicy.java",
+   "line": 20,
+   "name": "multipliedBy",
+   "kind": "call"
+  },
+  {
+   "path": "src/test/java/com/example/sensors/ReadingTest.java",
+   "line": 12,
+   "name": "Reading",
+   "kind": "call"
+  },
+  {
+   "path": "src/test/java/com/example/sensors/ReadingTest.java",
+   "line": 12,
+   "name": "assertTrue",
+   "kind": "call"
+  },
+  {
+   "path": "src/test/java/com/example/sensors/ReadingTest.java",
+   "line": 12,
+   "name": "isAlarm",
+   "kind": "call"
+  },
+  {
+   "path": "src/test/java/com/example/sensors/ReadingTest.java",
+   "line": 17,
+   "name": "Reading",
+   "kind": "call"
+  },
+  {
+   "path": "src/test/java/com/example/sensors/ReadingTest.java",
+   "line": 17,
+   "name": "assertEquals",
+   "kind": "call"
+  },
+  {
+   "path": "src/test/java/com/example/sensors/ReadingTest.java",
+   "line": 17,
+   "name": "level",
+   "kind": "call"
+  },
+  {
+   "path": "src/test/java/com/example/sensors/transport/RetryPolicyTest.java",
+   "line": 11,
+   "name": "RetryPolicy",
+   "kind": "call"
+  },
+  {
+   "path": "src/test/java/com/example/sensors/transport/RetryPolicyTest.java",
+   "line": 11,
+   "name": "assertFalse",
+   "kind": "call"
+  },
+  {
+   "path": "src/test/java/com/example/sensors/transport/RetryPolicyTest.java",
+   "line": 11,
+   "name": "ofMillis",
+   "kind": "call"
+  },
+  {
+   "path": "src/test/java/com/example/sensors/transport/RetryPolicyTest.java",
+   "line": 11,
+   "name": "shouldRetry",
+   "kind": "call"
+  }
+ ],
+ "skipped": []
+}

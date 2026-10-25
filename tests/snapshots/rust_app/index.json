@@ -364,7 +364,7 @@
   {
    "path": "tests/integration.rs",
    "target": "sensor_gateway::Reading",
-   "resolved": null
+   "resolved": "src/lib.rs"
   }
  ],
  "refs": [

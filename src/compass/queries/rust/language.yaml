@@ -22,3 +22,6 @@ imports:
   relative_markers: {self: 0, super: 1}
   strip_markers: [crate]
   drop_leading: true         # `use my_crate::a::b` finds a/b.rs without knowing my_crate
+  module_files:              # crates by name, so `use my_crate::Item` finds my_crate's lib.rs
+    Cargo.toml: '^\s*name\s*=\s*"([^"]+)"'
+  module_source: [src]

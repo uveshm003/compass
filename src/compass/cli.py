@@ -20,6 +20,8 @@ if TYPE_CHECKING:  # argparse is imported only past the hook fast path
 EXIT_OK = 0
 EXIT_ERROR = 1
 NOT_INITIALIZED = "this repository has no .compass/ yet; run `compass init` first"
+# install hands init to) just ignores it instead of failing on an unknown argument
+INSTALL_PRESET_ENV = "COMPASS_INSTALL_PRESET"  # set by `compass install` when it has just written the config
 
 
 def app() -> None:
@@ -104,8 +106,50 @@ def build_parser() -> argparse.ArgumentParser:
     p = sub.add_parser("init", help="create .compass/, config and git hooks, then build the first index")
     p.add_argument("--no-git-hooks", action="store_true", help="do not install git hooks")
     p.add_argument("--no-index", action="store_true", help="do not build the index yet")
+    p.add_argument("--modules", choices=["full", "essentials", "baseline"], default="full",
+                   help="the preset for a new .compass/config.yaml (default: full); an existing one is kept")
 
-    sub.add_parser("uninstall", help="remove Compass's git hooks (restoring any they chained); keeps .compass/")
+    sub.add_parser("status", help="where Compass stands here and what you can reply to Claude (/compass:status)")
+
+    p = sub.add_parser(
+        "uninstall",
+        help="remove Compass's git hooks (restoring any they chained) and what `compass install` wrote; keeps .compass/",
+    )
+    p.add_argument("--scope", choices=["user", "project", "local"],
+                   help="remove only this install (user: yours, in every project; leaves the git hooks alone)")
+    p.add_argument("--dry-run", action="store_true", help="print what would be removed; change nothing")
+
+    p = sub.add_parser("install", help="install Compass for Claude Code: the CLI, the plugin or files, and compass init")
+    p.add_argument("--scope", choices=["user", "project", "local"],
+                   help="user: just you, every project; project: this repository, committed for the team;"
+                        " local: this repository, just you (plugin mode only)")
+    p.add_argument("--mode", choices=["plugin", "files"],
+                   help="plugin: through Claude Code's plugin system; files: commands, agents and hooks in .claude/")
+    p.add_argument("--modules", choices=["essentials", "full", "baseline", "custom"],
+                   help="config preset: everything that never holds work back (essentials, the default), every module"
+                        " (full), telemetry only (baseline), or ask about each (custom)")
+    p.add_argument("--enable", default="", metavar="A,B", help="with --modules custom: the modules to switch on")
+    p.add_argument("--no-git-hooks", action="store_true", help="do not install git hooks")
+    p.add_argument("--no-init", action="store_true", help="do not run compass init in this repository")
+    p.add_argument("--reconfigure", action="store_true", help="rewrite an existing .compass/config.yaml from the preset")
+    p.add_argument("--marketplace", metavar="SOURCE",
+                   help="plugin mode: the marketplace to install from (owner/repo, an Azure Repos URL or a path);"
+                        " default: the copy bundled with this CLI")
+    p.add_argument("--source", metavar="SPEC", help="what `uv tool install` installs the CLI from (default: where this copy came from)")
+    p.add_argument("--skip-cli", action="store_true", help="leave the CLI as it is (the npx wrapper has installed it)")
+    p.add_argument("-y", "--yes", action="store_true", help="never prompt; take the defaults for anything not given")
+    p.add_argument("--dry-run", action="store_true", help="print every file it would write and command it would run")
+
+    p = sub.add_parser("upgrade", help="upgrade the compass CLI with uv, then refresh what `compass install` wrote")
+    p.add_argument("--skip-cli", action="store_true", help="only refresh the installed files, for this CLI's version")
+    p.add_argument("--source", metavar="SPEC", help="what `uv tool install` upgrades the CLI from")
+    p.add_argument("-y", "--yes", action="store_true", help="never prompt")
+    p.add_argument("--dry-run", action="store_true", help="print what would change; change nothing")
+
+    p = sub.add_parser("doctor", help="check the install: CLI on PATH, Claude Code, hooks wired once, MCP server, repository")
+    p.add_argument("--no-mcp", action="store_true", help="skip starting the MCP server")
+    p.add_argument("--exit-zero", action="store_true",
+                   help="exit 0 even when something needs fixing (what /compass:doctor runs)")
 
     p = sub.add_parser("index", help="build or refresh the SQLite index and map shards")
     p.add_argument("--full", action="store_true", help="re-parse every file, not only changed ones")
@@ -222,11 +266,19 @@ def cmd_init(args: argparse.Namespace) -> int:
     repo = find_repo()
     repo.ensure_state_dir()
     lines = [f"Compass in {repo.root}"]
-    if repo.config_path.exists():
+    preset = os.environ.get(INSTALL_PRESET_ENV)
+    if repo.config_path.exists() and preset:
+        lines.append(f"  config      wrote .compass/config.yaml, {preset} preset (commit it)")
+    elif repo.config_path.exists():
         lines.append("  config      .compass/config.yaml exists; kept as is")
-    else:
+    elif args.modules == "full":
         repo.config_path.write_text(DEFAULT_CONFIG_TEXT, encoding="utf-8", newline="\n")
         lines.append("  config      wrote .compass/config.yaml (commit it)")
+    else:
+        from compass.install.installer import config_text
+
+        repo.config_path.write_text(config_text(args.modules, {}), encoding="utf-8", newline="\n")
+        lines.append(f"  config      wrote .compass/config.yaml, {args.modules} preset (commit it)")
     lines.append("  gitignore   .compass/.gitignore keeps derived files out of git")
     if not args.no_git_hooks:
         from compass.githooks import install
@@ -244,18 +296,87 @@ def cmd_init(args: argparse.Namespace) -> int:
     return EXIT_OK
 
 
-def cmd_uninstall(args: argparse.Namespace) -> int:
-    from compass.githooks import uninstall
+def cmd_status(args: argparse.Namespace) -> int:
+    from compass import status
     from compass.repo import find_repo
 
-    repo = find_repo()
-    for message in uninstall(repo):
-        print(message)
-    print(
-        "Left in place: .compass/ (delete it to drop the index and manifests; config.yaml is yours)."
-        " Remove the Claude Code plugin with `claude plugin uninstall compass`."
-    )
+    print(status.text(find_repo()))
     return EXIT_OK
+
+
+def cmd_uninstall(args: argparse.Namespace) -> int:
+    from pathlib import Path
+
+    from compass.githooks import uninstall
+    from compass.install import installer
+    from compass.install.settings import SettingsError
+    from compass.repo import NotAGitRepo, find_repo
+
+    try:
+        repo = find_repo()
+    except NotAGitRepo:
+        if args.scope != "user":
+            raise
+        repo = None
+    removed = False
+    try:
+        if args.scope == "user":
+            removed = installer.uninstall(Path.home(), "user", dry_run=args.dry_run)
+        else:
+            if not args.dry_run:
+                for message in uninstall(repo):
+                    print(message)
+            for scope in [args.scope] if args.scope else ["project", "local"]:
+                removed = installer.uninstall(repo.root, scope, dry_run=args.dry_run) or removed
+    except (installer.InstallError, SettingsError) as exc:
+        return _fail(str(exc))
+    if not removed:
+        print("No `compass install` record for this scope. If you installed the plugin by hand, remove it with"
+              " `claude plugin uninstall compass@compass-marketplace`.")
+    if repo is not None and args.scope != "user":
+        print("Left in place: .compass/ (delete it to drop the index and manifests; config.yaml is yours).")
+    return EXIT_OK
+
+
+def cmd_install(args: argparse.Namespace) -> int:
+    from compass.install import installer
+    from compass.install.settings import SettingsError
+
+    enable = {m.strip() for m in args.enable.split(",") if m.strip()}
+    unknown = enable - set(installer.MODULES)
+    if unknown:
+        return _fail(f"unknown module(s) for --enable: {', '.join(sorted(unknown))} (one of {', '.join(installer.MODULES)})")
+    opts = installer.Options(
+        scope=args.scope, mode=args.mode, modules=args.modules,
+        custom={m: m in enable for m in installer.MODULES} if args.enable else {},
+        git_hooks=False if args.no_git_hooks else None, init=not args.no_init, yes=args.yes,
+        dry_run=args.dry_run, reconfigure=args.reconfigure, marketplace=args.marketplace,
+        skip_cli=args.skip_cli, source=args.source,
+    )
+    try:
+        return installer.install(opts)
+    except (installer.InstallError, SettingsError) as exc:
+        return _fail(f"install stopped: {exc}")
+    except EOFError:
+        return _fail("install stopped: no answer on stdin; pass --yes and the flags you need")
+
+
+def cmd_upgrade(args: argparse.Namespace) -> int:
+    from compass.install import installer
+    from compass.install.settings import SettingsError
+
+    opts = installer.Options(yes=args.yes, dry_run=args.dry_run, skip_cli=args.skip_cli, source=args.source)
+    try:
+        return installer.upgrade(opts)
+    except (installer.InstallError, SettingsError) as exc:
+        return _fail(f"upgrade stopped: {exc}")
+
+
+def cmd_doctor(args: argparse.Namespace) -> int:
+    from compass.install import doctor
+
+    code = doctor.run(check_mcp=not args.no_mcp)
+    return EXIT_OK if args.exit_zero else code
 
 
 def cmd_index(args: argparse.Namespace) -> int:
@@ -425,13 +546,15 @@ def cmd_report(args: argparse.Namespace) -> int:
     missing = [str(p) for p in paths if not p.exists()]
     if missing and len(missing) == len(paths) and args.paths:
         return _fail(f"no such file or folder: {', '.join(missing)}")
-    tasks = report.tasks_from_rows(report.load(paths), args.since)
+    rows = report.load(paths)
+    tasks = report.tasks_from_rows(rows, args.since)
+    lookups = report.unused_query_tools(rows, args.since)
     if args.json:
-        print(json.dumps(report.as_json(tasks, gate), indent=2, sort_keys=True))
+        print(json.dumps(report.as_json(tasks, gate, lookups), indent=2, sort_keys=True))
     elif any(t.bench for t in tasks):
         print(report.bench_text(tasks))
     else:
-        print(report.pilot_text(tasks, [str(p) for p in paths if p.exists()], gate))
+        print(report.pilot_text(tasks, [str(p) for p in paths if p.exists()], gate, lookups))
     return EXIT_OK
 
 
@@ -574,14 +697,16 @@ def _pre_commit_check() -> int:
     if not found:
         return EXIT_OK
     tasks = sorted({a.task for a in found})
-    lines = [f"compass: commit refused: the staged changes still add {len(found)} AI anchor tag{'s' if len(found) != 1 else ''}:"]
+    # The first line is all some IDE git panes show, so it says what to do (UX-06).
+    lines = [
+        f"compass: commit refused: review tags are still in the code. Once you've reviewed .compass/changes/{tasks[0]}.md,"
+        f" reply \"accept\" to Claude (or run `compass accept {tasks[0]}`), then commit again.",
+        f"The staged changes add {len(found)} AI anchor tag{'s' if len(found) != 1 else ''}:",
+    ]
     lines += [f"  {a.path}:{a.line}  {a.kind} {a.task}" + (f" — {a.note}" if a.note else "") for a in found[:20]]
     if len(found) > 20:
         lines.append(f"  … and {len(found) - 20} more")
-    lines.append(
-        f"Review them (.compass/changes/{tasks[0]}.md), strip them with /compass:accept in Claude Code or"
-        f" `compass accept {tasks[0]}`, stage the result and commit again. To commit anyway: git commit --no-verify."
-    )
+    lines.append("To commit them anyway: git commit --no-verify.")
     print("\n".join(lines), file=sys.stderr)
     return EXIT_ERROR
 
@@ -634,7 +759,11 @@ def _cli_path(repo, arg: str) -> str:
 
 COMMANDS = {
     "init": cmd_init,
+    "status": cmd_status,
     "uninstall": cmd_uninstall,
+    "install": cmd_install,
+    "upgrade": cmd_upgrade,
+    "doctor": cmd_doctor,
     "index": cmd_index,
     "update": cmd_update,
     "files": cmd_files,

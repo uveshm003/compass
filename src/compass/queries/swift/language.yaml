@@ -1,0 +1,26 @@
+name: swift
+grammar: swift
+extensions: [.swift]
+shebangs: [swift]
+# The grammar loses a whole type around `#if a && !b` inside its body; when a
+# parse has errors, these lines are blanked and the file parsed again.
+reparse_without: ['^[ \t]*#(?:if|elseif|else|endif)\b[^\r\n]*']
+visibility:
+  # The @visibility capture is the declaration's whole `modifiers` node, so the
+  # rules match words: `private(set)` limits only the setter and never counts.
+  modifiers:
+    - ["(^|\\s)(open|public)(\\s|$)", public]
+    - ["(^|\\s)internal(\\s|$)", internal]
+    - ["(^|\\s)(fileprivate|private)(\\s|$)", private]
+  default: internal
+tests:
+  files: ["**/Tests/**/*.swift", "**/*Tests.swift"]
+  name_suffixes: [Tests, Test]   # ReadingTests.swift tests Reading.swift
+imports:
+  # `import Inventory` names a module (a SwiftPM target directory), which no
+  # resolver maps to a path, so it stays unresolved and importers_of matches it
+  # by name. `import struct Inventory.Reading` resolves when the type lives in a
+  # file of the same name under an Inventory/ directory.
+  resolver: module
+  separator: "."
+  extensions: [.swift]

@@ -1,0 +1,60 @@
+{
+ "languages": {
+  "csharp": 7
+ },
+ "stacks": {
+  "dotnet": {
+   "packages": [
+    {
+     "path": "Sensors.sln",
+     "engines": {
+      "sdk": "8.0.204"
+     },
+     "commands": {
+      "build": "dotnet build Sensors.sln",
+      "test": "dotnet test Sensors.sln",
+      "lint": "dotnet format Sensors.sln --verify-no-changes"
+     }
+    },
+    {
+     "path": "src/Sensors.Core/Sensors.Core.csproj",
+     "name": "Sensors.Core",
+     "msbuild_sdk": "Microsoft.NET.Sdk",
+     "version": "1.4.0",
+     "engines": {
+      "sdk": "8.0.204",
+      "target": "net8.0"
+     },
+     "lockfile": "src/Sensors.Core/packages.lock.json",
+     "frameworks": {
+      "Microsoft.Extensions.Logging.Abstractions": "8.0.1",
+      "Polly.Core": "8.4.2"
+     },
+     "dependencies": 2,
+     "commands": {
+      "build": "dotnet build src/Sensors.Core/Sensors.Core.csproj"
+     }
+    },
+    {
+     "path": "tests/Sensors.Core.Tests/Sensors.Core.Tests.csproj",
+     "name": "Sensors.Core.Tests",
+     "msbuild_sdk": "Microsoft.NET.Sdk",
+     "engines": {
+      "sdk": "8.0.204",
+      "target": "net8.0"
+     },
+     "tools": {
+      "Microsoft.NET.Test.Sdk": "17.10.0",
+      "xunit": "2.9.0",
+      "xunit.runner.visualstudio": "2.8.2"
+     },
+     "dependencies": 3,
+     "commands": {
+      "build": "dotnet build tests/Sensors.Core.Tests/Sensors.Core.Tests.csproj",
+      "test": "dotnet test tests/Sensors.Core.Tests/Sensors.Core.Tests.csproj"
+     }
+    }
+   ]
+  }
+ }
+}

@@ -29,6 +29,7 @@ from compass.repo import Repo
 DIGEST = "compass:digest"
 TEST_RUNNER = "compass:test-runner"
 SCAFFOLD = "compass:scaffold"
+FILES_PREFIX = "compass-"  # the same agents installed as files: .claude/agents/compass-<name>.md
 STATE_LOCK_WAIT_S = 1.0
 MAX_PENDING = 10
 PENDING_TTL_S = 3600
@@ -55,14 +56,35 @@ CONTRACTS = {
 }
 
 
-def rules(threshold: int, local_tools: bool) -> list[str]:
-    """The delegation rules SessionStart adds to Claude's context (DL-03)."""
+def canonical_agent(name: Any) -> str | None:
+    """One name per Compass subagent, however it was installed (IN-11): the
+    plugin's ``compass:digest`` and files mode's ``compass-digest`` are the
+    same agent. Other names pass through unchanged."""
+    if not isinstance(name, str):
+        return None
+    if name.startswith(FILES_PREFIX):
+        plugin_name = "compass:" + name[len(FILES_PREFIX):]
+        if plugin_name in CONTRACTS:
+            return plugin_name
+    return name
+
+
+def agent_name(agent: str, mode: str | None) -> str:
+    """How Claude addresses ``agent`` in this session: ``compass-digest`` when
+    the agents are installed as files, else the plugin's ``compass:digest``."""
+    return FILES_PREFIX + agent.split(":", 1)[1] if mode == "files" else agent
+
+
+def rules(threshold: int, local_tools: bool, mode: str | None = None) -> list[str]:
+    """The delegation rules SessionStart adds to Claude's context (DL-03),
+    naming the subagents as the install mode does."""
+    test_runner, digest, scaffold = (agent_name(a, mode) for a in (TEST_RUNNER, DIGEST, SCAFFOLD))
     lines = [
         "- Delegation: a subagent works in its own context, and only its short answer reaches yours.",
-        f"    {TEST_RUNNER}: run test suites and builds through it, not Bash (tail or grep still load the output"
+        f"    {test_runner}: run test suites and builds through it, not Bash (tail or grep still load the output"
         " into your context); it returns only the failures. Run one test inline only to see its full output.",
-        f"    {DIGEST}: to read more than about {threshold} lines (logs, large or generated files) for a short answer",
-        f"    {SCAFFOLD}: for mechanical edits you can spell out; name every file it may change and the task id",
+        f"    {digest}: to read more than about {threshold} lines (logs, large or generated files) for a short answer",
+        f"    {scaffold}: for mechanical edits you can spell out; name every file it may change and the task id",
         "  Keep small work (under about 50 lines) and anything that needs judgment in this conversation:"
         " a subagent starts from an empty context.",
     ]
@@ -106,8 +128,8 @@ def _longest_code_block(text: str) -> int:
 
 def on_subagent_stop(repo: Repo, config, payload: dict[str, Any]) -> dict[str, Any] | None:
     """The hook's JSON answer: a block with the reason, or None to let it finish."""
-    agent_type = payload.get("agent_type")
-    contract = CONTRACTS.get(agent_type) if isinstance(agent_type, str) else None
+    agent_type = canonical_agent(payload.get("agent_type"))
+    contract = CONTRACTS.get(agent_type) if agent_type else None
     settings = config.delegation
     if contract is None or not settings.enabled or not settings.enforce_contracts:
         return None
@@ -158,7 +180,7 @@ def on_delegate(repo: Repo, payload: dict[str, Any]) -> None:
     """PreToolUse on the Agent tool: remember which files a scaffold
     delegation names, for the scaffold agent that is about to start."""
     tool_input = payload.get("tool_input") if isinstance(payload.get("tool_input"), dict) else {}
-    if tool_input.get("subagent_type") != SCAFFOLD:
+    if canonical_agent(tool_input.get("subagent_type")) != SCAFFOLD:
         return
     session = payload.get("session_id")
     if not isinstance(session, str):

@@ -31,7 +31,7 @@ None of these is solved by a better model alone. They need a consistent process 
 
 ## What Compass is
 
-Compass is a Claude Code plugin plus a small local indexing tool. It works in any git repo, in any mainstream language, and needs no server.
+Compass is a Claude Code plugin plus a small local indexing tool. It works in any git repo, in any mainstream language, and needs no server. An installer (M7, built in 0.3.0) sets it up with one command, per developer or committed with a repository for the whole team.
 
 ```mermaid
 flowchart LR
@@ -72,7 +72,7 @@ All targets are hypotheses. The pilot measures them against a baseline recorded 
 
 ## Cost and effort
 
-The pilot costs about 7 engineer-weeks and no new infrastructure. These are initial estimates for one engineer and will be revised after the first milestone.
+The build costs about 8.5 engineer-weeks and no new infrastructure. These are initial estimates for one engineer; M1 to M7 are now built; the first release waits only on the package names and feeds.
 
 | Work package | Effort (engineer-weeks) |
 | --- | --- |
@@ -81,7 +81,8 @@ The pilot costs about 7 engineer-weeks and no new infrastructure. These are init
 | Prompt gate, context pack, spec gate | 1.5 |
 | Delegation subagents and optional local-LLM adapter | 1 |
 | Telemetry, benchmark suite, pilot report | 0.5 |
-| **Total build** | **7** |
+| One-command installer, upgrade and uninstall (M7, added after the original estimate) | 1.5 |
+| **Total build** | **8.5** |
 | Pilot support (part-time, weeks 5 to 8) | 20% of one engineer |
 
 ### Running costs
@@ -119,6 +120,7 @@ The biggest risk is adoption, not technology. If the gates feel slow or preachy,
 | Local LLMs too slow on developer hardware | Medium | Low | Local models only run in the background and are optional |
 | Code or telemetry leaves company control | Low | High | All processing local; telemetry export opt-in; security review before any wider rollout |
 | Maintenance burden after the pilot | Medium | Medium | Small modular codebase; a named owner; documented contribution guide |
+| Setup friction slows rollout beyond the pilot team | Medium | Medium | One-command installer (M7) with a `baseline` preset for the telemetry-only weeks, and a team-wide install committed with the repo |
 
 ## Pilot plan
 
@@ -126,8 +128,8 @@ The pilot runs 8 weeks with one team of 3 to 6 developers. It ends with a go, na
 
 | Weeks | Phase | Outcome |
 | --- | --- | --- |
-| 1–2 | Baseline + build core | Baseline metrics captured with telemetry only; code map and query tools working |
-| 3–4 | Build gates and review | Prompt gate, spec gate, review manifest and delegation shipped to the pilot team |
+| 1–2 | Baseline | Baseline metrics captured with telemetry only (`compass install --modules baseline`) |
+| 3–4 | Roll-out | Code map, query tools, prompt gate, spec gate, review manifest and delegation switched on for the pilot team |
 | 4 | Checkpoint | Early token and speed numbers; stop if clearly failing |
 | 5–7 | Pilot in daily use | Rules tuned weekly from bypass logs and feedback |
 | 8 | Evaluate | Benchmark rerun, survey, pilot report, recommendation |
@@ -142,7 +144,7 @@ Pilot team candidates should work in at least two different stacks, to test the 
 
 ## Decision requested
 
-We ask for approval of the 8-week pilot, with about 7 engineer-weeks of build effort and one volunteer pilot team.
+We ask for approval of the 8-week pilot, with about 8.5 engineer-weeks of build effort (7 for M1 to M6 and 1.5 for the installer, M7; all built) and one volunteer pilot team.
 
 ### Next steps after approval
 
@@ -150,6 +152,8 @@ We ask for approval of the 8-week pilot, with about 7 engineer-weeks of build ef
 - [ ] Security and data-policy review of local processing and telemetry
 - [ ] Confirm Claude Code plan and seat setup for the pilot team
 - [ ] Name an owner for the shared standards pack
+- [x] Choose the feeds for the installer: Azure Artifacts (decided October 14, 2026); the product name stays Compass
+- [ ] Choose the published package names (the placeholders are taken on PyPI and npmjs)
 - [ ] Start baseline measurement in week 1
 
 Supporting documents: Compass — Requirements Specification, Architecture & Technical Design, and Evaluation & Metrics Plan.

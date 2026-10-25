@@ -1,0 +1,824 @@
+{
+ "files": [
+  {
+   "path": "Directory.Build.props",
+   "dir": "",
+   "lang": null,
+   "hash": "a0c5bef120dac1a0144217db9a53c950",
+   "size": 272,
+   "doc": null,
+   "is_test": 0
+  },
+  {
+   "path": "README.md",
+   "dir": "",
+   "lang": null,
+   "hash": "99bda87eb18a5d4c01885aeef93bacb1",
+   "size": 91,
+   "doc": "Gas sensor readings, alarm levels and a retrying gateway link, in C# on .NET 8.",
+   "is_test": 0
+  },
+  {
+   "path": "Sensors.sln",
+   "dir": "",
+   "lang": null,
+   "hash": "a3c939cb99163704a3fed9baf195a30d",
+   "size": 1407,
+   "doc": null,
+   "is_test": 0
+  },
+  {
+   "path": "global.json",
+   "dir": "",
+   "lang": null,
+   "hash": "5f06a3aa98ca8a84a8002ef7167eed05",
+   "size": 80,
+   "doc": null,
+   "is_test": 0
+  },
+  {
+   "path": "src/Sensors.Core/Alarms/AlarmEvaluator.cs",
+   "dir": "src/Sensors.Core/Alarms",
+   "lang": "csharp",
+   "hash": "5ddee358841682594f6db21700b0ba2a",
+   "size": 1753,
+   "doc": null,
+   "is_test": 0
+  },
+  {
+   "path": "src/Sensors.Core/Models/Reading.cs",
+   "dir": "src/Sensors.Core/Models",
+   "lang": "csharp",
+   "hash": "be3902e3933b452b545ebe1b8b19d8e3",
+   "size": 772,
+   "doc": null,
+   "is_test": 0
+  },
+  {
+   "path": "src/Sensors.Core/Sensors.Core.csproj",
+   "dir": "src/Sensors.Core",
+   "lang": null,
+   "hash": "0a87859116f2668c710988bf2df50978",
+   "size": 414,
+   "doc": null,
+   "is_test": 0
+  },
+  {
+   "path": "src/Sensors.Core/Transport/Backoff.cs",
+   "dir": "src/Sensors.Core/Transport",
+   "lang": "csharp",
+   "hash": "69805ea8dbdf48e851b703796e9cecbf",
+   "size": 884,
+   "doc": null,
+   "is_test": 0
+  },
+  {
+   "path": "src/Sensors.Core/Transport/IRetryPolicy.cs",
+   "dir": "src/Sensors.Core/Transport",
+   "lang": "csharp",
+   "hash": "7963cbdadad67e42f4d7c4a1568e65dc",
+   "size": 415,
+   "doc": null,
+   "is_test": 0
+  },
+  {
+   "path": "src/Sensors.Core/Transport/Retry.cs",
+   "dir": "src/Sensors.Core/Transport",
+   "lang": "csharp",
+   "hash": "a1cb4864f926ef98e7f662a660456772",
+   "size": 1105,
+   "doc": null,
+   "is_test": 0
+  },
+  {
+   "path": "src/Sensors.Core/packages.lock.json",
+   "dir": "src/Sensors.Core",
+   "lang": null,
+   "hash": "ee62c13cb090b875c0ba55cf27b02020",
+   "size": 923,
+   "doc": null,
+   "is_test": 0
+  },
+  {
+   "path": "tests/Sensors.Core.Tests/AlarmEvaluatorTests.cs",
+   "dir": "tests/Sensors.Core.Tests",
+   "lang": "csharp",
+   "hash": "9be9ed496796d6520f247b5300b2c7fd",
+   "size": 628,
+   "doc": null,
+   "is_test": 1
+  },
+  {
+   "path": "tests/Sensors.Core.Tests/BackoffTests.cs",
+   "dir": "tests/Sensors.Core.Tests",
+   "lang": "csharp",
+   "hash": "a5f7e85198fbee978f0a1a5f536a11c5",
+   "size": 614,
+   "doc": null,
+   "is_test": 1
+  },
+  {
+   "path": "tests/Sensors.Core.Tests/Sensors.Core.Tests.csproj",
+   "dir": "tests/Sensors.Core.Tests",
+   "lang": null,
+   "hash": "af20f350c0e3cbf50b1548906f473e46",
+   "size": 655,
+   "doc": null,
+   "is_test": 0
+  }
+ ],
+ "symbols": [
+  {
+   "path": "src/Sensors.Core/Alarms/AlarmEvaluator.cs",
+   "name": "Sensors.Core.Alarms",
+   "kind": "namespace",
+   "parent": null,
+   "signature": "Sensors.Core.Alarms",
+   "start_line": 4,
+   "end_line": 55,
+   "visibility": "public",
+   "doc": null,
+   "doc_source": null
+  },
+  {
+   "path": "src/Sensors.Core/Alarms/AlarmEvaluator.cs",
+   "name": "AlarmEvaluator",
+   "kind": "class",
+   "parent": "Sensors.Core.Alarms",
+   "signature": "AlarmEvaluator",
+   "start_line": 9,
+   "end_line": 54,
+   "visibility": "public",
+   "doc": "<summary>\nTurns readings into alarm levels and logs the critical ones.\n</summary>",
+   "doc_source": "author"
+  },
+  {
+   "path": "src/Sensors.Core/Alarms/AlarmEvaluator.cs",
+   "name": "CriticalFactor",
+   "kind": "constant",
+   "parent": "Sensors.Core.Alarms.AlarmEvaluator",
+   "signature": "double CriticalFactor = 2.0",
+   "start_line": 11,
+   "end_line": 11,
+   "visibility": "private",
+   "doc": null,
+   "doc_source": null
+  },
+  {
+   "path": "src/Sensors.Core/Alarms/AlarmEvaluator.cs",
+   "name": "AlarmEvaluator",
+   "kind": "method",
+   "parent": "Sensors.Core.Alarms.AlarmEvaluator",
+   "signature": "AlarmEvaluator(ILogger<AlarmEvaluator> logger, double threshold = Reading.DefaultThreshold)",
+   "start_line": 16,
+   "end_line": 20,
+   "visibility": "public",
+   "doc": null,
+   "doc_source": null
+  },
+  {
+   "path": "src/Sensors.Core/Alarms/AlarmEvaluator.cs",
+   "name": "Classify",
+   "kind": "method",
+   "parent": "Sensors.Core.Alarms.AlarmEvaluator",
+   "signature": "AlarmLevel Classify(Reading reading)",
+   "start_line": 25,
+   "end_line": 32,
+   "visibility": "public",
+   "doc": "<summary>\nClassifies one reading against the configured threshold.\n</summary>",
+   "doc_source": "author"
+  },
+  {
+   "path": "src/Sensors.Core/Alarms/AlarmEvaluator.cs",
+   "name": "ClassifyAll",
+   "kind": "method",
+   "parent": "Sensors.Core.Alarms.AlarmEvaluator",
+   "signature": "IReadOnlyList<AlarmLevel> ClassifyAll(IEnumerable<Reading> readings)",
+   "start_line": 37,
+   "end_line": 50,
+   "visibility": "public",
+   "doc": "<summary>\nClassifies a batch of readings and logs every critical one.\n</summary>",
+   "doc_source": "author"
+  },
+  {
+   "path": "src/Sensors.Core/Alarms/AlarmEvaluator.cs",
+   "name": "LogCritical",
+   "kind": "method",
+   "parent": "Sensors.Core.Alarms.AlarmEvaluator",
+   "signature": "void LogCritical(Reading reading)",
+   "start_line": 52,
+   "end_line": 53,
+   "visibility": "private",
+   "doc": null,
+   "doc_source": null
+  },
+  {
+   "path": "src/Sensors.Core/Models/Reading.cs",
+   "name": "Sensors.Core.Models",
+   "kind": "namespace",
+   "parent": null,
+   "signature": "Sensors.Core.Models",
+   "start_line": 1,
+   "end_line": 1,
+   "visibility": "public",
+   "doc": null,
+   "doc_source": null
+  },
+  {
+   "path": "src/Sensors.Core/Models/Reading.cs",
+   "name": "AlarmLevel",
+   "kind": "enum",
+   "parent": null,
+   "signature": "AlarmLevel",
+   "start_line": 6,
+   "end_line": 11,
+   "visibility": "public",
+   "doc": "<summary>\nHow serious a reading is, from normal to critical.\n</summary>",
+   "doc_source": "author"
+  },
+  {
+   "path": "src/Sensors.Core/Models/Reading.cs",
+   "name": "Reading",
+   "kind": "class",
+   "parent": null,
+   "signature": "Reading(string SensorId, double Ppm)",
+   "start_line": 18,
+   "end_line": 29,
+   "visibility": "public",
+   "doc": "<summary>\nOne measurement from a gas sensor, in parts per million.\n</summary>\n<param name=\"SensorId\">The sensor's serial number.</param>\n<param name=\"Ppm\">The measured concentration.</param>",
+   "doc_source": "author"
+  },
+  {
+   "path": "src/Sensors.Core/Models/Reading.cs",
+   "name": "DefaultThreshold",
+   "kind": "constant",
+   "parent": "Reading",
+   "signature": "double DefaultThreshold = 50.0",
+   "start_line": 23,
+   "end_line": 23,
+   "visibility": "public",
+   "doc": "<summary>\nConcentration at which a reading raises an alarm.\n</summary>",
+   "doc_source": "author"
+  },
+  {
+   "path": "src/Sensors.Core/Models/Reading.cs",
+   "name": "IsAlarm",
+   "kind": "method",
+   "parent": "Reading",
+   "signature": "bool IsAlarm(double threshold = DefaultThreshold)",
+   "start_line": 28,
+   "end_line": 28,
+   "visibility": "public",
+   "doc": "<summary>\nTrue when the reading crosses the alarm threshold.\n</summary>",
+   "doc_source": "author"
+  },
+  {
+   "path": "src/Sensors.Core/Transport/Backoff.cs",
+   "name": "Sensors.Core.Transport",
+   "kind": "namespace",
+   "parent": null,
+   "signature": "Sensors.Core.Transport",
+   "start_line": 1,
+   "end_line": 1,
+   "visibility": "public",
+   "doc": null,
+   "doc_source": null
+  },
+  {
+   "path": "src/Sensors.Core/Transport/Backoff.cs",
+   "name": "Backoff",
+   "kind": "class",
+   "parent": null,
+   "signature": "Backoff : IRetryPolicy",
+   "start_line": 6,
+   "end_line": 36,
+   "visibility": "public",
+   "doc": "<summary>\nExponential backoff with a cap, for flaky gateway links.\n</summary>",
+   "doc_source": "author"
+  },
+  {
+   "path": "src/Sensors.Core/Transport/Backoff.cs",
+   "name": "MaxAttempts",
+   "kind": "constant",
+   "parent": "Backoff",
+   "signature": "int MaxAttempts = 5",
+   "start_line": 11,
+   "end_line": 11,
+   "visibility": "public",
+   "doc": "<summary>\nAttempts allowed before giving up.\n</summary>",
+   "doc_source": "author"
+  },
+  {
+   "path": "src/Sensors.Core/Transport/Backoff.cs",
+   "name": "BaseDelay",
+   "kind": "constant",
+   "parent": "Backoff",
+   "signature": "TimeSpan BaseDelay = TimeSpan.FromMilliseconds(100)",
+   "start_line": 13,
+   "end_line": 13,
+   "visibility": "private",
+   "doc": null,
+   "doc_source": null
+  },
+  {
+   "path": "src/Sensors.Core/Transport/Backoff.cs",
+   "name": "Backoff",
+   "kind": "method",
+   "parent": "Backoff",
+   "signature": "Backoff(TimeSpan cap)",
+   "start_line": 17,
+   "end_line": 20,
+   "visibility": "public",
+   "doc": null,
+   "doc_source": null
+  },
+  {
+   "path": "src/Sensors.Core/Transport/Backoff.cs",
+   "name": "Cap",
+   "kind": "method",
+   "parent": "Backoff",
+   "signature": "TimeSpan Cap",
+   "start_line": 25,
+   "end_line": 25,
+   "visibility": "public",
+   "doc": "<summary>\nThe longest delay this policy ever returns.\n</summary>",
+   "doc_source": "author"
+  },
+  {
+   "path": "src/Sensors.Core/Transport/Backoff.cs",
+   "name": "NextDelay",
+   "kind": "method",
+   "parent": "Backoff",
+   "signature": "TimeSpan NextDelay(int attempt)",
+   "start_line": 28,
+   "end_line": 32,
+   "visibility": "public",
+   "doc": "<inheritdoc />",
+   "doc_source": "author"
+  },
+  {
+   "path": "src/Sensors.Core/Transport/Backoff.cs",
+   "name": "ShouldRetry",
+   "kind": "method",
+   "parent": "Backoff",
+   "signature": "bool ShouldRetry(int attempt)",
+   "start_line": 35,
+   "end_line": 35,
+   "visibility": "public",
+   "doc": "<inheritdoc />",
+   "doc_source": "author"
+  },
+  {
+   "path": "src/Sensors.Core/Transport/IRetryPolicy.cs",
+   "name": "Sensors.Core.Transport",
+   "kind": "namespace",
+   "parent": null,
+   "signature": "Sensors.Core.Transport",
+   "start_line": 1,
+   "end_line": 1,
+   "visibility": "public",
+   "doc": null,
+   "doc_source": null
+  },
+  {
+   "path": "src/Sensors.Core/Transport/IRetryPolicy.cs",
+   "name": "IRetryPolicy",
+   "kind": "interface",
+   "parent": null,
+   "signature": "IRetryPolicy",
+   "start_line": 6,
+   "end_line": 17,
+   "visibility": "public",
+   "doc": "<summary>\nDecides how long to wait before each retry, and when to give up.\n</summary>",
+   "doc_source": "author"
+  },
+  {
+   "path": "src/Sensors.Core/Transport/IRetryPolicy.cs",
+   "name": "NextDelay",
+   "kind": "method",
+   "parent": "IRetryPolicy",
+   "signature": "TimeSpan NextDelay(int attempt)",
+   "start_line": 11,
+   "end_line": 11,
+   "visibility": "public",
+   "doc": "<summary>\nDelay before the given attempt, counting from 1.\n</summary>",
+   "doc_source": "author"
+  },
+  {
+   "path": "src/Sensors.Core/Transport/IRetryPolicy.cs",
+   "name": "ShouldRetry",
+   "kind": "method",
+   "parent": "IRetryPolicy",
+   "signature": "bool ShouldRetry(int attempt)",
+   "start_line": 16,
+   "end_line": 16,
+   "visibility": "public",
+   "doc": "<summary>\nWhether another attempt is allowed.\n</summary>",
+   "doc_source": "author"
+  },
+  {
+   "path": "src/Sensors.Core/Transport/Retry.cs",
+   "name": "Sensors.Core.Transport",
+   "kind": "namespace",
+   "parent": null,
+   "signature": "Sensors.Core.Transport",
+   "start_line": 3,
+   "end_line": 3,
+   "visibility": "public",
+   "doc": null,
+   "doc_source": null
+  },
+  {
+   "path": "src/Sensors.Core/Transport/Retry.cs",
+   "name": "Retry",
+   "kind": "class",
+   "parent": null,
+   "signature": "Retry",
+   "start_line": 8,
+   "end_line": 28,
+   "visibility": "public",
+   "doc": "<summary>\nRuns an operation until it succeeds or the policy gives up.\n</summary>",
+   "doc_source": "author"
+  },
+  {
+   "path": "src/Sensors.Core/Transport/Retry.cs",
+   "name": "RunAsync",
+   "kind": "method",
+   "parent": "Retry",
+   "signature": "Task<T> RunAsync<T>(Func<CancellationToken, Task<T>> operation, IRetryPolicy policy, ILogger logger, CancellationToken token = default)",
+   "start_line": 13,
+   "end_line": 27,
+   "visibility": "public",
+   "doc": "<summary>\nCalls the operation until it succeeds, waiting between attempts as the policy says.\n</summary>",
+   "doc_source": "author"
+  },
+  {
+   "path": "src/Sensors.Core/Transport/Retry.cs",
+   "name": "RetryDefaults",
+   "kind": "class",
+   "parent": null,
+   "signature": "RetryDefaults",
+   "start_line": 30,
+   "end_line": 36,
+   "visibility": "internal",
+   "doc": null,
+   "doc_source": null
+  },
+  {
+   "path": "src/Sensors.Core/Transport/Retry.cs",
+   "name": "Create",
+   "kind": "method",
+   "parent": "RetryDefaults",
+   "signature": "Backoff Create()",
+   "start_line": 35,
+   "end_line": 35,
+   "visibility": "internal",
+   "doc": "<summary>\nThe policy the gateway uses when none is configured.\n</summary>",
+   "doc_source": "author"
+  },
+  {
+   "path": "tests/Sensors.Core.Tests/AlarmEvaluatorTests.cs",
+   "name": "Sensors.Core.Tests",
+   "kind": "namespace",
+   "parent": null,
+   "signature": "Sensors.Core.Tests",
+   "start_line": 6,
+   "end_line": 6,
+   "visibility": "public",
+   "doc": null,
+   "doc_source": null
+  },
+  {
+   "path": "tests/Sensors.Core.Tests/AlarmEvaluatorTests.cs",
+   "name": "AlarmEvaluatorTests",
+   "kind": "class",
+   "parent": null,
+   "signature": "AlarmEvaluatorTests",
+   "start_line": 8,
+   "end_line": 23,
+   "visibility": "public",
+   "doc": null,
+   "doc_source": null
+  },
+  {
+   "path": "tests/Sensors.Core.Tests/AlarmEvaluatorTests.cs",
+   "name": "Classify_ReturnsCriticalAboveTwiceTheThreshold",
+   "kind": "method",
+   "parent": "AlarmEvaluatorTests",
+   "signature": "void Classify_ReturnsCriticalAboveTwiceTheThreshold()",
+   "start_line": 12,
+   "end_line": 16,
+   "visibility": "public",
+   "doc": null,
+   "doc_source": null
+  },
+  {
+   "path": "tests/Sensors.Core.Tests/AlarmEvaluatorTests.cs",
+   "name": "Classify_ReturnsNormalBelowTheThreshold",
+   "kind": "method",
+   "parent": "AlarmEvaluatorTests",
+   "signature": "void Classify_ReturnsNormalBelowTheThreshold()",
+   "start_line": 18,
+   "end_line": 22,
+   "visibility": "public",
+   "doc": null,
+   "doc_source": null
+  },
+  {
+   "path": "tests/Sensors.Core.Tests/BackoffTests.cs",
+   "name": "Sensors.Core.Tests",
+   "kind": "namespace",
+   "parent": null,
+   "signature": "Sensors.Core.Tests",
+   "start_line": 4,
+   "end_line": 4,
+   "visibility": "public",
+   "doc": null,
+   "doc_source": null
+  },
+  {
+   "path": "tests/Sensors.Core.Tests/BackoffTests.cs",
+   "name": "BackoffTests",
+   "kind": "class",
+   "parent": null,
+   "signature": "BackoffTests",
+   "start_line": 6,
+   "end_line": 23,
+   "visibility": "public",
+   "doc": null,
+   "doc_source": null
+  },
+  {
+   "path": "tests/Sensors.Core.Tests/BackoffTests.cs",
+   "name": "NextDelay_GrowsUntilTheCap",
+   "kind": "method",
+   "parent": "BackoffTests",
+   "signature": "void NextDelay_GrowsUntilTheCap()",
+   "start_line": 8,
+   "end_line": 14,
+   "visibility": "public",
+   "doc": null,
+   "doc_source": null
+  },
+  {
+   "path": "tests/Sensors.Core.Tests/BackoffTests.cs",
+   "name": "ShouldRetry_StopsAtMaxAttempts",
+   "kind": "method",
+   "parent": "BackoffTests",
+   "signature": "void ShouldRetry_StopsAtMaxAttempts(int attempt, bool expected)",
+   "start_line": 16,
+   "end_line": 22,
+   "visibility": "public",
+   "doc": null,
+   "doc_source": null
+  }
+ ],
+ "imports": [
+  {
+   "path": "src/Sensors.Core/Alarms/AlarmEvaluator.cs",
+   "target": "Microsoft.Extensions.Logging",
+   "resolved": null
+  },
+  {
+   "path": "src/Sensors.Core/Alarms/AlarmEvaluator.cs",
+   "target": "Sensors.Core.Models",
+   "resolved": null
+  },
+  {
+   "path": "src/Sensors.Core/Transport/Retry.cs",
+   "target": "Microsoft.Extensions.Logging",
+   "resolved": null
+  },
+  {
+   "path": "tests/Sensors.Core.Tests/AlarmEvaluatorTests.cs",
+   "target": "Microsoft.Extensions.Logging.Abstractions",
+   "resolved": null
+  },
+  {
+   "path": "tests/Sensors.Core.Tests/AlarmEvaluatorTests.cs",
+   "target": "Sensors.Core.Alarms",
+   "resolved": null
+  },
+  {
+   "path": "tests/Sensors.Core.Tests/AlarmEvaluatorTests.cs",
+   "target": "Sensors.Core.Models",
+   "resolved": null
+  },
+  {
+   "path": "tests/Sensors.Core.Tests/AlarmEvaluatorTests.cs",
+   "target": "Xunit",
+   "resolved": null
+  },
+  {
+   "path": "tests/Sensors.Core.Tests/BackoffTests.cs",
+   "target": "Sensors.Core.Transport",
+   "resolved": null
+  },
+  {
+   "path": "tests/Sensors.Core.Tests/BackoffTests.cs",
+   "target": "Xunit",
+   "resolved": null
+  }
+ ],
+ "refs": [
+  {
+   "path": "src/Sensors.Core/Alarms/AlarmEvaluator.cs",
+   "line": 27,
+   "name": "IsAlarm",
+   "kind": "call"
+  },
+  {
+   "path": "src/Sensors.Core/Alarms/AlarmEvaluator.cs",
+   "line": 39,
+   "name": "List",
+   "kind": "call"
+  },
+  {
+   "path": "src/Sensors.Core/Alarms/AlarmEvaluator.cs",
+   "line": 42,
+   "name": "Classify",
+   "kind": "call"
+  },
+  {
+   "path": "src/Sensors.Core/Alarms/AlarmEvaluator.cs",
+   "line": 45,
+   "name": "LogCritical",
+   "kind": "call"
+  },
+  {
+   "path": "src/Sensors.Core/Alarms/AlarmEvaluator.cs",
+   "line": 47,
+   "name": "Add",
+   "kind": "call"
+  },
+  {
+   "path": "src/Sensors.Core/Alarms/AlarmEvaluator.cs",
+   "line": 53,
+   "name": "LogWarning",
+   "kind": "call"
+  },
+  {
+   "path": "src/Sensors.Core/Transport/Backoff.cs",
+   "line": 13,
+   "name": "FromMilliseconds",
+   "kind": "call"
+  },
+  {
+   "path": "src/Sensors.Core/Transport/Backoff.cs",
+   "line": 30,
+   "name": "Min",
+   "kind": "call"
+  },
+  {
+   "path": "src/Sensors.Core/Transport/Backoff.cs",
+   "line": 30,
+   "name": "Pow",
+   "kind": "call"
+  },
+  {
+   "path": "src/Sensors.Core/Transport/Retry.cs",
+   "line": 19,
+   "name": "operation",
+   "kind": "call"
+  },
+  {
+   "path": "src/Sensors.Core/Transport/Retry.cs",
+   "line": 21,
+   "name": "ShouldRetry",
+   "kind": "call"
+  },
+  {
+   "path": "src/Sensors.Core/Transport/Retry.cs",
+   "line": 23,
+   "name": "LogDebug",
+   "kind": "call"
+  },
+  {
+   "path": "src/Sensors.Core/Transport/Retry.cs",
+   "line": 24,
+   "name": "Delay",
+   "kind": "call"
+  },
+  {
+   "path": "src/Sensors.Core/Transport/Retry.cs",
+   "line": 24,
+   "name": "NextDelay",
+   "kind": "call"
+  },
+  {
+   "path": "src/Sensors.Core/Transport/Retry.cs",
+   "line": 35,
+   "name": "Backoff",
+   "kind": "call"
+  },
+  {
+   "path": "src/Sensors.Core/Transport/Retry.cs",
+   "line": 35,
+   "name": "FromSeconds",
+   "kind": "call"
+  },
+  {
+   "path": "tests/Sensors.Core.Tests/AlarmEvaluatorTests.cs",
+   "line": 15,
+   "name": "Classify",
+   "kind": "call"
+  },
+  {
+   "path": "tests/Sensors.Core.Tests/AlarmEvaluatorTests.cs",
+   "line": 15,
+   "name": "Equal",
+   "kind": "call"
+  },
+  {
+   "path": "tests/Sensors.Core.Tests/AlarmEvaluatorTests.cs",
+   "line": 15,
+   "name": "Reading",
+   "kind": "call"
+  },
+  {
+   "path": "tests/Sensors.Core.Tests/AlarmEvaluatorTests.cs",
+   "line": 21,
+   "name": "Classify",
+   "kind": "call"
+  },
+  {
+   "path": "tests/Sensors.Core.Tests/AlarmEvaluatorTests.cs",
+   "line": 21,
+   "name": "Equal",
+   "kind": "call"
+  },
+  {
+   "path": "tests/Sensors.Core.Tests/AlarmEvaluatorTests.cs",
+   "line": 21,
+   "name": "Reading",
+   "kind": "call"
+  },
+  {
+   "path": "tests/Sensors.Core.Tests/BackoffTests.cs",
+   "line": 11,
+   "name": "Backoff",
+   "kind": "call"
+  },
+  {
+   "path": "tests/Sensors.Core.Tests/BackoffTests.cs",
+   "line": 11,
+   "name": "FromSeconds",
+   "kind": "call"
+  },
+  {
+   "path": "tests/Sensors.Core.Tests/BackoffTests.cs",
+   "line": 12,
+   "name": "NextDelay",
+   "kind": "call"
+  },
+  {
+   "path": "tests/Sensors.Core.Tests/BackoffTests.cs",
+   "line": 12,
+   "name": "True",
+   "kind": "call"
+  },
+  {
+   "path": "tests/Sensors.Core.Tests/BackoffTests.cs",
+   "line": 13,
+   "name": "Equal",
+   "kind": "call"
+  },
+  {
+   "path": "tests/Sensors.Core.Tests/BackoffTests.cs",
+   "line": 13,
+   "name": "FromSeconds",
+   "kind": "call"
+  },
+  {
+   "path": "tests/Sensors.Core.Tests/BackoffTests.cs",
+   "line": 13,
+   "name": "NextDelay",
+   "kind": "call"
+  },
+  {
+   "path": "tests/Sensors.Core.Tests/BackoffTests.cs",
+   "line": 21,
+   "name": "Backoff",
+   "kind": "call"
+  },
+  {
+   "path": "tests/Sensors.Core.Tests/BackoffTests.cs",
+   "line": 21,
+   "name": "Equal",
+   "kind": "call"
+  },
+  {
+   "path": "tests/Sensors.Core.Tests/BackoffTests.cs",
+   "line": 21,
+   "name": "FromSeconds",
+   "kind": "call"
+  },
+  {
+   "path": "tests/Sensors.Core.Tests/BackoffTests.cs",
+   "line": 21,
+   "name": "ShouldRetry",
+   "kind": "call"
+  }
+ ],
+ "skipped": []
+}

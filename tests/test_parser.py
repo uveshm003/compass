@@ -12,7 +12,7 @@ from compass.languages import load_registry
 
 def parse(lang: str, source: str, path: str | None = None):
     spec = load_registry().get(lang)
-    ext = {"python": "py", "typescript": "ts", "javascript": "js", "go": "go", "rust": "rs"}[lang]
+    ext = {"python": "py", "typescript": "ts", "javascript": "js", "go": "go", "rust": "rs", "swift": "swift"}[lang]
     return parse_source(spec, path or f"sample.{ext}", textwrap.dedent(source).lstrip().encode())
 
 
@@ -166,6 +166,29 @@ def test_rust_impls_attributes_and_visibility():
     assert ("method", "Store", "get", "internal", "get(&self) -> u8") in syms
 
 
+def test_a_swift_type_survives_an_if_its_grammar_cannot_parse():
+    """`#if a && !b` inside a type body turns the whole type into one error
+    node in the pinned grammar; the reparse without directive lines keeps it,
+    with every line in place."""
+    source = textwrap.dedent("""\
+        /// Manages requests.
+        open class Session: @unchecked Sendable {
+            func request() {}
+
+            #if canImport(Network) && !canImport(FoundationNetworking)
+            func webSocket() {}
+            #endif
+        }
+        """)
+    result = parse("swift", source)
+    assert [(s.kind, s.name, s.parent, s.start_line, s.end_line) for s in result.symbols] == [
+        ("class", "Session", None, 2, 8),
+        ("method", "request", "Session", 3, 3),
+        ("method", "webSocket", "Session", 6, 6),
+    ]
+    assert result.symbols[0].doc == "Manages requests."
+
+
 def test_lint_directives_are_not_docs():
     result = parse(
         "typescript",
@@ -206,6 +229,16 @@ def test_blank_line_detaches_a_comment():
 def test_trailing_comment_is_not_a_doc():
     result = parse("typescript", "const a = 1; // not a doc\nexport function f() {}\n")
     assert [s.doc for s in result.symbols if s.name == "f"] == [None]
+
+
+def test_a_doc_folded_into_the_header_before_a_definition_still_counts():
+    # The Kotlin grammar puts this KDoc inside the import list, not beside the class.
+    kotlin = "package a.b\n\nimport x.Y\n\n/** How serious an alarm is. */\nenum class Level { LOW }\n"
+    result = parse_source(load_registry().get("kotlin"), "Level.kt", kotlin.encode())
+    assert [s.doc for s in result.symbols if s.name == "Level"] == ["How serious an alarm is."]
+    # A comment closing an indented block belongs to that block, not to what follows.
+    result = parse("python", "def a():\n    x = 1\n    # about x\ndef b():\n    pass\n")
+    assert [s.doc for s in result.symbols if s.name == "b"] == [None]
 
 
 @pytest.mark.parametrize(

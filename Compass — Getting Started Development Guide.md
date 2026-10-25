@@ -13,6 +13,7 @@ flowchart LR
   M3 --> M4[M4 Gates +<br/>context pack]
   M4 --> M5[M5 Delegation]
   M5 --> M6[M6 Telemetry +<br/>benchmark]
+  M6 --> M7[M7 Installer]
 ```
 
 | Milestone | Steps | Done when | Est. effort |
@@ -23,6 +24,9 @@ flowchart LR
 | M4 Gates | 7 | Vague requests make Claude ask first; large tasks need an approved spec | 1.5 weeks |
 | M5 Delegation | 8 | Digest and test-runner subagents in use; local-LLM enrichment optional | 1 week |
 | M6 Measurement | 9 | Benchmark produces an on/off comparison report | 0.5 weeks |
+| M7 Installer | 10 | One `npx` or `uvx` command gives a working Compass on macOS, Linux and Windows, as a plugin or as files in `.claude/`; upgrade keeps local edits; uninstall leaves no diff | 1.5 weeks |
+
+**Where the build stands (Oct 16, 2026).** M1 to M6 are built, and their done-when checks passed in real Claude Code sessions on 2026-09-24 and 25 (Claude Code 2.1.281). M7 is built in 0.3.0, release jobs included, and its done-when check (`tests/e2e/check_install.py`) passed on Oct 14 in both modes (Windows, Claude Code 2.1.299); the release jobs have not run yet, and nothing publishes until the package names and feeds are decided. The six remaining NF-09 languages (Java, Kotlin, Swift, Dart, C#, C/C++) landed the same day. The skill library (ST-04 to ST-06) ships with the plugin. On Oct 15, the first NF-10 audit and NF-11 review (`docs/security-privacy-review.md`) found and fixed four problems. `docs/traceability.md` maps every Must requirement to its tests. The real-session checks were rerun on Claude Code 2.1.300: four of five pass, and the fifth needs a decision on its bar. On Oct 16 the prompt gate stopped treating Claude Code's own notifications (a background agent finishing) as the developer's prompts. `Compass — Project Status & Roadmap.md` tracks what is left.
 
 Tip: turn on telemetry (Step 9, first bullet) early, even before M6. Baseline data from your own sessions is worth more than any estimate.
 
@@ -70,14 +74,16 @@ compass/
 │   ├── local_tools.py      # summarize_file, classify_files
 │   ├── enrich.py           # background summaries for undocumented symbols
 │   ├── telemetry.py        # per-turn rows from Claude Code's transcripts
-│   └── report.py           # compass report: on/off comparison, benchmark report
+│   ├── report.py           # compass report: on/off comparison, benchmark report
+│   └── install/            # M7: compass install/upgrade/doctor; targets/ per runtime
 ├── plugin/                 # the Claude Code plugin
 │   ├── .claude-plugin/plugin.json
 │   ├── hooks/hooks.json
 │   ├── agents/             # digest.md, scaffold.md, test-runner.md
-│   ├── commands/           # task.md, approve.md, accept.md
+│   ├── commands/           # task.md, approve.md, accept.md, doctor.md
 │   ├── skills/
 │   └── .mcp.json
+├── npm/                    # M7: the logic-free npx wrapper (package.json, bin/)
 ├── tests/fixtures/         # small repos in 4+ languages
 └── bench/                  # benchmark harness and tasks (see Evaluation plan)
 ```
@@ -341,19 +347,21 @@ If asked a question the input cannot answer, say so in one line.
 
 ### Install locally while developing
 
-1. `uv tool install --editable .` puts `compass` on PATH, running your working copy.
+1. `uv tool install --editable --compile-bytecode --python 3.12 .` puts `compass` on PATH, running your working copy.
+   `--python 3.12` is the Python CI tests (uv would otherwise take its newest, for which pinned parsers may have no wheels), and `--compile-bytecode` keeps the MCP server's first start inside Claude Code's 30 s limit.
 2. `.claude-plugin/marketplace.json` at the repo root lists `./plugin`. Add it and install from it: `claude plugin marketplace add ./`, then `claude plugin install compass@compass-marketplace` (or `/plugin marketplace add` and `/plugin install` inside Claude Code). For a one-off session, `claude --plugin-dir ./plugin` loads it without installing.
 3. After changing hooks or agents, reinstall or restart Claude Code, then run `/hooks`, `/agents` and `/mcp` to confirm they loaded.
 4. Keep a scratch repo open in a second terminal for manual testing.
 
-**Done when:** a fresh machine goes from clone to working plugin with `uv tool install .` and the two install commands.
+**Done when:** a fresh machine goes from clone to working plugin with `uv tool install --python 3.12 .` and the two install commands.
 
 ### Distribute from GitHub or Azure DevOps (NF-16)
 
 The team's repos may live on either host, so both distribution paths must work before release:
 
 - **Plugin:** Claude Code accepts any git URL as a marketplace source, so `/plugin marketplace add` takes either `owner/repo` for GitHub or `https://dev.azure.com/<org>/<project>/_git/<repo>` for Azure Repos. Private repos authenticate through the user's git credential helper (Git Credential Manager on Windows). `--sparse .claude-plugin plugin` fetches only the plugin, not the whole source tree.
-- **CLI package:** `uv tool install git+<repo URL>` works against either host. For a package feed, use PyPI or an Azure Artifacts Python feed; GitHub Packages has no Python registry.
+- **CLI package:** `uv tool install --python 3.12 git+<repo URL>` works against either host. For a package feed, use PyPI or an Azure Artifacts Python feed; GitHub Packages has no Python registry.
+- **One command (M7):** Step 10 wraps these steps into `compass install`, with an `npx` entry point published to npmjs, GitHub Packages or an Azure Artifacts npm feed.
 
 ## Step 6: Review manifest and anchor tags
 
@@ -516,3 +524,38 @@ For the pilot's baseline weeks, switch every module off but telemetry; `query.en
 - Every hook path catches all exceptions and fails open, except the deliberate gates.
 - No network calls in hooks, except the optional local-LLM health check.
 - Use Compass on its own repo from M2 onward. Dogfooding finds friction faster than any review.
+
+## Step 10: Installer (M7)
+
+Make Compass installable in one command, the way GSD (`npx get-shit-done-cc`) and BMAD (`npx bmad-method install`) are, without moving any behaviour out of the Python core. The requirements are IN-01 to IN-15, the decision is ADR 009, and `docs/installer-plan.md` has the full design, the GSD/BMAD comparison and the ideas deferred for review (phase workflow, personas, other agents).
+
+### Pieces to build
+
+1. **Ship `plugin/` in the wheel**, with the marketplace file, as `compass/_bundle/` (hatch `force-include`), with a test that the copy matches. Editable installs read `plugin/` directly.
+2. **Both agent name forms in the core** (IN-11): `compass:<n>` (plugin) and `compass-<n>` (files mode) in `delegation.py`, `telemetry.py` and `report.py`; SessionStart names agents as the active mode does; rows carry `install_mode` (IN-14). Do this first: without it, `files` mode silently loses the output contracts.
+3. **`src/compass/install/`**: `settings.py` (non-destructive JSON merge with backup and atomic replace, IN-08), `record.py` (install record, upgrade and uninstall by hash, IN-05/IN-07), `targets/claude_code.py` (`plugin` mode through `claude plugin …`, `files` mode by copying), `installer.py` (prompts on a TTY, a flag for each, `--yes`, `--dry-run`, presets `full`/`baseline`/`custom`, the install, upgrade and uninstall flows), `doctor.py`.
+4. **Commands**: `compass install`, `compass upgrade`, `compass doctor`, and `compass uninstall` extended to read the install record. Install steps never run from a hook.
+5. **`npm/`**: `package.json` at the same version as `pyproject.toml` (IN-10), and `bin/compass-cc.js`, plain Node with no dependencies: find uv, or install it with consent, then `uv tool install --force compass==<version>`, then exec `compass install` with the same arguments.
+6. **Release jobs** on GitHub Actions and Azure Pipelines, kept identical and checked by `tests/test_ci_configs.py`. They publish on a version tag only. Built: `scripts/check_release.py` fails the job unless the tag, the four version files and the bundled plugin agree, and each feed publishes only when its secret or variable is set, so the jobs can exist before the package names and feeds are decided (open questions).
+
+
+```python
+# src/compass/install/settings.py — the shape of the merge
+def merge_hooks(settings: dict, hooks: dict) -> dict:
+    out = copy.deepcopy(settings)
+    for event, groups in hooks.items():
+        kept = [g for g in out.get("hooks", {}).get(event, [])
+                if not any(h.get("command", "").startswith("compass hook ") for h in g.get("hooks", []))]
+        out.setdefault("hooks", {})[event] = kept + groups
+    return out
+```
+
+### Tests
+
+Merge and unmerge round trips must give byte-identical files, including CRLF and BOM inputs. Upgrade must keep an edited command and leave a deleted one deleted. `--yes` must run with no stdin. The npm wrapper is tested against a fake `uv` on PATH, and `plugin` mode against a fake `claude` (as `tests/fake_claude.py` does for the benchmark). `tests/e2e/check_install.py` (not built yet) installs into a temporary HOME and repository in both modes and has a headless session answer a lookup with `find_symbol`. It joins `run_all.py` and the weekly job.
+
+**Bootstrap from a clone:** `install.ps1` (Windows) and `install.sh` (macOS, Linux) at the repository root install uv if it is missing (with consent), run `uv tool install` on the clone (`-Editable` / `--editable` for development), then pass every other argument to `compass install`. They are the way to test before any package is published.
+
+**Skills (ST-04 to ST-06):** the library lives in `plugin/skills/<name>/SKILL.md` and ships with the plugin; files mode copies each to `.claude/skills/compass-<name>/`. Every skill follows one shape, checked by `tests/test_plugin.py`, and reads `.compass/standards/all.md` and `.compass/standards/<skill>.md` first.
+
+**Done when:** on clean macOS, Ubuntu and Windows machines, `npx compass-cc install --yes` and `uvx … compass install --yes` each give a session that answers through `find_symbol`, in both modes. `compass upgrade` keeps an edited command, `compass uninstall` leaves `git status` and the user's settings as they were, and `compass doctor` reports a deliberately doubled install.

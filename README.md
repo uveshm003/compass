@@ -4,7 +4,7 @@ A Claude Code plugin plus a local CLI that routes work to the cheapest executor
 that can do it correctly, and makes AI changes reviewable. The design lives in
 the five `Compass — *.md` specs in this directory; `CLAUDE.md` summarises them.
 
-**Status:** M1 to M6 are done: a tree-sitter code map in SQLite and Markdown
+**Status:** M1 to M7 are built (0.3.0): a tree-sitter code map in SQLite and Markdown
 shards, kept current by git hooks and Claude Code hooks, served by a stdio MCP
 server whose every tool also has a CLI twin; a Claude Code plugin that has
 Claude tag each change for review, writes a change manifest every turn and
@@ -17,18 +17,32 @@ to an output contract, while an optional local model summarises files and
 undocumented symbols at no token cost. And M6 measures it all: every turn's
 tokens, time and tool calls from Claude Code's own transcripts, a report that
 compares tasks with Compass on and off, and a benchmark harness for the
-Evaluation Plan.
+Evaluation Plan. M7 installs it all in one command (`compass install`, as a
+plugin or as files in `.claude/`, with `upgrade`, `doctor` and `uninstall`),
+and eleven skills work in any stack. The code map covers ten languages: Python,
+TypeScript/JavaScript, Go, Rust, Java, Kotlin, Swift, Dart, C# and C/C++.
+Still open: the first published release (to Azure Artifacts, once the package
+names are chosen) and the pilot itself; the status document below has the full
+list.
+
 
 ## Guides
 
+- [Project status and roadmap](Compass%20%E2%80%94%20Project%20Status%20%26%20Roadmap.md): where things stand, what is next, and the pending checklist.
 - [Setup guide](docs/setup-guide.md): install Compass and set up a repository, in about ten minutes.
 - [User guide](docs/user-guide.md): working with Compass day to day, every command and setting, and a
   ten-minute demo script.
+- [Installer plan](docs/installer-plan.md): the design behind the one-command install (M7), as a
+  plugin or as files in `.claude/`, plus GSD/BMAD ideas recorded for later review.
 
 ## Use it
 
 ```bash
-uv tool install .                                   # the compass CLI
+uvx --python 3.12 --from git+https://github.com/<owner>/<repo> compass install   # all in one (0.3.0+)
+./install.sh            # or, from a clone: installs uv if needed, then the above (install.ps1 on Windows)
+
+# or step by step:
+uv tool install --compile-bytecode --python 3.12 .                # the compass CLI
 claude plugin marketplace add ./                    # this repo's .claude-plugin/marketplace.json
 claude plugin install compass@compass-marketplace   # the plugin
 compass -C /path/to/repo init                       # per repository: config, git hooks, first index
@@ -37,6 +51,14 @@ compass -C /path/to/repo init                       # per repository: config, gi
 The marketplace also works straight from GitHub (`owner/repo`) or Azure Repos
 (`https://dev.azure.com/<org>/<project>/_git/<repo>`). `plugin/README.md` has
 the details; `compass uninstall` removes the git hooks again.
+
+## Skills
+
+Eleven skills that work in any language or stack, invoked as `/compass:<name>` (`/compass-<name>` when installed as files):
+`code-review`, `security-review`, `test-gaps`, `impact-analysis`, `debug`, `refactor-plan`, `pr-writeup`,
+`dependency-audit`, `perf-review`, `onboarding-tour` and `adr-writer`. Each looks code up through the code map,
+takes the stack from the stack profile, hands bulk reading and test runs to the Haiku subagents, and keeps its answer short.
+Add team rules without editing them in `.compass/standards/all.md` or `.compass/standards/<skill>.md`.
 
 ## Develop
 
@@ -97,7 +119,10 @@ uv run compass report bench/results/<batch>
 | `compass manifest [ID]` | Write `.compass/changes/<id>.md`; `--hosted` prints it with GitHub or Azure DevOps links |
 | `compass accept [ID]` | Strip a reviewed task's anchor tags and archive its manifest (`/compass:accept`) |
 | `compass check-anchors [ID]` | List anchor tags; `--staged` is the git pre-commit check |
-| `compass uninstall` | Remove Compass's git hooks, restoring any they chained |
+| `compass install` | One command for everything: the CLI on PATH, Compass in Claude Code (as the plugin or as files in `.claude/`, for you or the whole repo) and `compass init`; asks, or takes flags with `--yes` |
+| `compass upgrade` | Upgrade the CLI with uv and refresh the installed files, keeping any you edited |
+| `compass doctor` | Check the install: CLI on PATH, Claude Code version, hooks wired once, MCP server, repository |
+| `compass uninstall` | Remove Compass's git hooks (restoring any they chained) and whatever `compass install` wrote |
 | `compass report [PATHS]` | Tasks with Compass on against off, from telemetry; from `bench/results/<batch>`, the benchmark report |
 | `compass enrich [--limit N]` | One-line local-model summaries for undocumented symbols, shown as `~` in the map; the git hooks run it in the background |
 | `compass summarize-file PATH` | The gist of a file from the local model (`summarize_file`); `--focus` asks something specific |
@@ -136,8 +161,10 @@ src/compass/
   report.py         compass report
   hooks.py          compass hook <event>
   githooks.py       post-commit/checkout/merge/rewrite and pre-commit hooks
-plugin/             the Claude Code plugin (hooks, commands, agents, style, MCP)
+  install/          compass install, upgrade, doctor; targets/ maps plugin/ onto Claude Code
+plugin/             the Claude Code plugin (hooks, commands, agents, skills, style, MCP)
 .claude-plugin/     marketplace.json, so Claude Code can install ./plugin
+npm/                the npx wrapper (compass-cc): installs the CLI with uv, then runs compass install
 bench/              the benchmark harness, its task format and example tasks
 tests/
   fixtures/         small repos in Python, TypeScript/JavaScript, Go and Rust

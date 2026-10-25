@@ -22,6 +22,9 @@ tests:
 imports:
   resolver: path             # ./ and ../ specifiers; bare ones are packages
   alias_files: [tsconfig.json, jsconfig.json]   # compilerOptions.paths and baseUrl
+  module_files:              # workspace packages by name: `import "@org/ui"` is packages/ui
+    package.json: '^(?:  |\t|\{\s*)?"name"\s*:\s*"([^"]+)"'
+  module_source: [src, ""]
   extensions: [.ts, .tsx, .d.ts, .mts, .cts, .js, .jsx, .mjs, .cjs]
   extension_aliases:         # ESM style: "./a.js" in TypeScript source means a.ts
     .js: [.ts, .tsx]

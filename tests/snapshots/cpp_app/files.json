@@ -1,0 +1,62 @@
+[
+ {
+  "path": "CMakeLists.txt",
+  "lang": null,
+  "size": 987,
+  "hash": "e1e95b929f08c177d27b51b1cf0b1d57"
+ },
+ {
+  "path": "README.md",
+  "lang": null,
+  "size": 188,
+  "hash": "5a2bf0128c58c143dbd06bfe01ccaa5f"
+ },
+ {
+  "path": "include/retry.h",
+  "lang": "cpp",
+  "size": 972,
+  "hash": "b90899762502540486731eec48430798"
+ },
+ {
+  "path": "include/sensors/alarm.hpp",
+  "lang": "cpp",
+  "size": 1098,
+  "hash": "8ff7ae07359f06ffdba6752e0329a46e"
+ },
+ {
+  "path": "src/alarm.cpp",
+  "lang": "cpp",
+  "size": 1002,
+  "hash": "1c35e99cbf66db03cb97981ed118b83a"
+ },
+ {
+  "path": "src/main.cpp",
+  "lang": "cpp",
+  "size": 535,
+  "hash": "696891795178edd4c2d0b591753a901b"
+ },
+ {
+  "path": "src/retry.c",
+  "lang": "c",
+  "size": 732,
+  "hash": "ab07033a0f46a18a9c8a6f25f9bb7c02"
+ },
+ {
+  "path": "tests/alarm_test.cpp",
+  "lang": "cpp",
+  "size": 350,
+  "hash": "79bd3583032349ff01b529a6cf2d72da"
+ },
+ {
+  "path": "tests/test_retry.c",
+  "lang": "c",
+  "size": 406,
+  "hash": "cf53e190543a107cb448bb3cf3e4d7cb"
+ },
+ {
+  "path": "vcpkg.json",
+  "lang": null,
+  "size": 352,
+  "hash": "c42428b454c2dd34fc9a0a50b914028b"
+ }
+]

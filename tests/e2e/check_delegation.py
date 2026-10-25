@@ -231,7 +231,8 @@ def main() -> int:
     if args.local_model and not model_answers(args.local_url, args.local_model):
         print(f"no model {args.local_model} answering at {args.local_url}; start it first", file=sys.stderr)
         return 2
-    work = Path(tempfile.mkdtemp(prefix="compass-e2e-delegation-"))
+    # which a headless session cannot answer
+    work = Path(tempfile.mkdtemp(prefix="compass-e2e-delegation-")).resolve()
     env = compass_env(work)
     checks: list[tuple[str, bool]] = []
     if not args.skip_session:

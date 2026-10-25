@@ -4,6 +4,7 @@ exit 0 (NF-12)."""
 
 from __future__ import annotations
 
+import io
 import json
 import os
 import shutil
@@ -13,6 +14,8 @@ import time
 
 import pytest
 
+from compass import hooks
+from compass.hooks import HANDLERS
 from compass.index.indexer import Indexer
 from compass.index.store import Store
 from compass.lock import file_lock
@@ -135,10 +138,29 @@ def test_hook_input_is_utf8_whatever_the_locale(tmp_path):
 
 def test_repos_without_compass_are_left_alone(make_repo):
     root = make_repo("python_app")
+    (root / ".git/compass-offered").write_text("", encoding="utf-8")  # the one-time offer is behind us
     for event, payload in (("post-edit", post_tool_use(root, root / "README.md")), ("session-start", session_start(root))):
         proc = run_compass("hook", event, input=payload)
         assert (proc.returncode, proc.stdout, proc.stderr) == (0, "", "")
     assert not (root / ".compass").exists()
+
+
+def test_compass_offers_itself_once_in_a_repo_without_it(make_repo, tmp_path):
+    """UX-01, decision D15: one line for Claude to pass on, the first session only."""
+    root = make_repo("python_app")
+    first = run_compass("hook", "session-start", input=session_start(root))
+    assert first.returncode == 0 and "not switched on in this repository" in first.stdout
+    assert "/compass:setup" in first.stdout and "Offer it this once only" in first.stdout
+    assert (root / ".git/compass-offered").is_file() and not (root / ".compass").exists()
+    again = run_compass("hook", "session-start", input=session_start(root))
+    assert (again.returncode, again.stdout) == (0, "")
+    plain = tmp_path / "not-a-repo"
+    plain.mkdir()
+    assert run_compass("hook", "session-start", input=session_start(plain)).stdout == ""
+    # A resumed or compacted session never offers: only a fresh start does.
+    other = make_repo("python_app")
+    resumed = json.loads(session_start(other)) | {"source": "resume"}
+    assert run_compass("hook", "session-start", input=json.dumps(resumed)).stdout == ""
 
 
 def test_internal_errors_exit_zero_and_are_logged(indexed):
@@ -149,6 +171,20 @@ def test_internal_errors_exit_zero_and_are_logged(indexed):
     assert (proc.returncode, proc.stdout, proc.stderr) == (0, "", "")
     log = (indexed.logs_dir / "errors.log").read_text(encoding="utf-8")
     assert "[hook post-edit]" in log and "Traceback" in log
+
+
+@pytest.mark.parametrize("event", sorted(HANDLERS))
+def test_every_hook_fails_open(indexed, event, monkeypatch):
+    proc = run_compass("hook", event, input="{not json", cwd=indexed.root, env={"CLAUDE_PROJECT_DIR": str(indexed.root)})
+    assert (proc.returncode, proc.stdout, proc.stderr) == (0, "", "")
+    assert f"[hook {event}]" in (indexed.logs_dir / "errors.log").read_text(encoding="utf-8")
+
+    def broken(repo, payload):
+        raise RuntimeError("a bug in the handler")
+
+    monkeypatch.setitem(HANDLERS, event, broken)
+    assert hooks.run(event, io.StringIO(json.dumps({"cwd": str(indexed.root)}))) == 0
+    assert "a bug in the handler" in (indexed.logs_dir / "errors.log").read_text(encoding="utf-8")
 
 
 SESSION_CONTEXT = "[compass] Compass is active in this repository."

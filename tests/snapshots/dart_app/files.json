@@ -1,0 +1,62 @@
+[
+ {
+  "path": "README.md",
+  "lang": null,
+  "size": 121,
+  "hash": "14eb35599b2ff74d61709e633c1d87d7"
+ },
+ {
+  "path": "analysis_options.yaml",
+  "lang": null,
+  "size": 88,
+  "hash": "891a46cd2936d057f0ae31a0193bea36"
+ },
+ {
+  "path": "lib/sensor_kit.dart",
+  "lang": "dart",
+  "size": 170,
+  "hash": "f071112709d298475a0f6a52db7c0877"
+ },
+ {
+  "path": "lib/src/alarm.dart",
+  "lang": "dart",
+  "size": 1425,
+  "hash": "e27dcc36200431bc206be44620d737eb"
+ },
+ {
+  "path": "lib/src/models.dart",
+  "lang": "dart",
+  "size": 1559,
+  "hash": "b5e8761e70142fbd0ad44902c32c4384"
+ },
+ {
+  "path": "lib/src/transport/poller.dart",
+  "lang": "dart",
+  "size": 881,
+  "hash": "8c7b5ef8af6403cdc58b674d172f882a"
+ },
+ {
+  "path": "lib/src/transport/retry.dart",
+  "lang": "dart",
+  "size": 1144,
+  "hash": "d2ad1cf1caacb48f99262ef1c5afbb9b"
+ },
+ {
+  "path": "pubspec.yaml",
+  "lang": null,
+  "size": 280,
+  "hash": "192a8d34349873532fdbc745099dc76b"
+ },
+ {
+  "path": "test/models_test.dart",
+  "lang": "dart",
+  "size": 543,
+  "hash": "eb50ae461ce5a0843d30cd8c4acd08ce"
+ },
+ {
+  "path": "test/transport/retry_test.dart",
+  "lang": "dart",
+  "size": 571,
+  "hash": "1ed2f5afd06adc1ef7de92df88e0a772"
+ }
+]

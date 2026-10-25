@@ -11,6 +11,7 @@ from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
 
 from compass.index.indexer import Indexer
+from compass.mcp_server import QUERY_OFF
 from compass.repo import Repo
 from conftest import copy_fixture, write
 from fake_llm import FakeLLM
@@ -143,6 +144,25 @@ def test_dash_c_names_the_repo_to_serve(tmp_path):
     env = {**os.environ, "CLAUDE_PROJECT_DIR": str(other.root)}
     _is_error, text = session_run(tmp_path, body, args=("-C", str(served.root), "mcp"), env=env)
     assert text.startswith("Languages: go")
+
+
+def test_query_switched_off_offers_no_tools_and_says_so(tmp_path):
+    repo = Repo(copy_fixture("go_app", tmp_path / "go"))
+    write(repo.root, ".compass/config.yaml", "query:\n  enabled: false\n")
+    Indexer(repo).build()
+
+    async def listed(session, init):
+        return {t.name for t in (await session.list_tools()).tools}, init.instructions
+
+    assert session_run(repo.root, listed) == (set(), None)
+
+    write(repo.root, ".compass/config.yaml", "query:\n  enabled: true\n")
+
+    async def switched_off_meanwhile(session, _init):
+        write(repo.root, ".compass/config.yaml", "query:\n  enabled: false  # switched off mid-session\n")
+        return await call(session, "find_symbol", name="Retry")
+
+    assert session_run(repo.root, switched_off_meanwhile) == (False, QUERY_OFF)
 
 
 def test_outside_a_repo_the_tools_explain(tmp_path):

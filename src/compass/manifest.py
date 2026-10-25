@@ -151,7 +151,7 @@ def render(manifest: Manifest, link: Linker) -> str:
     if not m.accepted:
         lines += [
             "Read **Review** and **Assumptions** closely, decide on **TODO**, skim **Mechanical**.",
-            f"When you are done, `/compass:accept {m.task}` strips the anchors and archives this page.",
+            f"When you are done, reply \"accept\" to Claude (or run `/compass:accept {m.task}`): it strips the anchors and archives this page.",
             "",
         ]
     if not m.anchors and not m.files:

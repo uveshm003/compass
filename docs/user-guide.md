@@ -5,10 +5,11 @@ Compass makes Claude Code quicker to work with, and its changes quicker to revie
 - When a new request leaves something important out, Claude checks with you instead of guessing.
 - Test runs and big files go to cheap Haiku subagents.
 - Every change arrives with a short list of what to review.
+- Eleven [skills](#skills-for-everyday-jobs), from code review to debugging, work in any stack and follow your team's own standards.
 
 Compass never rejects a prompt.
 
-New here? Start with the [setup guide](setup-guide.md). The ten-minute [demo](#a-ten-minute-demo) at the end shows everything once.
+New here? `compass install` sets everything up in one command; the [setup guide](setup-guide.md) walks through it. The ten-minute [demo](#a-ten-minute-demo) at the end shows everything once.
 
 ## What you get
 
@@ -27,7 +28,8 @@ Each piece of work goes to the cheapest thing that can do it well. Lookups, chec
 
 - **Your prompt always goes through.** At most, Claude asks you one question before it starts.
 - **No templates.** Write prompts the way you always have. `/compass:task` is there if you like structure, but nothing needs it.
-- **Most prompts are never checked.** Questions, replies, follow-ups, requests that change no code ("run the tests", "commit this") and requests that say what they're about all go straight through.
+- **Most prompts are never checked.** Questions, replies, follow-ups, requests that change no code ("run the tests", "commit this") and requests that say what they're about all go straight through. So do Claude Code's own notices, such as a background task finishing: they are not yours, so Compass ignores them.
+
 - **One word to skip.** Start a prompt with `!quick` to skip every check for that turn. Every module can be switched off in `.compass/config.yaml`.
 - **Fast.** On a repository of 100,000 lines, Compass adds about 35 ms to a prompt, and about 55 ms to a new request it checks and adds context to.
 - **It steps aside when it breaks.** Any error inside Compass is logged, and Claude Code carries on as if Compass weren't there.
@@ -260,6 +262,54 @@ Compass holds each subagent to its limit. An answer that runs over goes back onc
 
 In a real session, Claude was asked to run a suite whose output ran to 623 lines. It handed the run to `compass:test-runner` and got back an 8-line answer naming both failures. The 623 lines never entered the main conversation.
 
+In files mode (see [Install, check, upgrade, remove](#install-check-upgrade-remove)) the subagents are named `compass-test-runner`, `compass-digest` and `compass-scaffold`. They work the same way.
+
+## Skills for everyday jobs
+
+Eleven skills cover jobs that come up in every codebase. Each one checks your team's standards first, looks code up in the map before it opens files, hands test runs and long input to the subagents, and keeps its answer within a set number of lines. They work in any language, because they take the languages, versions and commands from `stack_profile` rather than assuming them.
+
+Run one with an optional target, for example `/compass:code-review T3` or `/compass:debug "test_alarm fails on 0.0"`. In files mode the name has a dash instead: `/compass-code-review T3`. Claude also picks a skill by itself when a request matches it, as with any Claude Code skill.
+
+| Skill | Use it to | Its answer |
+| --- | --- | --- |
+| `code-review` | Review uncommitted changes, a task, a branch or a path: correctness, contracts with callers, tests, clarity | A verdict and ranked findings with `file:line`, at most 40 lines; changes no code |
+| `security-review` | Check code that handles input, auth or data: injection, access control, secrets, unsafe deserialisation, crypto, dependencies | Ranked findings, at most 40 lines; changes no code |
+| `test-gaps` | Find what a change or a piece of code leaves untested, and draft the missing cases in your test framework | At most 30 lines |
+| `impact-analysis` | See what a change to a function, type, file, API or config key would affect, before you make it | Callers, importers, tests and contracts, at most 30 lines |
+| `debug` | Find the root cause of a failure: reproduce, form hypotheses, narrow down, confirm, then fix | At most 15 lines: the cause with `file:line`, the fix, and the test that now guards it |
+| `refactor-plan` | Turn a refactor into small, safe steps, each with its files, risk and checks | At most 40 lines |
+| `pr-writeup` | Write the pull request description and commit message from the diff and the task's manifest, for GitHub or Azure DevOps | Two blocks, ready to paste |
+| `dependency-audit` | Check the versions you actually lock: outdated, unused, duplicated or risky packages, and licences | At most 35 lines, grouped as remove, upgrade, pin and check |
+| `perf-review` | Look for complexity, N+1 queries, I/O in loops, blocking calls, caching and memory growth | At most 30 lines |
+| `onboarding-tour` | Get a structural tour of a repository or an area that is new to you | At most 45 lines: layout, main flows, where to start reading, how to build and test |
+| `adr-writer` | Record an architecture decision as an ADR, in the repository's own format and folder | Writes the file, then replies in at most 5 lines |
+
+Here is `/compass:code-review src/inventory/_internal/cache.py` on a copy of Compass's Python test fixture, after adding an `LRUCache.put` method with two bugs in it. Claude looked the code up with `file_outline`, `callers_of`, `importers_of` and `tests_for` and made no Read call; the whole answer was 26 lines, shortened here:
+
+```text
+Verdict: changes requested. The new `put` throws away the value it has just stored, so the cache stops working once it fills.
+
+[blocker] src/inventory/_internal/cache.py:24 — `popitem(last=True)` removes the newest entry, which is the key `put` just added. … The fix is `self._data.popitem(last=False)`.
+
+[blocker] src/inventory/_internal/cache.py:23 — `>=` is off by one. Eviction starts at `len == capacity`, so the cache never holds more than `capacity - 1` items. … The fix is `if len(self._data) > self.capacity:`.
+
+[major] src/inventory/_internal/cache.py:22 — Assigning to a key that is already in an `OrderedDict` leaves it where it was. … Add `self._data.move_to_end(key)` after the assignment.
+…
+Tests: there are none. `tests/` only has `test_models.py`, and `tests_for` finds nothing for this module. Missing cases:
+- After capacity + 1 puts, the least recently used key is gone and the newest is present.
+- A cache of exactly `capacity` items keeps all of them.
+…
+```
+
+### Your team's standards
+
+To make the skills follow your team's rules, put them in Markdown under `.compass/standards/` and commit them:
+
+- `.compass/standards/all.md` applies to every skill.
+- `.compass/standards/<skill>.md` applies to one, for example `code-review.md` or `security-review.md`.
+
+Each skill reads these files before anything else. Their rules add to the skill's own checklist and win where the two disagree. For example, a `code-review.md` containing *"Every new endpoint needs an OpenAPI example"* makes that part of every review.
+
 ## A local model (optional)
 
 With Ollama or LM Studio on your machine and `local_llm` switched on (see the [setup guide](setup-guide.md#optional-extras)):
@@ -296,7 +346,7 @@ Prompt gate: 2 prompts, 0 with !quick (0.0%; the target is under 20%), 1 where C
 
 Answers to Claude's questions are counted on their own, not as corrections. They are the price of the question: one short reply at the start instead of rework at the end.
 
-The "off" column fills in from a baseline: a stretch of normal work with every module switched off except telemetry. Claude Code then behaves as stock, but every turn is still measured. To set one up, put this in `.compass/config.yaml`:
+The "off" column fills in from a baseline: a stretch of normal work with every module switched off except telemetry. Claude Code then behaves as stock, but every turn is still measured. To set one up, install with `compass install --modules baseline`, or put this in `.compass/config.yaml`:
 
 ```yaml
 query:        {enabled: false}
@@ -325,6 +375,85 @@ Everything lives in `.compass/config.yaml`, and every module can be switched off
 | `telemetry` | Per-turn measurement; `export` to a file | on, local only |
 | `index` | What gets mapped: `exclude` globs, file size limit | lockfiles and `vendor/` excluded |
 
+The skills' team rules live next to the config, in `.compass/standards/` (see [Your team's standards](#your-teams-standards)).
+
+## Install, check, upgrade, remove
+
+`compass install` does the whole setup in one go: it wires Compass into Claude Code, then sets up the repository you run it in (config, git hooks, the first map). The [setup guide](setup-guide.md) covers getting the `compass` tool itself and the step-by-step alternative. On a terminal it asks three questions, each of which is also a flag:
+
+| Question | Flag | Choices |
+| --- | --- | --- |
+| Who is it for? | `--scope` | `user`: just you, in every project · `project`: this repository, committed so the whole team gets it · `local`: this repository, just you (plugin mode only) |
+| How is it installed? | `--mode` | `plugin`: through Claude Code's plugin system · `files`: plain files in `.claude/` that you can read, edit and commit |
+| Which modules? | `--modules` | `full`: everything · `baseline`: telemetry only, for measuring a [baseline](#see-what-compass-saves) · `custom`: choose each, or name them with `--enable` |
+
+`--yes` takes the defaults for anything not given, and `--dry-run` lists every file it would write and changes nothing. A project install in files mode, on the demo repository, with the `compass` tool already installed (`--skip-cli` leaves it as it is):
+
+```text
+$ compass install --yes --scope project --mode files --skip-cli
+Compass 0.3.0 installer
+  files       19 files under ~\compass-demo\.claude
+  hooks       .claude/settings.json: compass hook for PostToolUse, PreToolUse, SessionStart, Stop, SubagentStop, UserPromptSubmit
+  mcp         .mcp.json: compass
+Compass in ~\compass-demo
+  config      wrote .compass/config.yaml, full preset (commit it)
+  gitignore   .compass/.gitignore keeps derived files out of git
+  git hook    post-commit: installed
+  git hook    post-checkout: installed
+  git hook    post-merge: installed
+  git hook    post-rewrite: installed
+  git hook    pre-commit: installed
+  index       Indexed 30 files, 21 symbols in 0.82 s (full build).
+  map         .compass/map/_index.md
+  record      ~\compass-demo\.claude\compass\install.json
+
+Done. Restart Claude Code, then run `compass doctor`.
+Commit .claude/ and .compass/config.yaml (and .mcp.json in files mode) so the team gets Compass too.
+```
+
+Once those files are committed, teammates who pull them get the same hooks, commands, skills and settings. Each of them still needs the `compass` tool on their machine.
+
+In files mode the commands keep their names (`/compass:task`, `/compass:approve`, `/compass:accept`, `/compass:doctor`), while the skills become `/compass-<name>` and the subagents `compass-<name>`. Everything else behaves the same in both modes.
+
+**Check it.** `compass doctor` checks each piece in turn, and says what to do about anything that's wrong, including Compass installed twice, which would run every hook twice:
+
+```text
+$ compass doctor
+Compass 0.3.0 doctor
+  ok    compass 0.3.0 on PATH (~\.local\bin\compass.EXE)
+  ok    Claude Code 2.1.300
+  ok    installed as files (project scope): hooks for 6 events
+  ok    `compass mcp` serves 8 tools
+  ok    code map built
+  ok    git hooks: 5 of 5 installed
+All good.
+```
+
+**Upgrade.** `compass upgrade` installs the newest `compass` tool, then refreshes the files Compass installed (`--skip-cli` does only the second part). Files you have edited are kept. When the new release changed one of them too, Compass's version is written beside it as `<file>.compass-new` for you to compare; when it did not, nothing is written. Files you deleted stay deleted. Here the team had added a rule to the code-review skill, and the new release had changed that skill as well:
+
+```text
+$ compass upgrade --skip-cli
+Upgrading the project install (files mode, 0.2.0 -> 0.3.0)
+  files       19 files under ~\compass-demo\.claude
+  kept        .claude/skills/compass-code-review/SKILL.md (edited); the new version is beside it as SKILL.md.compass-new
+  hooks       .claude/settings.json: compass hook for PostToolUse, PreToolUse, SessionStart, Stop, SubagentStop, UserPromptSubmit
+  mcp         .mcp.json: compass
+```
+
+**Remove.** `compass uninstall` removes what `compass install` wrote and Compass's git hooks. It keeps files you've edited, takes only Compass's own entries out of your settings files, and leaves `.compass/` alone:
+
+```text
+$ compass uninstall --scope project
+post-commit: removed
+post-checkout: removed
+post-merge: removed
+post-rewrite: removed
+pre-commit: removed
+  kept        .claude/skills/compass-code-review/SKILL.md (edited since it was installed)
+  claude      removed Compass's files install (project scope)
+Left in place: .compass/ (delete it to drop the index and manifests; config.yaml is yours).
+```
+
 ## Commands
 
 In Claude Code:
@@ -334,12 +463,17 @@ In Claude Code:
 | `/compass:task <brief>` | Starts a task from Goal, Scope, Non-goals, Accept when, Constraints (plus Category and Size); optional |
 | `/compass:approve [task]` | Approves a large task's plan |
 | `/compass:accept [task]` | Strips a reviewed task's tags and archives its manifest |
+| `/compass:doctor` | Checks the install from inside Claude Code (`compass doctor`) and lists anything to fix |
+| `/compass:<skill> [target]` | Runs one of the eleven [skills](#skills-for-everyday-jobs); `/compass-<skill>` in files mode |
 
 In the terminal (every command takes `-C DIR` to run against another repository):
 
 | Command | Does |
 | --- | --- |
-| `compass init` | Sets up a repository: config, git hooks, first index |
+| `compass install` | Wires Compass into Claude Code and sets up this repository; `--scope`, `--mode`, `--modules`, `--yes`, `--dry-run` |
+| `compass doctor` | Checks the tool, Claude Code, the install, the MCP server, the map and the git hooks |
+| `compass upgrade` | The newest `compass` tool, then refreshed files, keeping your edits |
+| `compass init` | Sets up a repository only: config, git hooks, first index |
 | `compass index [--full]` | Refreshes the map, or rebuilds it |
 | `compass map [DIR]` | The folder tree, or one folder's files and symbols |
 | `compass find-symbol NAME` | Where something is defined |
@@ -356,7 +490,7 @@ In the terminal (every command takes `-C DIR` to run against another repository)
 | `compass check-anchors [ID]` | Lists the tags in the code |
 | `compass report [PATHS]` | Tasks with Compass on against off, or a benchmark report |
 | `compass enrich` | Local-model summaries now, instead of after the next commit |
-| `compass uninstall` | Removes Compass's git hooks from the repository |
+| `compass uninstall [--scope S]` | Removes what `compass install` wrote and the git hooks; keeps `.compass/` and files you edited |
 
 ## Questions people ask
 
@@ -379,6 +513,12 @@ Each is there so that the work you get is the work you asked for. `!quick` lifts
 **Does it need an API key?** No. Compass is built on Claude Code and your own Claude login.
 
 **What if Compass breaks?** It steps aside. Any error inside Compass is logged to `.compass/logs/`, and Claude Code carries on as if Compass weren't there.
+
+**Plugin or files?** Both give you the same Compass. The plugin keeps Compass in Claude Code's plugin system, out of your repository. Files mode puts plain files in `.claude/` that you can read, change and commit, so the whole team gets Compass from the repository; `compass upgrade` keeps your changes. Install one or the other, not both: `compass doctor` flags a double install, which would run every hook twice.
+
+**Can we make the skills follow our rules?** Yes. Put them in `.compass/standards/all.md`, or in `.compass/standards/<skill>.md` for one skill, and commit them. The skills read those files first, and your rules win where they disagree with the skill's own.
+
+**Something seems off. Where do I start?** Run `compass doctor`. Then look in `.compass/logs/`, where Compass records anything that went wrong.
 
 **Does it work on Windows? On Azure DevOps?** Yes to both. It runs natively on Windows, macOS and Linux, and works with GitHub and Azure Repos alike, hosted links included.
 

@@ -1,17 +1,29 @@
 # Compass plugin for Claude Code
 
-The plugin is plain files: hooks, three commands, three subagents, an optional
-output style and the MCP registration. All behaviour lives in the `compass`
-CLI, which every hook calls (`compass hook <event>`), so install both.
+The plugin is plain files: hooks, four commands, three subagents, eleven
+skills, an optional output style and the MCP registration. All behaviour lives
+in the `compass` CLI, which every hook calls (`compass hook <event>`), so
+install both. The same files can also be installed without the plugin system,
+as plain files in `.claude/` that a team commits (files mode); there the
+commands keep their `/compass:` names, while skills and agents are named
+`compass-<name>` instead of `compass:<name>`.
 
 ## Install
+
+The short way, from 0.3.0: `compass install` does every step below, as a
+plugin or in files mode, and asks before each choice (`--yes` takes the
+defaults). `compass doctor` checks the result, `compass upgrade` updates it and
+`compass uninstall` removes it. `docs/setup-guide.md` has the details. By hand:
 
 1. The CLI, from a clone or straight from the repository:
 
    ```bash
-   uv tool install .                                   # in a clone
-   uv tool install git+https://github.com/<owner>/<repo>
-   uv tool install git+https://dev.azure.com/<org>/<project>/_git/<repo>
+   uv tool install --compile-bytecode --python 3.12 .                # in a clone
+   uv tool install --compile-bytecode --python 3.12 git+https://github.com/<owner>/<repo>
+   uv tool install --compile-bytecode --python 3.12 git+https://dev.azure.com/<org>/<project>/_git/<repo>
+
+   `--compile-bytecode` matters: without it the MCP server's first start compiles
+   its Python files, which can outlast the 30 seconds Claude Code waits for it.
    ```
 
 2. The plugin, from the marketplace file at the repository root
@@ -31,7 +43,7 @@ CLI, which every hook calls (`compass hook <event>`), so install both.
 3. In each repository: `compass init` (config, git hooks, first index).
 
 Compass is built on Claude Code and your own Claude login; it never needs an
-API key. It is tested with Claude Code 2.1.281, and a weekly CI job checks the
+API key. Its live checks last passed on Claude Code 2.1.281, and a weekly CI job checks the
 latest release once it has a Claude Code login token (`claude setup-token`,
 NF-14).
 
@@ -54,9 +66,11 @@ allow it for good ("don't ask again"): the tools only read the code map.
 | `/compass:task <brief>` | `commands/task.md` | Starts a task from `Goal: … Scope: … Non-goals: … Accept when: … Constraints: …`, optionally tagged `Category: … Size: S/M/L` for telemetry; a large one gets a spec draft (developer only) |
 | `/compass:approve [task]` | `commands/approve.md` | Approves a large task's spec, recording who and when (developer only) |
 | `/compass:accept [task]` | `commands/accept.md` | Strips the task's anchor tags and archives its manifest (developer only) |
+| `/compass:doctor` | `commands/doctor.md` | Runs `compass doctor` and reports what needs fixing; changes nothing, so Claude may run it too |
 | `digest` subagent | `agents/digest.md` | Condenses large logs and files to 30 lines, citing `file:line` |
 | `test-runner` subagent | `agents/test-runner.md` | Runs tests or a build and reports only the failures, in 20 lines at most |
 | `scaffold` subagent | `agents/scaffold.md` | Makes mechanical edits to the files it is given, tagging each change |
+| Skills | `skills/<name>/SKILL.md` | `/compass:code-review`, `security-review`, `test-gaps`, `impact-analysis`, `debug`, `refactor-plan`, `pr-writeup`, `dependency-audit`, `perf-review`, `onboarding-tour`, `adr-writer`: work in any stack, read `.compass/standards/<skill>.md` and `all.md` first |
 | Output style (opt-in) | `output-styles/compass-review.md` | The same reply rules as a system-prompt style |
 
 ## Reviewing a change

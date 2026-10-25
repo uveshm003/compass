@@ -1,0 +1,916 @@
+{
+ "files": [
+  {
+   "path": "README.md",
+   "dir": "",
+   "lang": null,
+   "hash": "14eb35599b2ff74d61709e633c1d87d7",
+   "size": 121,
+   "doc": "Reads gas sensors and raises alarms when a reading crosses its threshold.",
+   "is_test": 0
+  },
+  {
+   "path": "analysis_options.yaml",
+   "dir": "",
+   "lang": null,
+   "hash": "891a46cd2936d057f0ae31a0193bea36",
+   "size": 88,
+   "doc": null,
+   "is_test": 0
+  },
+  {
+   "path": "lib/sensor_kit.dart",
+   "dir": "lib",
+   "lang": "dart",
+   "hash": "f071112709d298475a0f6a52db7c0877",
+   "size": 170,
+   "doc": "Gas sensor readings, alarms, and a poller that retries with backoff.",
+   "is_test": 0
+  },
+  {
+   "path": "lib/src/alarm.dart",
+   "dir": "lib/src",
+   "lang": "dart",
+   "hash": "e27dcc36200431bc206be44620d737eb",
+   "size": 1425,
+   "doc": "Alarm levels and the monitor that raises them.",
+   "is_test": 0
+  },
+  {
+   "path": "lib/src/models.dart",
+   "dir": "lib/src",
+   "lang": "dart",
+   "hash": "b5e8761e70142fbd0ad44902c32c4384",
+   "size": 1559,
+   "doc": "Sensor readings and the sources that produce them.",
+   "is_test": 0
+  },
+  {
+   "path": "lib/src/transport/poller.dart",
+   "dir": "lib/src/transport",
+   "lang": "dart",
+   "hash": "8c7b5ef8af6403cdc58b674d172f882a",
+   "size": 881,
+   "doc": null,
+   "is_test": 0
+  },
+  {
+   "path": "lib/src/transport/retry.dart",
+   "dir": "lib/src/transport",
+   "lang": "dart",
+   "hash": "d2ad1cf1caacb48f99262ef1c5afbb9b",
+   "size": 1144,
+   "doc": null,
+   "is_test": 0
+  },
+  {
+   "path": "pubspec.yaml",
+   "dir": "",
+   "lang": null,
+   "hash": "192a8d34349873532fdbc745099dc76b",
+   "size": 280,
+   "doc": null,
+   "is_test": 0
+  },
+  {
+   "path": "test/models_test.dart",
+   "dir": "test",
+   "lang": "dart",
+   "hash": "eb50ae461ce5a0843d30cd8c4acd08ce",
+   "size": 543,
+   "doc": null,
+   "is_test": 1
+  },
+  {
+   "path": "test/transport/retry_test.dart",
+   "dir": "test/transport",
+   "lang": "dart",
+   "hash": "1ed2f5afd06adc1ef7de92df88e0a772",
+   "size": 571,
+   "doc": null,
+   "is_test": 1
+  }
+ ],
+ "symbols": [
+  {
+   "path": "lib/src/alarm.dart",
+   "name": "AlarmLevel",
+   "kind": "enum",
+   "parent": null,
+   "signature": "AlarmLevel",
+   "start_line": 7,
+   "end_line": 19,
+   "visibility": "public",
+   "doc": "How serious an alarm is.",
+   "doc_source": "author"
+  },
+  {
+   "path": "lib/src/alarm.dart",
+   "name": "AlarmLevel",
+   "kind": "method",
+   "parent": "AlarmLevel",
+   "signature": "AlarmLevel(this.severity)",
+   "start_line": 12,
+   "end_line": 12,
+   "visibility": "public",
+   "doc": null,
+   "doc_source": null
+  },
+  {
+   "path": "lib/src/alarm.dart",
+   "name": "pages",
+   "kind": "method",
+   "parent": "AlarmLevel",
+   "signature": "bool get pages",
+   "start_line": 18,
+   "end_line": 18,
+   "visibility": "public",
+   "doc": "Whether someone should be paged.",
+   "doc_source": "author"
+  },
+  {
+   "path": "lib/src/alarm.dart",
+   "name": "AlarmCallback",
+   "kind": "type",
+   "parent": null,
+   "signature": "AlarmCallback = void Function(String sensorId, AlarmLevel level)",
+   "start_line": 22,
+   "end_line": 22,
+   "visibility": "public",
+   "doc": "Called whenever a sensor's alarm level changes.",
+   "doc_source": "author"
+  },
+  {
+   "path": "lib/src/alarm.dart",
+   "name": "AlarmMonitor",
+   "kind": "class",
+   "parent": null,
+   "signature": "AlarmMonitor",
+   "start_line": 25,
+   "end_line": 44,
+   "visibility": "public",
+   "doc": "Tracks the last alarm level of each sensor and reports changes.",
+   "doc_source": "author"
+  },
+  {
+   "path": "lib/src/alarm.dart",
+   "name": "AlarmMonitor",
+   "kind": "method",
+   "parent": "AlarmMonitor",
+   "signature": "AlarmMonitor(this._onChange, {this.threshold = defaultThreshold})",
+   "start_line": 26,
+   "end_line": 26,
+   "visibility": "public",
+   "doc": null,
+   "doc_source": null
+  },
+  {
+   "path": "lib/src/alarm.dart",
+   "name": "record",
+   "kind": "method",
+   "parent": "AlarmMonitor",
+   "signature": "AlarmLevel record(Reading reading)",
+   "start_line": 33,
+   "end_line": 40,
+   "visibility": "public",
+   "doc": "Records [reading] and returns its alarm level.",
+   "doc_source": "author"
+  },
+  {
+   "path": "lib/src/alarm.dart",
+   "name": "_reset",
+   "kind": "method",
+   "parent": "AlarmMonitor",
+   "signature": "void _reset()",
+   "start_line": 43,
+   "end_line": 43,
+   "visibility": "private",
+   "doc": "Forgets every sensor, so the next reading of each reports again.",
+   "doc_source": "author"
+  },
+  {
+   "path": "lib/src/alarm.dart",
+   "name": "classify",
+   "kind": "function",
+   "parent": null,
+   "signature": "AlarmLevel classify(Reading reading, double threshold)",
+   "start_line": 47,
+   "end_line": 51,
+   "visibility": "public",
+   "doc": "The alarm level for [reading]: critical at twice the threshold.",
+   "doc_source": "author"
+  },
+  {
+   "path": "lib/src/models.dart",
+   "name": "defaultThreshold",
+   "kind": "constant",
+   "parent": null,
+   "signature": "double defaultThreshold = 50.0",
+   "start_line": 5,
+   "end_line": 5,
+   "visibility": "public",
+   "doc": "Alarm threshold, in ppm, for a sensor that has none of its own.",
+   "doc_source": "author"
+  },
+  {
+   "path": "lib/src/models.dart",
+   "name": "SensorKind",
+   "kind": "enum",
+   "parent": null,
+   "signature": "SensorKind",
+   "start_line": 8,
+   "end_line": 8,
+   "visibility": "public",
+   "doc": "The kinds of sensor a reading can come from.",
+   "doc_source": "author"
+  },
+  {
+   "path": "lib/src/models.dart",
+   "name": "Reading",
+   "kind": "class",
+   "parent": null,
+   "signature": "Reading",
+   "start_line": 11,
+   "end_line": 36,
+   "visibility": "public",
+   "doc": "One measurement from one sensor.",
+   "doc_source": "author"
+  },
+  {
+   "path": "lib/src/models.dart",
+   "name": "Reading",
+   "kind": "method",
+   "parent": "Reading",
+   "signature": "Reading(this.sensorId, this.value, {this.kind = SensorKind.gas})",
+   "start_line": 13,
+   "end_line": 13,
+   "visibility": "public",
+   "doc": "Creates a reading of [value] from [sensorId].",
+   "doc_source": "author"
+  },
+  {
+   "path": "lib/src/models.dart",
+   "name": "zero",
+   "kind": "method",
+   "parent": "Reading",
+   "signature": "zero(this.sensorId)",
+   "start_line": 16,
+   "end_line": 18,
+   "visibility": "public",
+   "doc": "A reading of zero, used before a sensor reports.",
+   "doc_source": "author"
+  },
+  {
+   "path": "lib/src/models.dart",
+   "name": "parse",
+   "kind": "method",
+   "parent": "Reading",
+   "signature": "parse(String line)",
+   "start_line": 21,
+   "end_line": 25,
+   "visibility": "public",
+   "doc": "Parses `id:value`, the form sensors send over the wire.",
+   "doc_source": "author"
+  },
+  {
+   "path": "lib/src/models.dart",
+   "name": "isAlarm",
+   "kind": "method",
+   "parent": "Reading",
+   "signature": "bool isAlarm([double threshold = defaultThreshold])",
+   "start_line": 32,
+   "end_line": 32,
+   "visibility": "public",
+   "doc": "True when the reading crosses [threshold].",
+   "doc_source": "author"
+  },
+  {
+   "path": "lib/src/models.dart",
+   "name": "toString",
+   "kind": "method",
+   "parent": "Reading",
+   "signature": "String toString()",
+   "start_line": 34,
+   "end_line": 35,
+   "visibility": "public",
+   "doc": null,
+   "doc_source": null
+  },
+  {
+   "path": "lib/src/models.dart",
+   "name": "ReadingSource",
+   "kind": "interface",
+   "parent": null,
+   "signature": "ReadingSource",
+   "start_line": 39,
+   "end_line": 45,
+   "visibility": "public",
+   "doc": "Anything that produces readings: a device, a recording, a test double.",
+   "doc_source": "author"
+  },
+  {
+   "path": "lib/src/models.dart",
+   "name": "next",
+   "kind": "method",
+   "parent": "ReadingSource",
+   "signature": "Future<Reading?> next()",
+   "start_line": 41,
+   "end_line": 41,
+   "visibility": "public",
+   "doc": "The next reading, or null once the source is exhausted.",
+   "doc_source": "author"
+  },
+  {
+   "path": "lib/src/models.dart",
+   "name": "name",
+   "kind": "method",
+   "parent": "ReadingSource",
+   "signature": "String get name",
+   "start_line": 44,
+   "end_line": 44,
+   "visibility": "public",
+   "doc": "A name for logs.",
+   "doc_source": "author"
+  },
+  {
+   "path": "lib/src/models.dart",
+   "name": "ReadingFormat",
+   "kind": "impl",
+   "parent": null,
+   "signature": "ReadingFormat on Reading",
+   "start_line": 48,
+   "end_line": 51,
+   "visibility": null,
+   "doc": "Formatting for dashboards.",
+   "doc_source": "author"
+  },
+  {
+   "path": "lib/src/models.dart",
+   "name": "label",
+   "kind": "method",
+   "parent": "ReadingFormat",
+   "signature": "String get label",
+   "start_line": 50,
+   "end_line": 50,
+   "visibility": "public",
+   "doc": "The value with its unit, such as `52.0 ppm`.",
+   "doc_source": "author"
+  },
+  {
+   "path": "lib/src/transport/poller.dart",
+   "name": "Poller",
+   "kind": "class",
+   "parent": null,
+   "signature": "Poller",
+   "start_line": 6,
+   "end_line": 33,
+   "visibility": "public",
+   "doc": "Polls a [ReadingSource] and feeds an [AlarmMonitor], backing off on bad lines.",
+   "doc_source": "author"
+  },
+  {
+   "path": "lib/src/transport/poller.dart",
+   "name": "Poller",
+   "kind": "method",
+   "parent": "Poller",
+   "signature": "Poller(this.source, this.monitor, {Backoff? backoff})",
+   "start_line": 7,
+   "end_line": 8,
+   "visibility": "public",
+   "doc": null,
+   "doc_source": null
+  },
+  {
+   "path": "lib/src/transport/poller.dart",
+   "name": "run",
+   "kind": "method",
+   "parent": "Poller",
+   "signature": "Future<int> run()",
+   "start_line": 15,
+   "end_line": 32,
+   "visibility": "public",
+   "doc": "Polls until the source runs dry, and returns how many readings it saw.",
+   "doc_source": "author"
+  },
+  {
+   "path": "lib/src/transport/retry.dart",
+   "name": "maxAttempts",
+   "kind": "constant",
+   "parent": null,
+   "signature": "int maxAttempts = 5",
+   "start_line": 4,
+   "end_line": 4,
+   "visibility": "public",
+   "doc": "Most attempts before a poll gives up.",
+   "doc_source": "author"
+  },
+  {
+   "path": "lib/src/transport/retry.dart",
+   "name": "Backoff",
+   "kind": "class",
+   "parent": null,
+   "signature": "Backoff with RetryLog",
+   "start_line": 7,
+   "end_line": 26,
+   "visibility": "public",
+   "doc": "Exponential backoff with full jitter.",
+   "doc_source": "author"
+  },
+  {
+   "path": "lib/src/transport/retry.dart",
+   "name": "Backoff",
+   "kind": "method",
+   "parent": "Backoff",
+   "signature": "Backoff({this.base = const Duration(milliseconds: 100), Random? random})",
+   "start_line": 8,
+   "end_line": 9,
+   "visibility": "public",
+   "doc": null,
+   "doc_source": null
+  },
+  {
+   "path": "lib/src/transport/retry.dart",
+   "name": "next",
+   "kind": "method",
+   "parent": "Backoff",
+   "signature": "Duration next()",
+   "start_line": 16,
+   "end_line": 22,
+   "visibility": "public",
+   "doc": "The delay before the next attempt.",
+   "doc_source": "author"
+  },
+  {
+   "path": "lib/src/transport/retry.dart",
+   "name": "reset",
+   "kind": "method",
+   "parent": "Backoff",
+   "signature": "void reset()",
+   "start_line": 25,
+   "end_line": 25,
+   "visibility": "public",
+   "doc": "Starts again from the first attempt.",
+   "doc_source": "author"
+  },
+  {
+   "path": "lib/src/transport/retry.dart",
+   "name": "RetryLog",
+   "kind": "trait",
+   "parent": null,
+   "signature": "RetryLog",
+   "start_line": 29,
+   "end_line": 37,
+   "visibility": "public",
+   "doc": "Keeps a record of each retry, for diagnostics.",
+   "doc_source": "author"
+  },
+  {
+   "path": "lib/src/transport/retry.dart",
+   "name": "entries",
+   "kind": "method",
+   "parent": "RetryLog",
+   "signature": "List<String> get entries",
+   "start_line": 33,
+   "end_line": 33,
+   "visibility": "public",
+   "doc": "The retries so far, oldest first.",
+   "doc_source": "author"
+  },
+  {
+   "path": "lib/src/transport/retry.dart",
+   "name": "logRetry",
+   "kind": "method",
+   "parent": "RetryLog",
+   "signature": "void logRetry(int attempt, Duration delay)",
+   "start_line": 35,
+   "end_line": 36,
+   "visibility": "public",
+   "doc": null,
+   "doc_source": null
+  },
+  {
+   "path": "lib/src/transport/retry.dart",
+   "name": "shouldRetry",
+   "kind": "function",
+   "parent": null,
+   "signature": "bool shouldRetry(int attempt)",
+   "start_line": 40,
+   "end_line": 40,
+   "visibility": "public",
+   "doc": "Whether another attempt is allowed after [attempt] failures.",
+   "doc_source": "author"
+  },
+  {
+   "path": "test/models_test.dart",
+   "name": "main",
+   "kind": "function",
+   "parent": null,
+   "signature": "void main()",
+   "start_line": 4,
+   "end_line": 20,
+   "visibility": "public",
+   "doc": null,
+   "doc_source": null
+  },
+  {
+   "path": "test/transport/retry_test.dart",
+   "name": "main",
+   "kind": "function",
+   "parent": null,
+   "signature": "void main()",
+   "start_line": 6,
+   "end_line": 19,
+   "visibility": "public",
+   "doc": null,
+   "doc_source": null
+  }
+ ],
+ "imports": [
+  {
+   "path": "lib/sensor_kit.dart",
+   "target": "src/alarm.dart",
+   "resolved": null
+  },
+  {
+   "path": "lib/sensor_kit.dart",
+   "target": "src/models.dart",
+   "resolved": null
+  },
+  {
+   "path": "lib/sensor_kit.dart",
+   "target": "src/transport/poller.dart",
+   "resolved": null
+  },
+  {
+   "path": "lib/src/alarm.dart",
+   "target": "models.dart",
+   "resolved": null
+  },
+  {
+   "path": "lib/src/transport/poller.dart",
+   "target": "../alarm.dart",
+   "resolved": "lib/src/alarm.dart"
+  },
+  {
+   "path": "lib/src/transport/poller.dart",
+   "target": "../models.dart",
+   "resolved": "lib/src/models.dart"
+  },
+  {
+   "path": "lib/src/transport/poller.dart",
+   "target": "retry.dart",
+   "resolved": null
+  },
+  {
+   "path": "lib/src/transport/retry.dart",
+   "target": "dart:math",
+   "resolved": null
+  },
+  {
+   "path": "test/models_test.dart",
+   "target": "package:sensor_kit/sensor_kit.dart",
+   "resolved": null
+  },
+  {
+   "path": "test/models_test.dart",
+   "target": "package:test/test.dart",
+   "resolved": null
+  },
+  {
+   "path": "test/transport/retry_test.dart",
+   "target": "dart:math",
+   "resolved": null
+  },
+  {
+   "path": "test/transport/retry_test.dart",
+   "target": "package:sensor_kit/src/transport/retry.dart",
+   "resolved": null
+  },
+  {
+   "path": "test/transport/retry_test.dart",
+   "target": "package:test/test.dart",
+   "resolved": null
+  }
+ ],
+ "refs": [
+  {
+   "path": "lib/src/alarm.dart",
+   "line": 34,
+   "name": "classify",
+   "kind": "call"
+  },
+  {
+   "path": "lib/src/alarm.dart",
+   "line": 37,
+   "name": "_onChange",
+   "kind": "call"
+  },
+  {
+   "path": "lib/src/alarm.dart",
+   "line": 43,
+   "name": "clear",
+   "kind": "call"
+  },
+  {
+   "path": "lib/src/alarm.dart",
+   "line": 48,
+   "name": "isAlarm",
+   "kind": "call"
+  },
+  {
+   "path": "lib/src/alarm.dart",
+   "line": 49,
+   "name": "isAlarm",
+   "kind": "call"
+  },
+  {
+   "path": "lib/src/models.dart",
+   "line": 22,
+   "name": "split",
+   "kind": "call"
+  },
+  {
+   "path": "lib/src/models.dart",
+   "line": 23,
+   "name": "FormatException",
+   "kind": "call"
+  },
+  {
+   "path": "lib/src/models.dart",
+   "line": 24,
+   "name": "Reading",
+   "kind": "call"
+  },
+  {
+   "path": "lib/src/models.dart",
+   "line": 24,
+   "name": "parse",
+   "kind": "call"
+  },
+  {
+   "path": "lib/src/models.dart",
+   "line": 50,
+   "name": "toStringAsFixed",
+   "kind": "call"
+  },
+  {
+   "path": "lib/src/transport/poller.dart",
+   "line": 8,
+   "name": "Backoff",
+   "kind": "call"
+  },
+  {
+   "path": "lib/src/transport/poller.dart",
+   "line": 20,
+   "name": "next",
+   "kind": "call"
+  },
+  {
+   "path": "lib/src/transport/poller.dart",
+   "line": 22,
+   "name": "record",
+   "kind": "call"
+  },
+  {
+   "path": "lib/src/transport/poller.dart",
+   "line": 25,
+   "name": "reset",
+   "kind": "call"
+  },
+  {
+   "path": "lib/src/transport/poller.dart",
+   "line": 28,
+   "name": "shouldRetry",
+   "kind": "call"
+  },
+  {
+   "path": "lib/src/transport/poller.dart",
+   "line": 29,
+   "name": "next",
+   "kind": "call"
+  },
+  {
+   "path": "lib/src/transport/retry.dart",
+   "line": 8,
+   "name": "Duration",
+   "kind": "call"
+  },
+  {
+   "path": "lib/src/transport/retry.dart",
+   "line": 9,
+   "name": "Random",
+   "kind": "call"
+  },
+  {
+   "path": "lib/src/transport/retry.dart",
+   "line": 18,
+   "name": "min",
+   "kind": "call"
+  },
+  {
+   "path": "lib/src/transport/retry.dart",
+   "line": 18,
+   "name": "pow",
+   "kind": "call"
+  },
+  {
+   "path": "lib/src/transport/retry.dart",
+   "line": 18,
+   "name": "toInt",
+   "kind": "call"
+  },
+  {
+   "path": "lib/src/transport/retry.dart",
+   "line": 19,
+   "name": "Duration",
+   "kind": "call"
+  },
+  {
+   "path": "lib/src/transport/retry.dart",
+   "line": 19,
+   "name": "nextInt",
+   "kind": "call"
+  },
+  {
+   "path": "lib/src/transport/retry.dart",
+   "line": 20,
+   "name": "logRetry",
+   "kind": "call"
+  },
+  {
+   "path": "lib/src/transport/retry.dart",
+   "line": 33,
+   "name": "unmodifiable",
+   "kind": "call"
+  },
+  {
+   "path": "lib/src/transport/retry.dart",
+   "line": 36,
+   "name": "add",
+   "kind": "call"
+  },
+  {
+   "path": "test/models_test.dart",
+   "line": 5,
+   "name": "test",
+   "kind": "call"
+  },
+  {
+   "path": "test/models_test.dart",
+   "line": 6,
+   "name": "Reading",
+   "kind": "call"
+  },
+  {
+   "path": "test/models_test.dart",
+   "line": 6,
+   "name": "expect",
+   "kind": "call"
+  },
+  {
+   "path": "test/models_test.dart",
+   "line": 6,
+   "name": "isAlarm",
+   "kind": "call"
+  },
+  {
+   "path": "test/models_test.dart",
+   "line": 9,
+   "name": "test",
+   "kind": "call"
+  },
+  {
+   "path": "test/models_test.dart",
+   "line": 10,
+   "name": "parse",
+   "kind": "call"
+  },
+  {
+   "path": "test/models_test.dart",
+   "line": 11,
+   "name": "expect",
+   "kind": "call"
+  },
+  {
+   "path": "test/models_test.dart",
+   "line": 12,
+   "name": "expect",
+   "kind": "call"
+  },
+  {
+   "path": "test/models_test.dart",
+   "line": 15,
+   "name": "group",
+   "kind": "call"
+  },
+  {
+   "path": "test/models_test.dart",
+   "line": 16,
+   "name": "test",
+   "kind": "call"
+  },
+  {
+   "path": "test/models_test.dart",
+   "line": 17,
+   "name": "Reading",
+   "kind": "call"
+  },
+  {
+   "path": "test/models_test.dart",
+   "line": 17,
+   "name": "classify",
+   "kind": "call"
+  },
+  {
+   "path": "test/models_test.dart",
+   "line": 17,
+   "name": "expect",
+   "kind": "call"
+  },
+  {
+   "path": "test/transport/retry_test.dart",
+   "line": 7,
+   "name": "test",
+   "kind": "call"
+  },
+  {
+   "path": "test/transport/retry_test.dart",
+   "line": 8,
+   "name": "Backoff",
+   "kind": "call"
+  },
+  {
+   "path": "test/transport/retry_test.dart",
+   "line": 8,
+   "name": "Duration",
+   "kind": "call"
+  },
+  {
+   "path": "test/transport/retry_test.dart",
+   "line": 8,
+   "name": "Random",
+   "kind": "call"
+  },
+  {
+   "path": "test/transport/retry_test.dart",
+   "line": 10,
+   "name": "expect",
+   "kind": "call"
+  },
+  {
+   "path": "test/transport/retry_test.dart",
+   "line": 10,
+   "name": "lessThanOrEqualTo",
+   "kind": "call"
+  },
+  {
+   "path": "test/transport/retry_test.dart",
+   "line": 10,
+   "name": "next",
+   "kind": "call"
+  },
+  {
+   "path": "test/transport/retry_test.dart",
+   "line": 12,
+   "name": "expect",
+   "kind": "call"
+  },
+  {
+   "path": "test/transport/retry_test.dart",
+   "line": 12,
+   "name": "hasLength",
+   "kind": "call"
+  },
+  {
+   "path": "test/transport/retry_test.dart",
+   "line": 15,
+   "name": "test",
+   "kind": "call"
+  },
+  {
+   "path": "test/transport/retry_test.dart",
+   "line": 16,
+   "name": "expect",
+   "kind": "call"
+  },
+  {
+   "path": "test/transport/retry_test.dart",
+   "line": 16,
+   "name": "shouldRetry",
+   "kind": "call"
+  },
+  {
+   "path": "test/transport/retry_test.dart",
+   "line": 17,
+   "name": "expect",
+   "kind": "call"
+  },
+  {
+   "path": "test/transport/retry_test.dart",
+   "line": 17,
+   "name": "shouldRetry",
+   "kind": "call"
+  }
+ ],
+ "skipped": []
+}

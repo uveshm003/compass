@@ -13,6 +13,25 @@ def is_readme(path: str) -> bool:
     return _README.fullmatch(posixpath.basename(path)) is not None
 
 
+def qualified_signature(signature: str | None, name: str, parent: str | None) -> str:
+    """A symbol's signature with its owner: ``Parent.name(…)``. Where the
+    signature starts with a return type or keyword (C#, Java, C++), the owner
+    goes before the name rather than in front of the whole signature."""
+    text = signature or name
+    if not parent:
+        return text
+    found = re.search(rf"(?<![\w$.:]){re.escape(name)}(?![\w$])", text) if name else None
+    if found is not None and found.start() > 0:
+        start = found.start()
+        keyword = re.search(r"\boperator\s*$", text[:start])
+        if keyword:  # `bool Reading.operator ==(…)`, not `bool operator Reading.==(…)`
+            start = keyword.start()
+        return f"{text[:start]}{parent}.{text[start:]}"
+    if found is None and name and re.search(rf"(?:\.|::){re.escape(name)}(?![\w$])", text):
+        return text  # already qualified: `bool Reading::is_alarm() const`
+    return f"{parent}.{text}"
+
+
 def source_lines(data: bytes) -> list[str]:
     """A file's lines as tree-sitter and ctags number them: split on ``\\n``
     only. ``str.splitlines`` also splits on form feeds, U+2028 and lone ``\\r``,

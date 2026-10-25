@@ -11,10 +11,10 @@ import functools
 import json
 import os
 import re
-import shutil
 import subprocess
 from pathlib import Path
 
+from compass.executables import which
 from compass.index.docs import clean_comment
 from compass.index.model import FileParse, Symbol, source_lines
 from compass.index.parser import normalize_signature
@@ -44,9 +44,9 @@ def find_ctags() -> tuple[str, str] | None:
     """
     override = os.environ.get(CTAGS_ENV)
     if override is not None:
-        candidates = [] if override.strip().lower() in ("", "off", "0", "none") else [override]
+        candidates = [] if override.strip().lower() in ("", "off", "0", "none") else [which(override)]
     else:
-        candidates = [shutil.which(n) for n in ("universal-ctags", "uctags", "ctags")]
+        candidates = [which(n) for n in ("universal-ctags", "uctags", "ctags")]
     for exe in candidates:
         if not exe:
             continue
@@ -69,7 +69,8 @@ def ctags_symbols(root: Path, sources: dict[str, bytes]) -> dict[str, FileParse]
         return {}
     exe, _version = found
     proc = subprocess.run(
-        [exe, "--output-format=json", f"--fields={_FIELDS}", "--sort=no", "-f", "-", "-L", "-"],
+        # ./.ctags.d in the repository, or from the developer's home, which change its output per repo and machine
+        [exe, "--options=NONE", "--output-format=json", f"--fields={_FIELDS}", "--sort=no", "-f", "-", "-L", "-"],
         cwd=root,
         input="\n".join(sorted(sources)).encode("utf-8"),
         capture_output=True,

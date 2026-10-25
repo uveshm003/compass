@@ -109,6 +109,54 @@ def test_module_resolver_rust_2018_layout(tmp_path, importer, target, expected):
     assert resolver(tmp_path, files).resolve(importer, "rust", target) == expected
 
 
+@pytest.mark.parametrize(
+    ("importer", "target", "expected"),
+    [
+        ("crates/app/tests/it.rs", "my_core::Client", "crates/core/src/lib.rs"),  # an item of another crate's root
+        ("crates/app/src/main.rs", "my_core::net::connect", "crates/core/src/net.rs"),
+        ("crates/app/src/cli.rs", "crate::Config", "crates/app/src/main.rs"),  # an item of its own crate's root
+        ("crates/app/src/main.rs", "serde::Deserialize", None),
+    ],
+)
+def test_module_resolver_rust_crates_by_name(tmp_path, importer, target, expected):
+    files = {
+        "Cargo.toml": None, "crates/core/Cargo.toml": None, "crates/core/src/lib.rs": "rust",
+        "crates/core/src/net.rs": "rust", "crates/app/Cargo.toml": None, "crates/app/src/main.rs": "rust",
+        "crates/app/src/cli.rs": "rust", "crates/app/tests/it.rs": "rust",
+    }
+    texts = {
+        "Cargo.toml": '[workspace]\nmembers = ["crates/*"]\n',
+        "crates/core/Cargo.toml": '[package]\nname = "my-core"\nversion = "0.1.0"\n',
+        "crates/app/Cargo.toml": '[package]\nname = "app"\n\n[dependencies]\nmy-core = { path = "../core" }\n',
+    }
+    assert resolver(tmp_path, files, texts).resolve(importer, "rust", target) == expected
+
+
+@pytest.mark.parametrize(
+    ("target", "expected"),
+    [
+        ("@acme/ui", "packages/ui/src/index.ts"),
+        ("@acme/ui/button", "packages/ui/src/button.ts"),
+        ("@acme/utils", "packages/utils/index.js"),
+        ("@acme/uikit", None),
+        ("react", None),
+    ],
+)
+def test_path_resolver_workspace_packages(tmp_path, target, expected):
+    files = {
+        "package.json": None, "packages/ui/package.json": None, "packages/ui/src/index.ts": "typescript",
+        "packages/ui/src/button.ts": "typescript", "packages/utils/package.json": None,
+        "packages/utils/index.js": "javascript", "apps/web/src/app.ts": "typescript",
+    }
+    texts = {
+        "package.json": '{\n  "name": "monorepo",\n  "private": true\n}\n',
+        # a nested "name" is not the package's
+        "packages/ui/package.json": '{\n  "author": {\n    "name": "Someone"\n  },\n  "name": "@acme/ui"\n}\n',
+        "packages/utils/package.json": '{"name": "@acme/utils", "main": "index.js"}\n',
+    }
+    assert resolver(tmp_path, files, texts).resolve("apps/web/src/app.ts", "typescript", target) == expected
+
+
 TSCONFIG = """{
   // comments and trailing commas are allowed in tsconfig.json
   "extends": "./tsconfig.base.json",

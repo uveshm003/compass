@@ -1,0 +1,25 @@
+
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.10.34928.147
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Sensors.Core", "src\Sensors.Core\Sensors.Core.csproj", "{6F0B3C2A-8D41-4E7B-9A55-1C2D3E4F5A61}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Sensors.Core.Tests", "tests\Sensors.Core.Tests\Sensors.Core.Tests.csproj", "{0B7E9D14-3C62-4F1A-8E27-5D6C7B8A9F02}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{6F0B3C2A-8D41-4E7B-9A55-1C2D3E4F5A61}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{6F0B3C2A-8D41-4E7B-9A55-1C2D3E4F5A61}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{6F0B3C2A-8D41-4E7B-9A55-1C2D3E4F5A61}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{6F0B3C2A-8D41-4E7B-9A55-1C2D3E4F5A61}.Release|Any CPU.Build.0 = Release|Any CPU
+		{0B7E9D14-3C62-4F1A-8E27-5D6C7B8A9F02}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{0B7E9D14-3C62-4F1A-8E27-5D6C7B8A9F02}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{0B7E9D14-3C62-4F1A-8E27-5D6C7B8A9F02}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{0B7E9D14-3C62-4F1A-8E27-5D6C7B8A9F02}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+EndGlobal

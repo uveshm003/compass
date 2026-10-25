@@ -112,6 +112,14 @@ def test_task_and_approve_are_the_developers_too():
     assert "```!\ncompass task new --brief - <<'COMPASS_BRIEF'\n$ARGUMENTS\nCOMPASS_BRIEF\n```" in body
 
 
+def test_doctor_only_reads():
+    meta, body = frontmatter(PLUGIN / "commands/doctor.md")
+    assert meta["allowed-tools"] == "Bash(compass doctor:*)"  # nothing else: the fixes are the developer's to run
+    # --exit-zero: Claude Code drops a command whose `!` line fails, the very case doctor is for
+    assert "```!\ncompass doctor --exit-zero $ARGUMENTS\n```" in body
+    assert "Do not run the fixes or edit any files" in body
+
+
 def test_subagents_match_their_contracts():
     # DL-01, DL-02: the Step 8 table, and the limits compass.delegation enforces.
     from compass.delegation import CONTRACTS
@@ -127,6 +135,28 @@ def test_subagents_match_their_contracts():
         assert rule.lower() in body.lower(), name
         assert f"compass:{name}" in CONTRACTS
     assert CONTRACTS["compass:digest"].max_lines == 30 and CONTRACTS["compass:test-runner"].max_lines == 20
+
+
+SKILLS = {
+    "code-review", "security-review", "test-gaps", "impact-analysis", "debug", "refactor-plan",
+    "pr-writeup", "dependency-audit", "perf-review", "onboarding-tour", "adr-writer",
+}
+
+
+def test_the_skill_library_keeps_one_shape():
+    # ST-04 to ST-06: platform-agnostic skills, each reading the team's
+    # standards, looking up before reading, and capping its answer.
+    found = {p.parent.name for p in (PLUGIN / "skills").glob("*/SKILL.md")}
+    assert found == SKILLS
+    for name in sorted(SKILLS):
+        meta, body = frontmatter(PLUGIN / f"skills/{name}/SKILL.md")
+        assert meta["name"] == name
+        assert 80 <= len(meta["description"]) <= 1024, name  # what Claude matches a request against
+        assert f".compass/standards/{name}.md" in body and ".compass/standards/all.md" in body, name
+        assert "stack_profile" in body and "digest" in body, name
+        output = body.split("## Output", 1)[1].lower()  # every skill bounds its answer
+        assert "at most" in output or "nothing else" in output, name
+        assert "$ARGUMENTS" in body, name
 
 
 def test_output_style_is_opt_in_and_keeps_coding_instructions():

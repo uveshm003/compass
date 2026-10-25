@@ -63,7 +63,7 @@ if [ -x "$hook_dir/{hook}{CHAIN_SUFFIX}" ]; then
 fi
 unset GIT_INDEX_FILE
 if [ -x {python} ]; then
-  {python} -m compass update --from-git </dev/null >/dev/null 2>&1
+  {python} -P -m compass update --from-git </dev/null >/dev/null 2>&1
 elif command -v compass >/dev/null 2>&1; then
   compass update --from-git </dev/null >/dev/null 2>&1
 fi
@@ -85,7 +85,7 @@ if [ -x "$hook_dir/{PRE_COMMIT}{CHAIN_SUFFIX}" ]; then
   "$hook_dir/{PRE_COMMIT}{CHAIN_SUFFIX}" "$@" || exit $?
 fi
 if [ -x {python} ]; then
-  exec {python} -m compass {CHECK_COMMAND.removeprefix("compass ")} </dev/null
+  exec {python} -P -m compass {CHECK_COMMAND.removeprefix("compass ")} </dev/null
 elif command -v compass >/dev/null 2>&1; then
   exec {CHECK_COMMAND} </dev/null
 fi
@@ -144,6 +144,21 @@ def uninstall(repo: Repo) -> list[str]:
         else:
             messages.append(f"{hook}: removed")
     return messages or ["git hooks: none of Compass's were installed"]
+
+
+def outdated(directory: Path, python: str | None = None) -> list[str]:
+    """Compass's hooks whose script differs from what this version writes
+    (an older release, or another interpreter); `compass init` rewrites them."""
+    python = Path(python or sys.executable).as_posix()
+    stale = []
+    for hook in HOOKS:
+        path = directory / hook
+        try:
+            if _is_ours(path) and path.read_text(encoding="utf-8", errors="replace") != script(hook, python):
+                stale.append(hook)
+        except OSError:
+            continue
+    return stale
 
 
 def _is_ours(path: Path) -> bool:

@@ -25,6 +25,9 @@ wrappers: [export_statement]   # nodes that wrap a definition; the symbol range
 skip_before_doc: [decorator]   # siblings allowed between a doc comment and
                                # its definition; they also extend the range
 docstring: body_first_string   # optional named docstring rule (see below)
+reparse_without: ['^#if\b[^\r\n]*']  # line regexes blanked for a second parse when
+                               # the first has errors; the parse with fewer
+                               # error bytes wins (Swift: `#if a && !b`)
 index_files: [index.ts]        # a folder's purpose comes from this file's
                                # header when the folder has no README
 visibility:
@@ -45,6 +48,8 @@ imports:                       # import resolution for importers_of (IX-11)
   index_files: [index.ts]      # a directory import means this file
   alias_files: [tsconfig.json] # path: compilerOptions.paths and baseUrl
   source_roots: [src]          # module: directories on the import path
+  module_files: {package.json: '…"name"…'}  # names declared in the repo: Go modules, crates, workspace packages
+  module_source: [src, ""]     # where a declared name's code sits, tried in order
 ```
 
 Import resolvers (implemented in `index/resolve.py`):
@@ -54,8 +59,11 @@ Import resolvers (implemented in `index/resolve.py`):
   through the nearest `alias_files` entry up the tree (tsconfig.json or
   jsconfig.json, comments and trailing commas allowed, relative `extends`
   followed): its `compilerOptions.paths` (an exact pattern, else the longest
-  `*` prefix), then its `baseUrl`. Anything else is a package and stays
-  unresolved.
+  `*` prefix), then its `baseUrl`. A specifier naming a package the repo
+  declares (a `module_files` entry such as a workspace's package.json `name`)
+  resolves under that package's directory, trying each `module_source`
+  (`@acme/ui/button` is `packages/ui/src/button.ts`). Anything else is a
+  package and stays unresolved.
 - `module`: module paths split on `separator` (`.` or `::`). Relative forms are
   anchored at the importing module: Python's leading dots (`leading_dots`) or
   words such as Rust's `self` and `super` (`relative_markers`, levels up), with
@@ -70,6 +78,10 @@ Import resolvers (implemented in `index/resolve.py`):
   importer's own directory or its ancestors, or a directory named in
   `source_roots`. So `scripts/os.py` is not what `import os` in `src/` means.
   `drop_leading` also tries without leading segments (an unknown crate name).
+  What the suffix match misses is tried under a name a `module_files` entry
+  declares (Cargo.toml's `[package] name`, hyphens read as underscores), in
+  its `module_source` directory: `my_crate::Item` from `tests/` is the crate's
+  `lib.rs`, and `crate::Item` the importer's own crate root.
 - `package`: the import names a directory under a module path read from a
   `module_files` entry, e.g. `go.mod: '^module\s+(\S+)'`.
 
@@ -115,6 +127,14 @@ Rules the core applies to every language:
 - A `function` whose nearest enclosing definition is a class, interface,
   struct, enum, trait or impl becomes a `method`.
 - Definitions nested inside a function or method are local and are dropped.
+
+Where a language writes the return type before the name (C#, Java, C, C++,
+Dart), capture that type as `@signature`, so the signature reads
+`TimeSpan NextDelay(int attempt)` from the type on, without modifiers such as
+`public` or `static`. A constructor has no type and starts at its name, and a
+typed constant starts at its type (`const int MAX = 5`). Answers and shards
+put the owner before the name, not before the type: `TimeSpan
+Backoff.NextDelay(int attempt)`.
 
 ## `imports.scm` captures
 

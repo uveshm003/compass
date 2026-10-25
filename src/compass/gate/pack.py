@@ -20,6 +20,7 @@ import re
 from typing import Any
 
 from compass.gate import ParsedPrompt
+from compass.index.model import qualified_signature
 from compass.index.store import Store, SymbolHit, like_escape
 from compass.repo import Repo
 
@@ -44,7 +45,9 @@ def resolve(store: Store, parsed: ParsedPrompt) -> None:
     """Fill ``parsed.resolved``: candidate text -> {"file"|"dir"|"files"|"symbols": …}."""
     for candidate in parsed.candidates:
         found = _resolve_path(store, candidate.text) if candidate.kind == "path" else None
-        if found is None and (candidate.kind == "symbol" or candidate.quoted):
+        # only a member separator (`tests/test_x.py::test_y`, `Class#method`) makes a quoted path a symbol too
+        member = candidate.kind == "symbol" or "::" in candidate.text or "#" in candidate.text
+        if found is None and member and (candidate.kind == "symbol" or candidate.quoted):
             found = _resolve_symbol(store, candidate.text)
         if found is None and candidate.kind == "symbol" and candidate.quoted:
             found = _resolve_path(store, candidate.text)
@@ -123,9 +126,7 @@ def build(store: Store, parsed: ParsedPrompt, budget: int, stack: dict[str, Any]
 
 def _hit_line(hit: SymbolHit) -> str:
     label = KIND_LABELS.get(hit.kind, hit.kind)
-    signature = hit.signature or hit.name
-    if hit.parent:
-        signature = f"{hit.parent}.{signature}"
+    signature = qualified_signature(hit.signature, hit.name, hit.parent)
     doc = _summary(hit.doc)
     return f"{hit.path}:{hit.start_line}-{hit.end_line}  {label} {signature}" + (f" — {doc}" if doc else "")
 
@@ -138,7 +139,7 @@ def _outline(store: Store, rel: str) -> list[str]:
     lines = [head]
     for hit in symbols[:MAX_OUTLINE_LINES]:
         indent = "    " if hit.parent else "  "
-        name = f"{hit.parent}.{hit.signature or hit.name}" if hit.parent else (hit.signature or hit.name)
+        name = qualified_signature(hit.signature, hit.name, hit.parent)
         lines.append(f"{indent}L{hit.start_line} {KIND_LABELS.get(hit.kind, hit.kind)} {name}")
     if len(symbols) > MAX_OUTLINE_LINES:
         lines.append(f"  … {len(symbols) - MAX_OUTLINE_LINES} more (file_outline has them all)")

@@ -47,7 +47,9 @@ from compass.repo import Repo
 # Bump when the parser or shard writer produce different output for the same
 # input, so existing indexes rebuild instead of mixing old and new rows.
 # 2: call references, resolved imports, test-file flags (M2).
-INDEX_FORMAT = 2
+# 3: the owner before the name in signatures with a return type, XML/Javadoc
+#    markup out of doc summaries, Kotlin docs inside the package header (0.3.0).
+INDEX_FORMAT = 3
 
 
 class FullBuildNeeded(Exception):

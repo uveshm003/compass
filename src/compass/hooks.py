@@ -59,8 +59,13 @@ def run(event: str, stdin: TextIO | None = None) -> int:
         except ValueError:
             payload = None
         cwd = payload.get("cwd") if isinstance(payload, dict) else None
-        repo = find_initialized_repo(cwd or os.environ.get("CLAUDE_PROJECT_DIR") or os.getcwd())
+        start = cwd or os.environ.get("CLAUDE_PROJECT_DIR") or os.getcwd()
+        repo = find_initialized_repo(start)
         if repo is None:
+            if event == "session-start" and isinstance(payload, dict) and payload.get("source", "startup") == "startup":
+                offer = setup_offer(start)
+                if offer:
+                    print(offer)
             return 0
         if not isinstance(payload, dict):
             log_error(repo.root, f"hook {event}", message="hook input is not a JSON object")
@@ -70,6 +75,46 @@ def run(event: str, stdin: TextIO | None = None) -> int:
     except Exception as exc:
         log_error(repo.root if repo else None, f"hook {event}", exc)
         return 0
+
+
+SETUP_OFFER = (
+    "[compass] Compass is installed but not switched on in this repository. In your first reply, add one short line"
+    " offering it, for example: \"Compass isn't set up in this repo yet; say 'set up Compass' and I'll build its code"
+    " map, so I find code faster and spend fewer tokens.\" Offer it this once only. If the developer agrees, run"
+    " /compass:setup (or `compass init --modules essentials`). If they decline or ignore it, don't mention it again."
+)
+OFFERED_MARKER = "compass-offered"
+
+
+def setup_offer(start: str | os.PathLike[str]) -> str | None:
+    """SessionStart in a git repository without ``.compass/`` (UX-01, decision
+    D15): offer Compass once per repository. The marker lives inside the git
+    directory, so it never shows up in the working tree; no subprocess."""
+    from pathlib import Path
+
+    here = Path(os.path.realpath(start))
+    for candidate in (here, *here.parents):
+        dot_git = candidate / ".git"
+        if dot_git.exists():
+            break
+    else:
+        return None
+    if candidate == Path.home():
+        return None  # a dotfiles repository, not a project
+    git_dir = dot_git
+    if dot_git.is_file():  # a worktree or submodule: "gitdir: <path>"
+        line = dot_git.read_text(encoding="utf-8", errors="replace").strip()
+        if not line.startswith("gitdir:"):
+            return None
+        git_dir = (candidate / line[len("gitdir:"):].strip()).resolve()
+    marker = git_dir / OFFERED_MARKER
+    if marker.exists():
+        return None
+    try:
+        marker.write_text("Compass offered itself here once; delete this file to be asked again.\n", encoding="utf-8")
+    except OSError:
+        return None  # if it cannot be remembered, it is not offered: never every session
+    return SETUP_OFFER
 
 
 def _read_stdin() -> str:
@@ -143,7 +188,10 @@ def on_session_start(repo: Repo, payload: dict[str, Any]) -> int:
             from compass import llm
 
             local = llm.available(repo, config)
-        extra = [*rules(config.delegation.digest_threshold_lines, local), *extra]
+        from compass.install import install_mode
+
+        mode = install_mode(repo.root)
+        extra = [*rules(config.delegation.digest_threshold_lines, local, mode), *extra]
     try:
         from compass import telemetry
 
@@ -192,7 +240,9 @@ def on_post_edit(repo: Repo, payload: dict[str, Any]) -> int:
     if rel is None:
         return 0
     agent_id = payload.get("agent_id") if isinstance(payload.get("agent_id"), str) else None
-    agent_type = payload.get("agent_type") if isinstance(payload.get("agent_type"), str) else None
+    from compass.delegation import canonical_agent
+
+    agent_type = canonical_agent(payload.get("agent_type"))
     try:
         review.record_edit(repo, _config(repo).review, rel, _session(payload), agent_id, agent_type)
     except Exception as exc:  # the re-index below still matters

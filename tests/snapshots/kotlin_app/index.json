@@ -1,0 +1,751 @@
+{
+ "files": [
+  {
+   "path": "README.md",
+   "dir": "",
+   "lang": null,
+   "hash": "eb15a850e0cc3687fe55043b8a10c7e2",
+   "size": 88,
+   "doc": "Turns gas-sensor readings into alarms and notifies whoever is on call.",
+   "is_test": 0
+  },
+  {
+   "path": "build.gradle.kts",
+   "dir": "",
+   "lang": "kotlin",
+   "hash": "b127b9ab70316954e1c67b4e839ef274",
+   "size": 469,
+   "doc": null,
+   "is_test": 0
+  },
+  {
+   "path": "gradle/libs.versions.toml",
+   "dir": "gradle",
+   "lang": null,
+   "hash": "8930da30d34188f2b582074fe155f95c",
+   "size": 563,
+   "doc": null,
+   "is_test": 0
+  },
+  {
+   "path": "gradle/wrapper/gradle-wrapper.properties",
+   "dir": "gradle/wrapper",
+   "lang": null,
+   "hash": "387261f949c66552ed83447df9c5634e",
+   "size": 224,
+   "doc": null,
+   "is_test": 0
+  },
+  {
+   "path": "gradlew",
+   "dir": "",
+   "lang": null,
+   "hash": "b05bf79b729123b6b2486d88b3f0544b",
+   "size": 206,
+   "doc": null,
+   "is_test": 0
+  },
+  {
+   "path": "settings.gradle.kts",
+   "dir": "",
+   "lang": "kotlin",
+   "hash": "bbc55363d507d9fe6150c0c6794f831f",
+   "size": 35,
+   "doc": null,
+   "is_test": 0
+  },
+  {
+   "path": "src/main/kotlin/com/example/alarms/AlarmLevel.kt",
+   "dir": "src/main/kotlin/com/example/alarms",
+   "lang": "kotlin",
+   "hash": "725c4c3a1af7ef8e7c15d569713ce6f3",
+   "size": 379,
+   "doc": null,
+   "is_test": 0
+  },
+  {
+   "path": "src/main/kotlin/com/example/alarms/Main.kt",
+   "dir": "src/main/kotlin/com/example/alarms",
+   "lang": "kotlin",
+   "hash": "0d6c108242c5e34ba32f9e371d5072b9",
+   "size": 460,
+   "doc": null,
+   "is_test": 0
+  },
+  {
+   "path": "src/main/kotlin/com/example/alarms/Notifier.kt",
+   "dir": "src/main/kotlin/com/example/alarms",
+   "lang": "kotlin",
+   "hash": "ee2781cd38d9044948beeaad20b61f5f",
+   "size": 504,
+   "doc": null,
+   "is_test": 0
+  },
+  {
+   "path": "src/main/kotlin/com/example/alarms/Reading.kt",
+   "dir": "src/main/kotlin/com/example/alarms",
+   "lang": "kotlin",
+   "hash": "781c153cd8c9323706f3ca268c65c24b",
+   "size": 1000,
+   "doc": null,
+   "is_test": 0
+  },
+  {
+   "path": "src/main/kotlin/com/example/alarms/transport/Backoff.kt",
+   "dir": "src/main/kotlin/com/example/alarms/transport",
+   "lang": "kotlin",
+   "hash": "fcada21a72b13fd93ba2d7c295af5d83",
+   "size": 768,
+   "doc": null,
+   "is_test": 0
+  },
+  {
+   "path": "src/test/kotlin/com/example/alarms/ReadingTest.kt",
+   "dir": "src/test/kotlin/com/example/alarms",
+   "lang": "kotlin",
+   "hash": "5325a7a7dc16d1bd76190e16b8389854",
+   "size": 388,
+   "doc": null,
+   "is_test": 1
+  },
+  {
+   "path": "src/test/kotlin/com/example/alarms/transport/BackoffTest.kt",
+   "dir": "src/test/kotlin/com/example/alarms/transport",
+   "lang": "kotlin",
+   "hash": "c27529fd1cabdf4cb9a4703414b4f42b",
+   "size": 250,
+   "doc": null,
+   "is_test": 1
+  }
+ ],
+ "symbols": [
+  {
+   "path": "src/main/kotlin/com/example/alarms/AlarmLevel.kt",
+   "name": "AlarmLevel",
+   "kind": "enum",
+   "parent": null,
+   "signature": "AlarmLevel",
+   "start_line": 4,
+   "end_line": 17,
+   "visibility": "public",
+   "doc": "How serious an alarm is.",
+   "doc_source": "author"
+  },
+  {
+   "path": "src/main/kotlin/com/example/alarms/AlarmLevel.kt",
+   "name": "forPpm",
+   "kind": "method",
+   "parent": "AlarmLevel",
+   "signature": "forPpm(ppm: Double): AlarmLevel",
+   "start_line": 11,
+   "end_line": 15,
+   "visibility": "public",
+   "doc": "The level for a concentration in ppm.",
+   "doc_source": "author"
+  },
+  {
+   "path": "src/main/kotlin/com/example/alarms/Main.kt",
+   "name": "main",
+   "kind": "function",
+   "parent": null,
+   "signature": "main(args: Array<String>)",
+   "start_line": 8,
+   "end_line": 13,
+   "visibility": "public",
+   "doc": "Reads one \"sensor,ppm\" line from the arguments and notifies on an alarm.",
+   "doc_source": "author"
+  },
+  {
+   "path": "src/main/kotlin/com/example/alarms/Notifier.kt",
+   "name": "Notifier",
+   "kind": "interface",
+   "parent": null,
+   "signature": "Notifier",
+   "start_line": 4,
+   "end_line": 7,
+   "visibility": "public",
+   "doc": "Something that tells people about alarms.",
+   "doc_source": "author"
+  },
+  {
+   "path": "src/main/kotlin/com/example/alarms/Notifier.kt",
+   "name": "notify",
+   "kind": "method",
+   "parent": "Notifier",
+   "signature": "notify(reading: Reading, level: AlarmLevel): Boolean",
+   "start_line": 6,
+   "end_line": 6,
+   "visibility": "public",
+   "doc": "Sends one alarm; returns false when nobody could be reached.",
+   "doc_source": "author"
+  },
+  {
+   "path": "src/main/kotlin/com/example/alarms/Notifier.kt",
+   "name": "ConsoleNotifier",
+   "kind": "class",
+   "parent": null,
+   "signature": "ConsoleNotifier : Notifier",
+   "start_line": 10,
+   "end_line": 15,
+   "visibility": "internal",
+   "doc": "Prints alarms instead of sending them, for local runs.",
+   "doc_source": "author"
+  },
+  {
+   "path": "src/main/kotlin/com/example/alarms/Notifier.kt",
+   "name": "notify",
+   "kind": "method",
+   "parent": "ConsoleNotifier",
+   "signature": "notify(reading: Reading, level: AlarmLevel): Boolean",
+   "start_line": 11,
+   "end_line": 14,
+   "visibility": "public",
+   "doc": null,
+   "doc_source": null
+  },
+  {
+   "path": "src/main/kotlin/com/example/alarms/Reading.kt",
+   "name": "DEFAULT_THRESHOLD",
+   "kind": "constant",
+   "parent": null,
+   "signature": "DEFAULT_THRESHOLD = 40.0",
+   "start_line": 6,
+   "end_line": 6,
+   "visibility": "public",
+   "doc": "Readings at or above this many ppm raise an alarm.",
+   "doc_source": "author"
+  },
+  {
+   "path": "src/main/kotlin/com/example/alarms/Reading.kt",
+   "name": "Reading",
+   "kind": "class",
+   "parent": null,
+   "signature": "Reading(val sensorId: String, val ppm: Double, val takenAt: Instant)",
+   "start_line": 11,
+   "end_line": 27,
+   "visibility": "public",
+   "doc": "One reading from a gas sensor, in parts per million.",
+   "doc_source": "author"
+  },
+  {
+   "path": "src/main/kotlin/com/example/alarms/Reading.kt",
+   "name": "isAlarm",
+   "kind": "method",
+   "parent": "Reading",
+   "signature": "isAlarm(threshold: Double = DEFAULT_THRESHOLD): Boolean",
+   "start_line": 13,
+   "end_line": 13,
+   "visibility": "public",
+   "doc": "True when the reading crosses [threshold].",
+   "doc_source": "author"
+  },
+  {
+   "path": "src/main/kotlin/com/example/alarms/Reading.kt",
+   "name": "level",
+   "kind": "method",
+   "parent": "Reading",
+   "signature": "level(): AlarmLevel",
+   "start_line": 16,
+   "end_line": 16,
+   "visibility": "public",
+   "doc": "The alarm level for this reading.",
+   "doc_source": "author"
+  },
+  {
+   "path": "src/main/kotlin/com/example/alarms/Reading.kt",
+   "name": "rounded",
+   "kind": "method",
+   "parent": "Reading",
+   "signature": "rounded(): Long",
+   "start_line": 18,
+   "end_line": 18,
+   "visibility": "private",
+   "doc": null,
+   "doc_source": null
+  },
+  {
+   "path": "src/main/kotlin/com/example/alarms/Reading.kt",
+   "name": "parse",
+   "kind": "method",
+   "parent": "Reading",
+   "signature": "parse(line: String): Reading",
+   "start_line": 22,
+   "end_line": 25,
+   "visibility": "public",
+   "doc": "A reading parsed from \"sensor,ppm\".",
+   "doc_source": "author"
+  },
+  {
+   "path": "src/main/kotlin/com/example/alarms/Reading.kt",
+   "name": "alarms",
+   "kind": "function",
+   "parent": null,
+   "signature": "List<Reading>.alarms(threshold: Double = DEFAULT_THRESHOLD): List<Reading>",
+   "start_line": 30,
+   "end_line": 30,
+   "visibility": "public",
+   "doc": "The readings in this list that raise an alarm.",
+   "doc_source": "author"
+  },
+  {
+   "path": "src/main/kotlin/com/example/alarms/transport/Backoff.kt",
+   "name": "MAX_ATTEMPTS",
+   "kind": "constant",
+   "parent": null,
+   "signature": "MAX_ATTEMPTS = 5",
+   "start_line": 8,
+   "end_line": 8,
+   "visibility": "public",
+   "doc": "Attempts allowed before a notification is dropped.",
+   "doc_source": "author"
+  },
+  {
+   "path": "src/main/kotlin/com/example/alarms/transport/Backoff.kt",
+   "name": "Backoff",
+   "kind": "class",
+   "parent": null,
+   "signature": "Backoff(private val base: Duration = 200.milliseconds)",
+   "start_line": 13,
+   "end_line": 16,
+   "visibility": "public",
+   "doc": "Exponential backoff with a cap.",
+   "doc_source": "author"
+  },
+  {
+   "path": "src/main/kotlin/com/example/alarms/transport/Backoff.kt",
+   "name": "nextDelay",
+   "kind": "method",
+   "parent": "Backoff",
+   "signature": "nextDelay(attempt: Int): Duration",
+   "start_line": 15,
+   "end_line": 15,
+   "visibility": "public",
+   "doc": "Delay before the given attempt, doubling each time.",
+   "doc_source": "author"
+  },
+  {
+   "path": "src/main/kotlin/com/example/alarms/transport/Backoff.kt",
+   "name": "retry",
+   "kind": "function",
+   "parent": null,
+   "signature": "retry(backoff: Backoff, block: suspend () -> Boolean): Boolean",
+   "start_line": 19,
+   "end_line": 25,
+   "visibility": "public",
+   "doc": "Runs [block] until it succeeds or [MAX_ATTEMPTS] is reached.",
+   "doc_source": "author"
+  },
+  {
+   "path": "src/test/kotlin/com/example/alarms/ReadingTest.kt",
+   "name": "ReadingTest",
+   "kind": "class",
+   "parent": null,
+   "signature": "ReadingTest",
+   "start_line": 8,
+   "end_line": 18,
+   "visibility": "public",
+   "doc": null,
+   "doc_source": null
+  },
+  {
+   "path": "src/test/kotlin/com/example/alarms/ReadingTest.kt",
+   "name": "alarmAtThreshold",
+   "kind": "method",
+   "parent": "ReadingTest",
+   "signature": "alarmAtThreshold()",
+   "start_line": 9,
+   "end_line": 12,
+   "visibility": "public",
+   "doc": null,
+   "doc_source": null
+  },
+  {
+   "path": "src/test/kotlin/com/example/alarms/ReadingTest.kt",
+   "name": "parsesALine",
+   "kind": "method",
+   "parent": "ReadingTest",
+   "signature": "parsesALine()",
+   "start_line": 14,
+   "end_line": 17,
+   "visibility": "public",
+   "doc": null,
+   "doc_source": null
+  },
+  {
+   "path": "src/test/kotlin/com/example/alarms/transport/BackoffTest.kt",
+   "name": "BackoffTest",
+   "kind": "class",
+   "parent": null,
+   "signature": "BackoffTest",
+   "start_line": 6,
+   "end_line": 12,
+   "visibility": "public",
+   "doc": null,
+   "doc_source": null
+  },
+  {
+   "path": "src/test/kotlin/com/example/alarms/transport/BackoffTest.kt",
+   "name": "delayGrows",
+   "kind": "method",
+   "parent": "BackoffTest",
+   "signature": "delayGrows()",
+   "start_line": 7,
+   "end_line": 11,
+   "visibility": "public",
+   "doc": null,
+   "doc_source": null
+  }
+ ],
+ "imports": [
+  {
+   "path": "src/main/kotlin/com/example/alarms/Main.kt",
+   "target": "com.example.alarms.transport.Backoff",
+   "resolved": "src/main/kotlin/com/example/alarms/transport/Backoff.kt"
+  },
+  {
+   "path": "src/main/kotlin/com/example/alarms/Main.kt",
+   "target": "com.example.alarms.transport.retry",
+   "resolved": null
+  },
+  {
+   "path": "src/main/kotlin/com/example/alarms/Main.kt",
+   "target": "kotlinx.coroutines.runBlocking",
+   "resolved": null
+  },
+  {
+   "path": "src/main/kotlin/com/example/alarms/Reading.kt",
+   "target": "java.time.Instant",
+   "resolved": null
+  },
+  {
+   "path": "src/main/kotlin/com/example/alarms/transport/Backoff.kt",
+   "target": "kotlin.time.Duration",
+   "resolved": null
+  },
+  {
+   "path": "src/main/kotlin/com/example/alarms/transport/Backoff.kt",
+   "target": "kotlin.time.Duration.Companion.milliseconds",
+   "resolved": null
+  },
+  {
+   "path": "src/main/kotlin/com/example/alarms/transport/Backoff.kt",
+   "target": "kotlinx.coroutines.delay",
+   "resolved": null
+  },
+  {
+   "path": "src/test/kotlin/com/example/alarms/ReadingTest.kt",
+   "target": "java.time.Instant",
+   "resolved": null
+  },
+  {
+   "path": "src/test/kotlin/com/example/alarms/ReadingTest.kt",
+   "target": "kotlin.test.Test",
+   "resolved": null
+  },
+  {
+   "path": "src/test/kotlin/com/example/alarms/ReadingTest.kt",
+   "target": "kotlin.test.assertEquals",
+   "resolved": null
+  },
+  {
+   "path": "src/test/kotlin/com/example/alarms/ReadingTest.kt",
+   "target": "kotlin.test.assertTrue",
+   "resolved": null
+  },
+  {
+   "path": "src/test/kotlin/com/example/alarms/transport/BackoffTest.kt",
+   "target": "kotlin.test.Test",
+   "resolved": null
+  },
+  {
+   "path": "src/test/kotlin/com/example/alarms/transport/BackoffTest.kt",
+   "target": "kotlin.test.assertTrue",
+   "resolved": null
+  }
+ ],
+ "refs": [
+  {
+   "path": "build.gradle.kts",
+   "line": 1,
+   "name": "plugins",
+   "kind": "call"
+  },
+  {
+   "path": "build.gradle.kts",
+   "line": 2,
+   "name": "alias",
+   "kind": "call"
+  },
+  {
+   "path": "build.gradle.kts",
+   "line": 3,
+   "name": "alias",
+   "kind": "call"
+  },
+  {
+   "path": "build.gradle.kts",
+   "line": 10,
+   "name": "kotlin",
+   "kind": "call"
+  },
+  {
+   "path": "build.gradle.kts",
+   "line": 11,
+   "name": "jvmToolchain",
+   "kind": "call"
+  },
+  {
+   "path": "build.gradle.kts",
+   "line": 14,
+   "name": "dependencies",
+   "kind": "call"
+  },
+  {
+   "path": "build.gradle.kts",
+   "line": 15,
+   "name": "implementation",
+   "kind": "call"
+  },
+  {
+   "path": "build.gradle.kts",
+   "line": 16,
+   "name": "implementation",
+   "kind": "call"
+  },
+  {
+   "path": "build.gradle.kts",
+   "line": 17,
+   "name": "kotlin",
+   "kind": "call"
+  },
+  {
+   "path": "build.gradle.kts",
+   "line": 17,
+   "name": "testImplementation",
+   "kind": "call"
+  },
+  {
+   "path": "build.gradle.kts",
+   "line": 18,
+   "name": "testImplementation",
+   "kind": "call"
+  },
+  {
+   "path": "build.gradle.kts",
+   "line": 21,
+   "name": "application",
+   "kind": "call"
+  },
+  {
+   "path": "build.gradle.kts",
+   "line": 25,
+   "name": "test",
+   "kind": "call"
+  },
+  {
+   "path": "build.gradle.kts",
+   "line": 26,
+   "name": "useJUnitPlatform",
+   "kind": "call"
+  },
+  {
+   "path": "src/main/kotlin/com/example/alarms/Main.kt",
+   "line": 8,
+   "name": "runBlocking",
+   "kind": "call"
+  },
+  {
+   "path": "src/main/kotlin/com/example/alarms/Main.kt",
+   "line": 9,
+   "name": "first",
+   "kind": "call"
+  },
+  {
+   "path": "src/main/kotlin/com/example/alarms/Main.kt",
+   "line": 9,
+   "name": "parse",
+   "kind": "call"
+  },
+  {
+   "path": "src/main/kotlin/com/example/alarms/Main.kt",
+   "line": 10,
+   "name": "alarms",
+   "kind": "call"
+  },
+  {
+   "path": "src/main/kotlin/com/example/alarms/Main.kt",
+   "line": 10,
+   "name": "isNotEmpty",
+   "kind": "call"
+  },
+  {
+   "path": "src/main/kotlin/com/example/alarms/Main.kt",
+   "line": 10,
+   "name": "listOf",
+   "kind": "call"
+  },
+  {
+   "path": "src/main/kotlin/com/example/alarms/Main.kt",
+   "line": 11,
+   "name": "Backoff",
+   "kind": "call"
+  },
+  {
+   "path": "src/main/kotlin/com/example/alarms/Main.kt",
+   "line": 11,
+   "name": "level",
+   "kind": "call"
+  },
+  {
+   "path": "src/main/kotlin/com/example/alarms/Main.kt",
+   "line": 11,
+   "name": "notify",
+   "kind": "call"
+  },
+  {
+   "path": "src/main/kotlin/com/example/alarms/Main.kt",
+   "line": 11,
+   "name": "retry",
+   "kind": "call"
+  },
+  {
+   "path": "src/main/kotlin/com/example/alarms/Notifier.kt",
+   "line": 12,
+   "name": "println",
+   "kind": "call"
+  },
+  {
+   "path": "src/main/kotlin/com/example/alarms/Reading.kt",
+   "line": 16,
+   "name": "forPpm",
+   "kind": "call"
+  },
+  {
+   "path": "src/main/kotlin/com/example/alarms/Reading.kt",
+   "line": 18,
+   "name": "round",
+   "kind": "call"
+  },
+  {
+   "path": "src/main/kotlin/com/example/alarms/Reading.kt",
+   "line": 23,
+   "name": "split",
+   "kind": "call"
+  },
+  {
+   "path": "src/main/kotlin/com/example/alarms/Reading.kt",
+   "line": 24,
+   "name": "Reading",
+   "kind": "call"
+  },
+  {
+   "path": "src/main/kotlin/com/example/alarms/Reading.kt",
+   "line": 24,
+   "name": "now",
+   "kind": "call"
+  },
+  {
+   "path": "src/main/kotlin/com/example/alarms/Reading.kt",
+   "line": 24,
+   "name": "toDouble",
+   "kind": "call"
+  },
+  {
+   "path": "src/main/kotlin/com/example/alarms/Reading.kt",
+   "line": 30,
+   "name": "filter",
+   "kind": "call"
+  },
+  {
+   "path": "src/main/kotlin/com/example/alarms/Reading.kt",
+   "line": 30,
+   "name": "isAlarm",
+   "kind": "call"
+  },
+  {
+   "path": "src/main/kotlin/com/example/alarms/transport/Backoff.kt",
+   "line": 15,
+   "name": "minOf",
+   "kind": "call"
+  },
+  {
+   "path": "src/main/kotlin/com/example/alarms/transport/Backoff.kt",
+   "line": 20,
+   "name": "repeat",
+   "kind": "call"
+  },
+  {
+   "path": "src/main/kotlin/com/example/alarms/transport/Backoff.kt",
+   "line": 21,
+   "name": "block",
+   "kind": "call"
+  },
+  {
+   "path": "src/main/kotlin/com/example/alarms/transport/Backoff.kt",
+   "line": 22,
+   "name": "delay",
+   "kind": "call"
+  },
+  {
+   "path": "src/main/kotlin/com/example/alarms/transport/Backoff.kt",
+   "line": 22,
+   "name": "nextDelay",
+   "kind": "call"
+  },
+  {
+   "path": "src/test/kotlin/com/example/alarms/ReadingTest.kt",
+   "line": 11,
+   "name": "Reading",
+   "kind": "call"
+  },
+  {
+   "path": "src/test/kotlin/com/example/alarms/ReadingTest.kt",
+   "line": 11,
+   "name": "assertTrue",
+   "kind": "call"
+  },
+  {
+   "path": "src/test/kotlin/com/example/alarms/ReadingTest.kt",
+   "line": 11,
+   "name": "isAlarm",
+   "kind": "call"
+  },
+  {
+   "path": "src/test/kotlin/com/example/alarms/ReadingTest.kt",
+   "line": 16,
+   "name": "assertEquals",
+   "kind": "call"
+  },
+  {
+   "path": "src/test/kotlin/com/example/alarms/ReadingTest.kt",
+   "line": 16,
+   "name": "level",
+   "kind": "call"
+  },
+  {
+   "path": "src/test/kotlin/com/example/alarms/ReadingTest.kt",
+   "line": 16,
+   "name": "parse",
+   "kind": "call"
+  },
+  {
+   "path": "src/test/kotlin/com/example/alarms/transport/BackoffTest.kt",
+   "line": 9,
+   "name": "Backoff",
+   "kind": "call"
+  },
+  {
+   "path": "src/test/kotlin/com/example/alarms/transport/BackoffTest.kt",
+   "line": 10,
+   "name": "assertTrue",
+   "kind": "call"
+  },
+  {
+   "path": "src/test/kotlin/com/example/alarms/transport/BackoffTest.kt",
+   "line": 10,
+   "name": "nextDelay",
+   "kind": "call"
+  }
+ ],
+ "skipped": []
+}
